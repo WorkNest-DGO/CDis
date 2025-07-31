@@ -1,0 +1,53 @@
+REPORTE DE CALIDAD DE CODIGO
+===========================
+
+Archivos analizados:
+- Estructura completa del proyecto `rest/` incluyendo carpetas `api/`, `auth/`, `config/`, `utils/`, `vistas/` y archivos en la raiz como `index.php` y `login.html`.
+- En total se revisaron scripts PHP, JS, hojas de estilo y documentos HTML.
+
+Problemas detectados
+--------------------
+
+### 1. Codigo espagueti / poca modularidad
+- **api/ventas/crear_venta.php** (aprox. 170 lineas) mezcla validaciones, logica de negocio y consultas SQL en un solo archivo. No hay separacion por capas. Ejemplo de fragmento prolongado:
+```
+if ($tipo === 'mesa') {
+    $check = $conn->prepare("SELECT id, usuario_id FROM ventas WHERE mesa_id = ? AND estatus = 'activa' LIMIT 1");
+    ...
+}
+```
+- **api/cocina/cambiar_estado_producto.php** contiene mas de 150 lineas combinando obtencion de datos, reglas de negocio y actualizaciones a inventario en una sola funcion.
+- **vistas/mesas/mesas.js** define funciones extensas (por ejemplo `agregarProductoVenta` y `mostrarModalDetalle`) que construyen HTML, manejan eventos y realizan llamadas a la API, lo que dificulta mantenimiento.
+- **vistas/ventas/ventas.js** sigue el mismo patrón con funciones largas responsables de UI, cálculos y peticiones.
+
+### 2. Redundancias
+- Múltiples endpoints PHP repiten la lectura de JSON y la estructura de respuesta (uso de `json_decode(file_get_contents('php://input'), true)` y llamadas a `success()` / `error()`). Podría centralizarse en un helper.
+- Se encuentran dos archivos de estilos principales (`utils/css/style.css` y `utils/css/style1.css`) con reglas duplicadas para botones `.btn.custom-btn` y componentes repetidos, generando dificultad de seguimiento.
+- En `ventas.js` y `mesas.js` se implementa lógica similar para verificar si existe corte de caja abierto antes de ciertas operaciones.
+
+### 3. Codigo basura / sin uso
+- Permanecen instrucciones de depuración como `console.log` en varios scripts: por ejemplo `vistas/login/login.js` línea 29 y `utils/js/main.js` línea 64.
+- Archivos de librerías (carpetas `utils/lib/*` y `utils/fontawesome/*`) incluyen comentarios `TODO` y ejemplos que no parecen utilizados por el sistema.
+- Hay estilos no referenciados o duplicados en `style1.css` (por ejemplo clases `.custom-btn` definidas varias veces con la misma regla).
+
+### 4. Inconsistencias
+- Diferencias de estilo entre archivos: uso de inglés y español en nombres de variables (`usuarioId` vs `user_id`), formato de comillas y tabulación variada.
+- Algunos HTML contienen estilos en línea (por ejemplo en `login.html`) mientras que otros utilizan clases de las hojas de estilo.
+- Mezcla de lógica PHP incrustada dentro de vistas HTML (ej. `vistas/ventas/ventas.php` abre PHP al inicio para sesión y al final para incluir `nav.php`).
+- Uso de `async/await` combinado con `.then()` dentro de un mismo archivo JS (`ventas.js`).
+
+### 5. Problemas de organización
+- Las carpetas `api/` y `vistas/` agrupan numerosos archivos PHP y JS con responsabilidades variadas sin una estructura clara de módulos o controladores.
+- Muchos archivos PHP actúan como scripts independientes en vez de clases o funciones reutilizables. Ejemplo: todos los endpoints de `api/mesas/` contienen operaciones directas sobre la base de datos.
+- En `vistas` se mezclan vistas HTML completas con lógica de negocio en JS grande, sin patrones de módulos.
+- CSS extenso (`style1.css` de más de 1600 líneas) concentra estilos de diferentes áreas (mesas, reportes, recetas, modales) dificultando su mantenimiento.
+
+Sugerencias generales
+---------------------
+1. **Separar capas**: crear un conjunto de clases o funciones para acceso a datos y lógica de negocio (por ejemplo, un modelo para ventas), reduciendo el tamaño de cada endpoint PHP.
+2. **Componentizar JS**: dividir funciones en módulos más pequeños y reutilizables; considerar frameworks o al menos archivos independientes por funcionalidad.
+3. **Unificar estilos**: combinar `style.css` y `style1.css` eliminando duplicados, usando un preprocesador o BEM para organizar mejor.
+4. **Eliminar depuración**: remover `console.log` y archivos obsoletos o mover librerías externas a un gestor de dependencias.
+5. **Convenciones uniformes**: definir reglas de nomenclatura (camelCase o snake_case), identación y comentario, aplicando linters o formateadores.
+6. **Revisión de módulos grandes**: algunos como `api/ventas/crear_venta.php` y `vistas/ventas/ventas.js` podrían reescribirse por completo para obtener mayor claridad y mantenibilidad.
+

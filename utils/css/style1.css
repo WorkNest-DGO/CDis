@@ -1,0 +1,1709 @@
+/*******************************/
+/********* General CSS *********/
+/*******************************/
+body {
+    color: #f0f0f0;
+    background: #1a1a1a;
+    font-family: 'open sans', sans-serif;
+}
+
+h1,
+h2, 
+h3, 
+h4,
+h5, 
+h6 {
+    color: #fff;
+    font-family: 'Nunito', sans-serif;
+}
+
+a {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 600;
+    color: #b80000;
+    transition: .3s;
+}
+
+a:hover,
+a:active,
+a:focus {
+    color: #000000;
+    outline: none;
+    text-decoration: none;
+}
+
+.btn.custom-btn {
+    padding: 12px 25px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: #ffffff;
+    background: #b80000;
+    border: 2px solid #b80000;
+    border-radius: 5px;
+    transition: .5s;
+}
+
+.btn.custom-btn:hover {
+    color: #b80000;
+    background: transparent;
+}
+
+.btn.custom-btn:focus,
+.form-control:focus,
+.custom-select:focus {
+    box-shadow: none;
+}
+
+.container-fluid {
+    max-width: 1366px;
+}
+
+.back-to-top {
+    position: fixed;
+    display: none;
+    background: #b80000;
+    width: 44px;
+    height: 44px;
+    text-align: center;
+    line-height: 1;
+    font-size: 22px;
+    right: 15px;
+    bottom: 15px;
+    border-radius: 5px;
+    transition: background 0.5s;
+    z-index: 9;
+}
+
+.back-to-top i {
+    color: #ffffff;
+    padding-top: 10px;
+}
+
+.back-to-top:hover {
+    background: #fff;
+}
+
+[class^="flaticon-"]:before, [class*=" flaticon-"]:before,
+[class^="flaticon-"]:after, [class*=" flaticon-"]:after {   
+    font-size: inherit;
+    margin-left: 0;
+}
+
+
+/**********************************/
+/*********** Nav Bar CSS **********/
+/**********************************/
+.navbar {
+    position: relative;
+    transition: .5s;
+    z-index: 999;
+}
+
+.navbar.nav-sticky {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, .3);
+}
+
+.navbar .navbar-brand {
+    margin: 0;
+    color: #b80000;
+    font-size: 45px;
+    line-height: 0px;
+    font-weight: 700;
+    font-family: 'Nunito', sans-serif;
+    transition: .5s;
+    
+}
+
+.navbar .navbar-brand span {
+    color: #fff;
+}
+
+.navbar .navbar-brand:hover {
+    color: #b80000;
+}
+
+.navbar .navbar-brand:hover span {
+    color: #b80000;
+}
+
+.navbar .navbar-brand img {
+    max-width: 100%;
+    max-height: 40px;
+}
+
+.navbar .dropdown-menu {
+    margin-top: 0;
+    border: 0;
+    border-radius: 0;
+    background: #f8f9fa;
+}
+
+@media (min-width: 992px) {
+    .navbar {
+        position: absolute;
+        width: 100%;
+        padding: 30px 60px;
+        background: transparent !important;
+        z-index: 9;
+    }
+    
+    .navbar.nav-sticky {
+        padding: 10px 60px;
+        background: #ffffff !important;
+    }
+    
+    .navbar .navbar-brand {
+        color: #b80000;
+    }
+    
+    .navbar.nav-sticky .navbar-brand {
+        color: #b80000;
+    }
+
+    .navbar-light .navbar-nav .nav-link,
+    .navbar-light .navbar-nav .nav-link:focus {
+        padding: 10px 10px 8px 10px;
+        font-family: 'Nunito', sans-serif;
+        color: #ffffff;
+        font-size: 18px;
+        font-weight: 600;
+    }
+    
+    .navbar-light.nav-sticky .navbar-nav .nav-link,
+    .navbar-light.nav-sticky .navbar-nav .nav-link:focus {
+        color: #666666;
+    }
+
+    .navbar-light .navbar-nav .nav-link:hover,
+    .navbar-light .navbar-nav .nav-link.active {
+        color: #b80000;
+    }
+    
+    .navbar-light.nav-sticky .navbar-nav .nav-link:hover,
+    .navbar-light.nav-sticky .navbar-nav .nav-link.active {
+        color: #b80000;
+    }
+}
+
+@media (max-width: 991.98px) {   
+    .navbar {
+        padding: 15px;
+        background: #ffffff !important;
+    }
+    
+    .navbar .navbar-brand {
+        color: #b80000;
+    }
+    
+    .navbar .navbar-nav {
+        margin-top: 15px;
+    }
+    
+    .navbar a.nav-link {
+        padding: 5px;
+    }
+    
+    .navbar .dropdown-menu {
+        box-shadow: none;
+    }
+}
+
+
+/*******************************/
+/********** Hero CSS ***********/
+/*******************************/
+.carousel {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    min-height: 400px;
+    background: #ffffff;
+}
+
+.carousel .container-fluid {
+    padding: 0;
+}
+
+.carousel .carousel-item {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.carousel .carousel-img {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    text-align: right;
+    overflow: hidden;
+}
+
+.carousel .carousel-img::after {
+    position: absolute;
+    content: "";
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1;
+}
+
+.carousel .carousel-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.carousel .carousel-text {
+    position: absolute;
+    max-width: 700px;
+    height: calc(100vh - 35px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 2;
+}
+
+.carousel .carousel-text h1 {
+    text-align: center;
+    color: #ffffff;
+    font-size: 60px;
+    font-weight: 700;
+    margin-bottom: 30px;
+}
+
+.carousel .carousel-text h1 span {
+    color: #b80000;
+}
+
+.carousel .carousel-text p {
+    color: #ffffff;
+    text-align: center;
+    font-size: 20px;
+    margin-bottom: 35px;
+}
+
+.carousel .carousel-btn .btn:last-child {
+    margin-left: 10px;
+    background: #fff;
+    border-color: #fff;
+}
+
+.carousel .carousel-btn .btn:last-child:hover {
+    color: #fff;
+    background: transparent;
+}
+
+.carousel .animated {
+    -webkit-animation-duration: 1s;
+    animation-duration: 1s;
+}
+
+@media (max-width: 991.98px) {
+    .carousel,
+    .carousel .carousel-item,
+    .carousel .carousel-text {
+        height: calc(100vh - 105px);
+    }
+    
+    .carousel .carousel-text h1 {
+        font-size: 35px;
+    }
+    
+    .carousel .carousel-text p {
+        font-size: 16px;
+    }
+    
+    .carousel .carousel-text .btn {
+        padding: 12px 30px;
+        font-size: 15px;
+        letter-spacing: 0;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .carousel,
+    .carousel .carousel-item,
+    .carousel .carousel-text {
+        height: calc(100vh - 70px);
+    }
+    
+    .carousel .carousel-text h1 {
+        font-size: 30px;
+    }
+    
+    .carousel .carousel-text .btn {
+        padding: 10px 25px;
+        font-size: 15px;
+        letter-spacing: 0;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .carousel .carousel-text h1 {
+        font-size: 25px;
+    }
+    
+    .carousel .carousel-text .btn {
+        padding: 8px 20px;
+        font-size: 14px;
+        letter-spacing: 0;
+    }
+}
+
+
+/*******************************/
+/******* Page Header CSS *******/
+/*******************************/
+.page-header {
+    position: relative;
+    margin-bottom: 45px;
+    padding: 150px 0 90px 0;
+    text-align: center;
+    background: linear-gradient(rgba(0, 0, 0, .5), rgba(0, 0, 0, .5)), url(../img/page-header.jpg);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+
+.page-header h2 {
+    position: relative;
+    color: #b80000;
+    font-size: 60px;
+    font-weight: 700;
+}
+
+.page-header a {
+    position: relative;
+    padding: 0 12px;
+    font-size: 20px;
+    text-transform: uppercase;
+    color: #ffffff;
+}
+
+.page-header a:hover {
+    color: #ffffff;
+}
+
+.page-header a::after {
+    position: absolute;
+    content: "/";
+    width: 8px;
+    height: 8px;
+    top: -1px;
+    right: -7px;
+    text-align: center;
+    color: #b80000;
+}
+
+.page-header a:last-child::after {
+    display: none;
+}
+
+@media (max-width: 767.98px) {
+    .page-header h2 {
+        font-size: 35px;
+    }
+    
+    .page-header a {
+        font-size: 18px;
+    }
+}
+
+
+/*******************************/
+/******* Section Header ********/
+/*******************************/
+.section-header {
+    position: relative;
+    margin-bottom: 45px;
+}
+
+.section-header p {
+    color: #fff;
+    margin-bottom: 5px;
+    position: relative;
+    font-size: 20px;
+}
+
+.section-header h2 {
+    margin: 0;
+    position: relative;
+    font-size: 45px;
+    font-weight: 700;
+}
+
+@media (max-width: 991.98px) {
+    .section-header h2 {
+        font-size: 40px;
+        font-weight: 600;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .section-header h2 {
+        font-size: 35px;
+        font-weight: 600;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .section-header h2 {
+        font-size: 30px;
+        font-weight: 600;
+    }
+}
+
+
+/*******************************/
+/********* Booking CSS *********/
+/*******************************/
+.booking {
+    position: relative;
+    width: 100%;
+    margin-bottom: 45px;
+    background: rgba(0, 0, 0, .04);
+}
+
+.booking .booking-content {
+    padding: 45px 0 15px 0;
+}
+
+.booking .booking-content .section-header {
+    margin-bottom: 30px;
+}
+
+.booking .booking-form {
+    padding: 60px 30px;
+    background: #fbaf32;
+}
+
+.booking .booking-form .control-group {
+    margin-bottom: 15px;
+}
+
+.booking .booking-form .input-group-text {
+    position: absolute;
+    padding: 0;
+    border: none;
+    background: none;
+    top: 15px;
+    right: 15px;
+    color: #ffffff;
+    font-size: 14px;
+}
+
+.booking .booking-form .form-control {
+    height: 45px;
+    font-size: 14px;
+    color: #ffffff;
+    padding: 0 15px;
+    border-radius: 5px !important;
+    border: 1px solid #ffffff;
+    background: transparent;
+}
+
+.booking .booking-form select.form-control {
+    padding: 0 10px;
+}
+
+.booking .booking-form .form-control::placeholder {
+    color: #ffffff;
+    opacity: 1;
+}
+
+.booking .booking-form .form-control:-ms-input-placeholder,
+.booking .booking-form .form-control::-ms-input-placeholder {
+    color: #ffffff;
+}
+
+.booking .booking-form .input-group [data-toggle="datetimepicker"] {
+    cursor: default;
+}
+
+.booking .booking-form .btn.custom-btn {
+    width: 100%;
+    color: #fbaf32;
+    background: #ffffff;
+    border: 1px solid #ffffff;
+}
+
+.booking .booking-form .btn.custom-btn:hover {
+    color: #ffffff;
+    background: transparent;
+}
+
+
+/*******************************/
+/********** Menu CSS ***********/
+/*******************************/
+.food {
+    position: relative;
+    width: 100%;
+    padding: 90px 0 60px 0;
+    margin: 45px 0;
+    background: rgba(0, 0, 0, .04);
+}
+
+.food .food-item {
+    position: relative;
+    width: 100%;
+    margin-bottom: 30px;
+    padding: 50px 30px 30px;
+    text-align: center;
+    background: #ffffff;
+    border-radius: 15px;
+    box-shadow: 0 0 30px rgba(0, 0, 0, .08);
+    transition: .3s;
+}
+
+.food .food-item:hover {
+    box-shadow: none;
+}
+
+.food .food-item i {
+    position: relative;
+    display: inline-block;
+    color: #b80000;
+    font-size: 60px;
+    line-height: 60px;
+    margin-bottom: 20px;
+    transition: .3s;
+}
+
+.food .food-item:hover i {
+    color: #111;
+}
+
+.food .food-item i::after {
+    position: absolute;
+    content: "";
+    width: calc(100% + 20px);
+    height: calc(100% + 20px);
+    top: -20px;
+    left: -15px;
+    border: 3px dotted #b80000;
+    border-right: transparent;
+    border-bottom: transparent;
+    border-radius: 100px;
+    transition: .3s;
+}
+
+.food .food-item:hover i::after {
+    border: 3px dotted #fff;
+    border-right: transparent;
+    border-bottom: transparent;
+}
+
+.food .food-item h2 {
+    font-size: 30px;
+    font-weight: 700;
+}
+
+.food .food-item a {
+    position: relative;
+    font-size: 16px;
+}
+
+.food .food-item a::after {
+    position: absolute;
+    content: "";
+    width: 50px;
+    height: 1px;
+    bottom: 0;
+    left: calc(50% - 25px);
+    background: #b80000;
+    transition: .3s;
+}
+
+.food .food-item a:hover::after {
+    width: 100%;
+    left: 0;
+    background: #fff;
+}
+
+
+
+/*******************************/
+/********** About CSS **********/
+/*******************************/
+.about {
+    position: relative;
+    width: 100%;
+    padding: 45px 0;
+}
+
+.about .section-header {
+    margin-bottom: 30px;
+    margin-left: 0;
+}
+
+.about .about-img {
+    position: relative;
+}
+
+.about .about-img img {
+    position: relative;
+    width: 100%;
+    border-radius: 15px;
+}
+
+.about .btn-play {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-50%);
+    box-sizing: content-box;
+    display: block;
+    width: 32px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    outline: none;
+    padding: 18px 20px 18px 28px;
+}
+
+.about .btn-play:before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    left: 50%;
+    top: 50%;
+    transform: translateX(-50%) translateY(-50%);
+    display: block;
+    width: 100px;
+    height: 100px;
+    background: #b80000;
+    border-radius: 50%;
+    animation: pulse-border 1500ms ease-out infinite;
+}
+
+.about .btn-play:after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    left: 50%;
+    top: 50%;
+    transform: translateX(-50%) translateY(-50%);
+    display: block;
+    width: 100px;
+    height: 100px;
+    background: #b80000;
+    border-radius: 50%;
+    transition: all 200ms;
+}
+
+.about .btn-play img {
+    position: relative;
+    z-index: 3;
+    max-width: 100%;
+    width: auto;
+    height: auto;
+}
+
+.about .btn-play span {
+    display: block;
+    position: relative;
+    z-index: 3;
+    width: 0;
+    height: 0;
+    border-left: 32px solid #ffffff;
+    border-top: 22px solid transparent;
+    border-bottom: 22px solid transparent;
+}
+
+@keyframes pulse-border {
+  0% {
+    transform: translateX(-50%) translateY(-50%) translateZ(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) translateY(-50%) translateZ(0) scale(1.5);
+    opacity: 0;
+  }
+}
+
+#videoModal {
+    padding-left: 17px;
+}
+
+#videoModal .modal-dialog {
+    position: relative;
+    max-width: 800px;
+    margin: 60px auto 0 auto;
+}
+
+#videoModal .modal-body {
+    position: relative;
+    padding: 0px;
+}
+
+#videoModal .close {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    right: 0px;
+    top: -30px;
+    z-index: 999;
+    font-size: 30px;
+    font-weight: normal;
+    color: #ffffff;
+    background: #000000;
+    opacity: 1;
+}
+
+.about .about-content {
+    position: relative;
+}
+
+.about .about-text p {
+    font-size: 16px;
+}
+
+.about .about-text a.btn {
+    position: relative;
+    margin-top: 15px;
+}
+
+@media (max-width: 991.98px) {
+    .about .about-img {
+        margin-bottom: 30px;
+    }
+}
+
+
+/*******************************/
+/********* Feature CSS *********/
+/*******************************/
+.feature {
+    position: relative;
+    width: 100%;
+    padding: 45px 0 0 0;
+}
+
+.feature .section-header {
+    margin-bottom: 30px;
+}
+
+.feature .feature-text {
+    position: relative;
+    width: 100%;
+}
+
+.feature .feature-img {
+    border-radius: 15px;
+    margin-bottom: 25px;
+    overflow: hidden;
+}
+
+.feature .feature-img .col-6,
+.feature .feature-img .col-12 {
+    padding: 0;
+    overflow: hidden;
+}
+
+.feature .feature-img img {
+    width: 100%;
+    transition: .3s;
+}
+
+.feature .feature-img img:hover {
+    transform: scale(1.1);
+}
+
+.feature .feature-text .btn {
+    width: 100%;
+    margin-top: 15px;
+    margin-bottom: 45px;
+}
+
+.feature .feature-item {
+    width: 100%;
+    margin-bottom: 45px;
+}
+
+.feature .feature-item i {
+    position: relative;
+    display: block;
+    color: #fff;
+    font-size: 60px;
+    line-height: 60px;
+    margin-bottom: 15px;
+    background-image: linear-gradient(#fff, #b80000);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.feature .feature-item i::after {
+    position: absolute;
+    content: "";
+    width: 40px;
+    height: 40px;
+    top: -10px;
+    left: 20px;
+    background: #b80000;
+    border-radius: 30px;
+    z-index: -1;
+}
+
+.feature .feature-item h3 {
+    font-size: 22px;
+    font-weight: 700;
+}
+
+
+/*******************************/
+/*********** Menu CSS **********/
+/*******************************/
+.menu {
+    position: relative;
+    padding: 45px 0 15px 0;
+}
+
+.menu .menu-tab {
+    position: relative;
+}
+
+.menu .menu-tab img {
+    max-width: 100%;
+    border-radius: 15px;
+}
+
+.menu .menu-tab .nav.nav-pills .nav-link {
+    color: #ffffff;
+    background: #b80000;
+    border-radius: 5px;
+    margin: 0 5px;
+}
+
+.menu .menu-tab .nav.nav-pills .nav-link:hover,
+.menu .menu-tab .nav.nav-pills .nav-link.active {
+    color: #1a1a1a;
+    background: #fff;
+}
+
+.menu .menu-tab .tab-content {
+    padding: 30px 0 0 0;
+    background: transparent;
+}
+
+.menu .menu-tab .tab-content .container {
+    padding: 0;
+}
+
+.menu .menu-item {
+    position: relative;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+}
+
+.menu .menu-img {
+    width: 80px;
+    margin-right: 20px;
+}
+
+.menu .menu-img img {
+    width: 100%;
+    border-radius: 100px;
+}
+
+.menu .menu-text {
+    width: calc(100% - 100px);
+}
+
+.menu .menu-text h3 {
+    position: relative;
+    display: block;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.menu .menu-text h3::after {
+    position: absolute;
+    content: "";
+    width: 100%;
+    height: 0;
+    top: 13px;
+    left: 0;
+    border-top: 2px dotted #1a1a1a;
+    z-index: -1;
+}
+
+.menu .menu-text h3 span {
+    display: inline-block;
+    float: left;
+    padding-right: 5px;
+    background: #1a1a1a;
+}
+
+.menu .menu-text h3 strong {
+    display: inline-block;
+    float: right;
+    padding-left: 5px;
+    color: #b80000;
+    background: #1a1a1a;
+}
+
+.menu .menu-text p {
+    position: relative;
+    margin: 5px 0 0 0;
+    float: left;
+    display: block;
+}
+
+@media(max-width: 575.98px) {
+    .menu .menu-text p,
+    .menu .menu-text h3,
+    .menu .menu-text h3 span,
+    .menu .menu-text h3 strong {
+        display: block;
+        float: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .menu .menu-text h3 {
+        font-size: 18px;
+        margin-bottom: 0;
+    }
+    
+    .menu .menu-text h3 span {
+        margin-bottom: 3px;
+    }
+    
+    .menu .menu-text h3::after {
+        display: none;
+    }
+}
+
+
+/*******************************/
+/*********** Team CSS **********/
+/*******************************/
+.team {
+    position: relative;
+    width: 100%;
+    padding: 45px 0 15px 0;
+}
+
+.team .team-item {
+    position: relative;
+    margin-bottom: 30px;
+    background: #ffffff;
+}
+
+.team .team-img {
+    position: relative;
+    border-radius: 15px 15px 0 0;
+    overflow: hidden;
+}
+
+.team .team-img img {
+    position: relative;
+    width: 100%;
+    margin-top: 15px;
+    transform: scale(1.1);
+    transition: .3s;
+}
+
+.team .team-item:hover img {
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+.team .team-social {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: .5s;
+}
+
+.team .team-social a {
+    position: relative;
+    margin: 0 3px;
+    margin-top: 100px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 40px;
+    font-size: 16px;
+    color: #ffffff;
+    background: #fbaf32;
+    opacity: 0;
+}
+
+.team .team-social a:hover {
+    color: #ffffff;
+    background: #719a0a;
+}
+
+.team .team-item:hover .team-social {
+    background: rgba(256, 256, 256, .5);
+}
+
+.team .team-item:hover .team-social a:first-child {
+    opacity: 1;
+    margin-top: 0;
+    transition: .3s 0s;
+}
+
+.team .team-item:hover .team-social a:nth-child(2) {
+    opacity: 1;
+    margin-top: 0;
+    transition: .3s .1s;
+}
+
+.team .team-item:hover .team-social a:nth-child(3) {
+    opacity: 1;
+    margin-top: 0;
+    transition: .3s .2s;
+}
+
+.team .team-item:hover .team-social a:nth-child(4) {
+    opacity: 1;
+    margin-top: 0;
+    transition: .3s .3s;
+}
+
+.team .team-text {
+    position: relative;
+    padding: 25px 15px;
+    text-align: center;
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, .07);
+    border-top: none;
+    border-radius: 0 0 15px 15px;
+}
+
+.team .team-text h2 {
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.team .team-text p {
+    margin: 0;
+    font-size: 16px;
+}
+
+
+/*******************************/
+/******* Testimonial CSS *******/
+/*******************************/
+.testimonial {
+    position: relative;
+    width: 100%;
+    padding: 90px 0;
+    margin: 45px 0;
+    background: rgba(0, 0, 0, .04);
+}
+
+.testimonial .testimonials-carousel {
+    position: relative;
+    width: calc(100% + 30px);
+    margin: 0 -15px;
+}
+
+.testimonial .testimonial-item {
+    position: relative;
+    margin: 15px;
+    padding: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    background: #ffffff;
+    border-radius: 15px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, .08);
+    transition: .3s;
+    overflow: hidden;
+}
+
+.testimonial .testimonial-item:hover {
+    box-shadow: none;
+}
+
+.testimonial .testimonial-img {
+    position: relative;
+    width: 100px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.testimonial .testimonial-img img {
+    width: 100%;
+    border-radius: 100px;
+}
+
+.testimonial .testimonial-item p {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.testimonial .testimonial-item h2 {
+    position: relative;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.testimonial .testimonial-item h3 {
+    color: #999999;
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.testimonial .owl-dots {
+    margin-top: 10px;
+    text-align: center;
+}
+
+.testimonial .owl-dot {
+    display: inline-block;
+    margin: 0 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fbaf32;
+}
+
+.testimonial .owl-dot.active {
+    background: #719a0a;
+}
+
+
+/*******************************/
+/*********** Blog CSS **********/
+/*******************************/
+.blog {
+    position: relative;
+    width: 100%;
+    padding: 45px 0 0 0;
+}
+
+.blog .blog-item {
+    position: relative;
+}
+
+.blog .blog-img {
+    position: relative;
+    width: 100%;
+    border-radius: 15px;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.blog .blog-img img {
+    width: 100%;
+}
+
+.blog .blog-content {
+    position: relative;
+    height: 150px;
+    width: 250px;
+    top: -30px;
+    left: 15px;
+    padding: 1px 1px 1px 20px;
+    background: #ffffff;
+    box-shadow: 0 0 30px rgba(0, 0, 0, .08);
+    border-radius: 15px;
+    z-index: 2;
+}
+
+.blog .blog-content h2.blog-title {
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.blog .blog-meta {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.blog .blog-meta p {
+    margin: 0 10px 0 0;
+    font-size: 14px;
+    color: #999999;
+}
+
+.blog .blog-meta i {
+    color: #b80000;
+    margin-right: 5px;
+}
+
+.blog .blog-meta p:last-child {
+    margin: 0;
+}
+
+.blog .blog-text {
+    position: relative;
+}
+
+.blog .blog-text p {
+    margin-bottom: 10px;
+}
+
+.blog .blog-item a.btn {
+    margin-top: 10px;
+    padding: 5px 15px;
+}
+
+.blog .pagination .page-link {
+    color: #b80000;
+    border-radius: 5px;
+    border-color: #b80000;
+    margin: 0 2px;
+}
+
+.blog .pagination .page-link:hover,
+.blog .pagination .page-item.active .page-link {
+    color: #ffffff;
+    background: #b80000;
+}
+
+.blog .pagination .disabled .page-link {
+    color: #999999;
+}
+
+@media(max-width: 575.98px){
+    .blog .blog-meta p {
+        flex: 50%;
+        font-size: 13px;
+        margin: 0 0 5px 0;
+    }
+}
+
+
+/*******************************/
+
+/*repartos*/
+ .styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #111;
+  color: #fff;
+  font-family: 'Arial', sans-serif;
+  border: 1px solid #cc0000;
+}
+
+.styled-table th {
+  background-color: #cc0000;
+  color: #fff;
+  padding: 10px;
+  border-bottom: 2px solid #fff;
+  text-align: left;
+}
+
+.styled-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #333;
+}
+
+.styled-table tr:hover {
+  background-color: #222;
+}
+
+/*******************************/
+/********* Footer CSS **********/
+/*******************************/
+.footer {
+    position: relative;
+    margin-top: 45px;
+    padding-top: 90px;
+    background: rgba(0, 0, 0, .04);
+}
+
+.footer .footer-contact,
+.footer .footer-link,
+.footer .footer-newsletter {
+    position: relative;
+    margin-bottom: 45px;
+    color: #fff;
+}
+
+.footer .footer-contact h2,
+.footer .footer-link h2,
+.footer .footer-newsletter h2 {
+    position: relative;
+    margin-bottom: 30px;
+    padding-bottom: 10px;
+    font-size: 22px;
+    font-weight: 700;
+    color: #b80000;
+}
+
+.footer .footer-contact h2::after,
+.footer .footer-link h2::after,
+.footer .footer-newsletter h2::after {
+    position: absolute;
+    content: "";
+    width: 45px;
+    height: 2px;
+    bottom: 0;
+    left: 0;
+    background: #fff;
+}
+
+.footer .footer-link a {
+    display: block;
+    margin-bottom: 10px;
+    color: #fff;
+    transition: .3s;
+}
+
+.footer .footer-link a::before {
+    position: relative;
+    content: "\f105";
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    margin-right: 10px;
+    color: #b80000;
+}
+
+.footer .footer-link a:hover {
+    color: #b80000;
+    letter-spacing: 1px;
+}
+
+.footer .footer-contact p i {
+    width: 25px;
+    color: #b80000;
+}
+
+.footer .footer-social {
+    position: relative;
+    margin-top: 20px;
+    display: flex;
+}
+
+.footer .footer-social a {
+    display: inline-block;
+    margin-right: 5px;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #b80000;
+    border-radius: 35px;
+    font-size: 16px;
+    color: #ffffff;
+}
+
+.footer .footer-social a:hover {
+    background: #fff;
+}
+
+.footer .footer-social a:last-child {
+    margin: 0;
+}
+
+.footer .footer-newsletter .form {
+    position: relative;
+    width: 100%;
+}
+
+.footer .footer-newsletter input {
+    height: 60px;
+    background: transparent;
+    border: 1px solid #b80000;
+    border-radius: 5px;
+}
+
+.footer .footer-newsletter .btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    height: 44px;
+    padding: 8px 20px;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.footer .copyright {
+    position: relative;
+    width: 100%;
+    padding: 30px 0;
+    text-align: center;
+    background: #ffffff;
+}
+
+.footer .copyright p {
+    margin: 0;
+    display: inline-block;
+    color: #000;
+}
+
+.footer .copyright p a {
+    color: #b80000;
+}
+
+.footer .copyright p a:hover {
+    color: #fff;
+}
+
+
+#bajoStock {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+    background-color: #111;
+    color: #fff;
+    border: 1px solid #cc0000;
+    font-family: 'Arial', sans-serif;
+}
+
+#bajoStock th {
+    background-color: #cc0000;
+    color: #fff;
+    padding: 10px;
+    text-align: left;
+    border-bottom: 2px solid #fff;
+}
+
+#bajoStock td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #fff;
+}
+
+#bajoStock tr:hover {
+    background-color: #222;
+    cursor: pointer;
+}
+
+#bajoStock caption {
+    caption-side: top;
+    text-align: left;
+    font-size: 1.2em;
+    color: #fff;
+    margin-bottom: 10px;
+}
+
+#historial {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+    background-color: #111;
+    color: #fff;
+    border: 1px solid #cc0000;
+    font-family: 'Arial', sans-serif;
+}
+
+#historial th {
+    background-color: #cc0000;
+    color: #fff;
+    padding: 10px;
+    text-align: left;
+    border-bottom: 2px solid #fff;
+}
+
+#historial td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #333;
+}
+
+#historial tr:hover {
+    background-color: #222;
+    cursor: default;
+}
+
+.custom-modal2 {
+  background: #fff;
+  border: 1px solid #ccc;
+  padding: 20px;
+  max-width: 600px;
+  margin: 40px auto;
+  box-shadow: 0 0 10px rgba(0,0,0,0.25);
+  z-index: 999;
+}
+
+#tablaHorarios {
+  width: 100%;
+  margin-top: 20px;
+  border-collapse: collapse;
+  background-color: #111;
+  color: #fff;
+  border: 1px solid #cc0000;
+  font-family: 'Arial', sans-serif;
+}
+
+#tablaHorarios th {
+  background-color: #cc0000;
+  color: #fff;
+  padding: 10px;
+  text-align: left;
+  border-bottom: 2px solid #fff;
+}
+
+#tablaHorarios td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #333;
+}
+
+#tablaHorarios tr:hover {
+  background-color: #222;
+  cursor: default;
+}
+
+.filtros-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  background-color: #111;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.filtros-container label {
+  color: #fff;
+  font-weight: bold;
+}
+
+.form-control-sm {
+  padding: 5px;
+  background-color: #222;
+  border: 1px solid #cc0000;
+  color: #fff;
+  border-radius: 3px;
+}
+
+.btn.custom-btn-sm {
+  background-color: #cc0000;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 3px;
+  transition: background 0.3s;
+}
+
+.btn.custom-btn-sm:hover {
+  background-color: #a30000;
+}
+
+.acciones-corte {
+  text-align: center;
+}
+
+.custom-modal {
+  background: #222;
+  color: white;
+  border: 2px solid #cc0000;
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+#tablaCortes {
+  width: 100%;
+  margin-top: 20px;
+  border-collapse: collapse;
+  background-color: #111;
+  color: #fff;
+  border: 1px solid #cc0000;
+  font-family: 'Arial', sans-serif;
+}
+
+#tablaCortes th {
+  background-color: #cc0000;
+  color: #fff;
+  padding: 10px;
+  text-align: left;
+  border-bottom: 2px solid #fff;
+}
+
+#tablaCortes td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #333;
+}
+
+#tablaCortes tr:hover {
+  background-color: #222;
+  cursor: default;
+}
+
+/*recetas*/
+.section-header {
+  color: #cc0000;
+  font-weight: bold;
+  text-shadow: 1px 1px #000;
+  margin-bottom: 20px;
+}
+
+.product-view {
+  background-color: #1a1a1a;
+  border: 1px solid #cc0000;
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 15px;
+  color: #fff;
+}
+
+.product-name {
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.product-image {
+  display: block;
+  max-width: 200px;
+  border: 2px solid #cc0000;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+
+.custom-btn {
+  background-color: #cc0000;
+  color: #fff;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.custom-btn:hover {
+  background-color: #ff1a1a;
+}
+
+/*ingredientes */
+.section-subheader {
+  color: #fff;
+  background-color: #cc0000;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 1.3em;
+  margin-bottom: 20px;
+  text-align: center;
+  text-shadow: 1px 1px #000;
+}
+
+.table {
+  
+  color: #000;
+  border-collapse: collapse;
+  width: 100%;
+}

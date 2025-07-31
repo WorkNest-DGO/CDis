@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tokyo Sushi POS</title>
+  <meta name="description" content="Sistema de punto de venta de Tokyo Sushi para control de cobros y operaciones.">
+  <meta name="author" content="Tokyo Sushi">
+  <link rel="stylesheet" href="utils/css/style.css">
+  <link rel="icon" href="utils/logo.png" type="image/png">
+        <link rel="stylesheet" href="utils/fontawesome/css/all.min.css">
+
+</head>
+
+
+<body>
+     <div class="container">
+      <div class="main sing-up">
+        <div class="sing-in-form form-container">
+          <img src="utils/logo_login.png"  style="width: 200px; height: 200px; background-color: transparent; position: relative;"/>
+
+          <p>Enrolate en la aventura</p>
+          <form  id="sign-in">
+            <input type="text" placeholder="Nombre" id="usuario" required>
+            <input type="password" placeholder="Contraseña" id="contrasena" required>
+            <p><a>Olvidaste tu contraseña?</a></p>
+            <button type="submit">Entrar</button>
+          </form>
+          <div id="mensaje" style="color:red;"></div>
+        </div>
+        <div class="sing-up-form form-container">
+          <img src="utils/logo_login.png"  style="width: 200px; height: 200px; background-color: transparent;"/>
+          <h1 style="color: #ffffff;">Sistema CDIs</h1>
+          <ul>
+            <li><i style="color: #ffffff;" class="fab fa-facebook-f"></i></li>
+            <li><i style="color: #ffffff;" class="fab fa-google-plus-g"></i></li>
+            <li><i style="color: #ffffff;" class="fab fa-instagram"></i></li>
+          </ul>
+          <p>or use your email for registration</p>
+
+        </div>
+        <div class="sliding-board">
+          <div class="wide-borad">
+            <div class="board sing-in">
+              <h1>Nos alegra verte!</h1>
+              <p>
+                Esperamos tengas un buen día de trabajo.
+              </p>
+              <button class="singIn">Ingresar</button>
+            </div>
+            <div class="board sing-up">
+<h1>Tokyo Sushi<br>—<br>Centro de Distribución</h1>
+<p>Automatización inteligente de inventario,<br>
+con sabor a eficiencia.</p>
+
+              <button class="singUp">Hasta pronto</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+<script src="vistas/login/login.js"></script>
+</body>
+</html>

@@ -1,0 +1,425 @@
+Archivo: vistas/ventas/ventas.js
+
+    Tipo: JavaScript
+
+    Estado: MODIFICAR
+
+    Razón: Maneja validaciones, cálculo de totales, control de mesas y construcción de HTML para detalles. Esta lógica debe residir en PHP para reducir dependencia del frontend y evitar duplicidad.
+
+    Acciones:
+
+        Mover generación de tablas de detalle y verificación de inventario al backend.
+        Mantener únicamente eventos de interfaz y llamadas fetch.
+
+Archivo: vistas/ventas/ventas.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Presenta la interfaz de registro de ventas. Debe seguir cargando scripts y mostrar contenedores, pero la generación de datos de detalle pasará al backend.
+
+    Acciones:
+
+        Ajustar para recibir datos precargados desde PHP según sea necesario.
+        Enlazar a los nuevos endpoints refactorizados.
+
+Archivo: vistas/ventas/ticket.js
+
+    Tipo: JavaScript
+
+    Estado: MODIFICAR
+
+    Razón: Calcula subtotales de tickets y maneja división de cuentas. Parte de esta lógica es negocio (cálculo de cambio, validación de pagos) que debería procesarse en PHP.
+
+    Acciones:
+
+        Trasladar cálculos de montos y validaciones a un endpoint PHP.
+        Conservar funciones de impresión y manipulación del DOM.
+
+Archivo: vistas/ventas/ticket.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Página para impresión y división de tickets. Solo requiere consumir la información generada desde el backend.
+
+    Acciones:
+
+        Mantener estructura actual y consumir datos generados por PHP.
+
+Archivo: api/ventas/crear_venta.php
+
+    Tipo: PHP
+
+    Estado: MODIFICAR
+
+    Razón: Inserta venta y calcula total en base a datos recibidos. Debe validar desde servidor cantidades, existencia y estado de mesa, en vez de confiar en el JS.
+
+    Acciones:
+
+        Añadir validaciones de inventario y totales.
+        Centralizar cálculo del total de venta.
+
+Archivo: api/ventas/crear_venta_mesa.php
+
+    Tipo: PHP
+
+    Estado: FUSIONAR
+
+    Razón: Repite funcionalidad de crear_venta.php para mesas. Puede integrarse en un solo endpoint que diferencie por tipo de entrega.
+
+    Acciones:
+
+        Integrar su lógica en crear_venta.php con parámetro tipo_entrega.
+        Eliminar archivo tras fusión.
+
+Archivo: api/ventas/cancelar_venta.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Cancela ventas verificando estados y productos. Debe incluir confirmaciones de negocio en PHP.
+
+    Acciones:
+
+        Revisar que los mensajes de error y validación se mantengan del lado servidor.
+
+Archivo: api/ventas/detalle_venta.php
+
+    Tipo: PHP
+
+    Estado: MODIFICAR
+
+    Razón: Devuelve datos de productos para detalle. Actualmente se procesan en JS. Debe construir la tabla HTML o estructura final desde PHP.
+
+    Acciones:
+
+        Generar HTML del detalle en PHP para enviarlo al frontend.
+
+Archivo: api/ventas/cambiar_mesero.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Solo actualiza el mesero asignado a una venta. Lógica correcta en backend.
+
+    Acciones:
+
+        Mantener funcionamiento y validar permisos.
+
+Archivo: api/ventas/listar_ventas.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Obtiene ventas usando la vista de base de datos. Puede seguir igual.
+
+    Acciones:
+
+        Ninguna por ahora.
+
+Archivo: api/mesas/detalle_venta.php
+
+    Tipo: PHP
+
+    Estado: FUSIONAR
+
+    Razón: Similar a api/ventas/detalle_venta.php. Debería unificarse para evitar duplicados y retornar detalle desde un único endpoint.
+
+    Acciones:
+
+        Fusionar su funcionalidad en api/ventas/detalle_venta.php.
+        Eliminar duplicación tras migración.
+
+Archivo: api/mesas/agregar_producto_venta.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Añade productos a una venta existente. Valida y actualiza total. Lógica de negocio correctamente en backend.
+
+    Acciones:
+
+        Revisar que cálculo de total y existencia se mantenga en PHP.
+
+Archivo: api/mesas/eliminar_producto_venta.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Elimina un producto de la venta y ajusta el total. Debe seguir funcionando en servidor.
+
+    Acciones:
+
+        Mantener validaciones de estatus y preparar respuestas claras.
+
+Archivo: api/mesas/marcar_entregado.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Descuenta inventario e indica entrega. Es lógica de negocio que ya se encuentra en PHP.
+
+    Acciones:
+
+        Ninguna por ahora.
+
+Archivo: api/mesas/enviar_ticket.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Marca la mesa como solicitando ticket. Solo actualiza un campo, sin lógica compleja.
+
+    Acciones:
+
+        Mantener.
+
+Archivo: api/mesas/liberar_mesa_de_venta.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Libera la mesa y registra en log. La lógica está en servidor y debe permanecer.
+
+    Acciones:
+
+        Verificar que se invoque después de imprimir ticket.
+
+Archivo: api/mesas/limpiar_ticket.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Limpia el indicador de ticket enviado. No requiere cambios.
+
+    Acciones:
+
+        Ninguna.
+
+Archivo: api/mesas/cambiar_estado.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Cambia estado de la mesa (libre, ocupada, reservada). Utilizado en ventas; su lógica ya es del backend.
+
+    Acciones:
+
+        Mantener validaciones de estado.
+
+Archivo: api/mesas/dividir_mesa.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Separa mesas unidas. Función administrativa que permanece en servidor.
+
+    Acciones:
+
+        Sin cambios.
+
+Archivo: api/mesas/reasignar_mesa.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Mueve una venta a otra mesa. Lógica debe seguir en PHP.
+
+    Acciones:
+
+        Verificar permisos y estados antes de reasignar.
+
+Archivo: api/mesas/unir_mesas.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Une varias mesas a una principal. Pertenece al backend.
+
+    Acciones:
+
+        Ninguna.
+
+Archivo: api/mesas/listar_mesas.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Lista mesas con información de venta activa. Puede mantenerse igual.
+
+    Acciones:
+
+        Ninguna.
+
+Archivo: api/tickets/guardar_ticket.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Guarda subcuentas y folios. Toda la lógica está en backend y es correcta.
+
+    Acciones:
+
+        Mantener integridad transaccional.
+
+Archivo: api/tickets/listar_series.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Devuelve series de folios. No requiere modificación.
+
+    Acciones:
+
+        Ninguna.
+
+Archivo: api/tickets/reimprimir_ticket.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Permite reimprimir tickets consultando datos almacenados. Lógica apropiada en servidor.
+
+    Acciones:
+
+        Ninguna.
+
+Archivo: api/corte_caja/iniciar_corte.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Abre un corte de caja y valida existencia de corte abierto. Se mantiene en servidor.
+
+    Acciones:
+
+        Revisar que fondo inicial siempre se obtenga del servidor.
+
+Archivo: api/corte_caja/cerrar_corte.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Cierra el corte calculando totales. Toda la lógica es del backend.
+
+    Acciones:
+
+        Ninguna.
+
+Archivo: api/corte_caja/consultar_fondo.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Consulta fondo inicial almacenado. Sin cambios.
+
+    Acciones:
+
+        Ninguna.
+
+Archivo: api/corte_caja/guardar_fondo.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Guarda monto de fondo de caja. Operación de backend.
+
+    Acciones:
+
+        Ninguna.
+
+Archivo: api/corte_caja/guardar_desglose.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Guarda desglose de billetes al cerrar corte. Lógica ya en PHP.
+
+    Acciones:
+
+        Mantener cálculos en servidor.
+
+Archivo: api/corte_caja/resumen_corte_actual.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Calcula resumen de ventas por tipo de pago. Debe seguir procesándose en el backend.
+
+    Acciones:
+
+        Ninguna.
+
+Archivo: api/corte_caja/listar_cortes.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Lista cortes usando vista de BD. Sin lógica de frontend.
+
+    Acciones:
+
+        Ninguna.
+
+Archivo: api/corte_caja/listar_ventas_por_corte.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Obtiene ventas relacionadas con un corte específico. Mantener en PHP.
+
+    Acciones:
+
+        Ninguna.
+
+Archivo: api/corte_caja/exportar_corte_csv.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Exporta datos de corte en CSV desde el servidor.
+
+    Acciones:
+
+        Ninguna.
+
+Archivo: api/corte_caja/verificar_corte_abierto.php
+
+    Tipo: PHP
+
+    Estado: CONSERVAR
+
+    Razón: Verifica si existe un corte en curso y establece sesión. Lógica correcta en backend.
+
+    Acciones:
+
+        Ninguna.
