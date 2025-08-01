@@ -19,6 +19,9 @@ ob_start();
                 <a href="../../index.php">Inicio</a>
                 <a href="">Entradas de proveedor</a>
             </div>
+            <div class="col-12 mt-2">
+                <a class="btn btn-secondary" href="../../api/insumos/exportar_proveedores_excel.php">Exportar a Excel</a>
+            </div>
         </div>
     </div>
 </div>

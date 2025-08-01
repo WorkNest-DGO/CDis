@@ -130,4 +130,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('cantidad').addEventListener('input', calcularValorUnitario);
     document.getElementById('costo_total').addEventListener('input', calcularValorUnitario);
     document.getElementById('formEntrada').addEventListener('submit', enviarRegistro);
+
+    const table = document.getElementById('tablaHistorial');
+    if (table) {
+        const btn = document.createElement('button');
+        btn.textContent = 'Exportar entradas';
+        btn.className = 'btn btn-secondary mb-2';
+        btn.addEventListener('click', () => {
+            window.location.href = '../../api/insumos/exportar_entradas_excel.php';
+        });
+        table.parentElement.parentElement.insertBefore(btn, table.parentElement);
+    }
 });
