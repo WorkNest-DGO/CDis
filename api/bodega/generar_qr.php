@@ -39,14 +39,25 @@ $seleccionados = [];
 foreach ($input['insumos'] as $d) {
     $id = isset($d['id']) ? (int)$d['id'] : 0;
     $cant = isset($d['cantidad']) ? (float)$d['cantidad'] : 0;
+    $precio = isset($d['precio_unitario']) ? (float)$d['precio_unitario'] : 0;
     if ($id > 0 && $cant > 0) {
-        $q = $conn->prepare('SELECT nombre, unidad FROM insumos WHERE id = ?');
+        $q = $conn->prepare('SELECT nombre, unidad, existencia FROM insumos WHERE id = ?');
         if ($q) {
             $q->bind_param('i', $id);
             $q->execute();
             $res = $q->get_result();
             if ($row = $res->fetch_assoc()) {
-                $seleccionados[] = ['id' => $id, 'nombre' => $row['nombre'], 'unidad' => $row['unidad'], 'cantidad' => $cant];
+                if ($cant > $row['existencia']) {
+                    $q->close();
+                    error('Cantidad mayor a existencia para ' . $row['nombre']);
+                }
+                $seleccionados[] = [
+                    'id' => $id,
+                    'nombre' => $row['nombre'],
+                    'unidad' => $row['unidad'],
+                    'cantidad' => $cant,
+                    'precio_unitario' => $precio
+                ];
             }
             $q->close();
         }
@@ -64,26 +75,56 @@ $stmtU->fetch();
 $stmtU->close();
 
 $token = generarToken();
-$urlQR = URL_BASE_QR . '/CDI/vistas/bodega/recepcion_qr.php?token=' . $token;
-$json = json_encode($seleccionados, JSON_UNESCAPED_UNICODE);
-$ins = $conn->prepare('INSERT INTO qrs_insumo (token, json_data, creado_por) VALUES (?, ?, ?)');
-$ins->bind_param('ssi', $token, $json, $usuario_id);
-if (!$ins->execute()) {
+$conn->begin_transaction();
+try {
+    $urlQR = URL_BASE_QR . '/CDI/vistas/bodega/recepcion_qr.php?token=' . $token;
+    $json = json_encode($seleccionados, JSON_UNESCAPED_UNICODE);
+    $ins = $conn->prepare('INSERT INTO qrs_insumo (token, json_data, estado, creado_por, creado_en) VALUES (?, ?, "pendiente", ?, NOW())');
+    if (!$ins) throw new Exception($conn->error);
+    $ins->bind_param('ssi', $token, $json, $usuario_id);
+    if (!$ins->execute()) throw new Exception($ins->error);
+    $idqr = $ins->insert_id;
     $ins->close();
-    error('Error al guardar');
-}
-$idqr = $ins->insert_id;
-$ins->close();
 
-// registrar encabezado de despacho
-$desp = $conn->prepare('INSERT INTO despachos (sucursal_id, usuario_id, qr_token) VALUES (NULL, ?, ?)');
-if ($desp) {
-    $desp->bind_param('is', $usuario_id, $token);
-    $desp->execute();
-    $despacho_id = $desp->insert_id;
-    $desp->close();
-} else {
-    $despacho_id = null;
+    // registrar encabezado de despacho
+    $desp = $conn->prepare('INSERT INTO despachos (sucursal_id, usuario_id, qr_token) VALUES (NULL, ?, ?)');
+    if ($desp) {
+        $desp->bind_param('is', $usuario_id, $token);
+        $desp->execute();
+        $despacho_id = $desp->insert_id;
+        $desp->close();
+    } else {
+        $despacho_id = null;
+    }
+
+    $upd = $conn->prepare('UPDATE insumos SET existencia = existencia - ? WHERE id = ?');
+    $mov = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, cantidad, observacion, fecha, qr_token) VALUES ('traspaso', ?, ?, ?, 'Enviado por QR a sucursal', NOW(), ?)");
+    $det = null;
+    if ($despacho_id) {
+        $det = $conn->prepare('INSERT INTO despachos_detalle (despacho_id, insumo_id, cantidad, unidad, precio_unitario) VALUES (?, ?, ?, ?, 0)');
+    }
+
+    foreach ($seleccionados as $s) {
+        $upd->bind_param('di', $s['cantidad'], $s['id']);
+        if (!$upd->execute()) throw new Exception($upd->error);
+
+        $neg = -$s['cantidad'];
+        $mov->bind_param('iids', $usuario_id, $s['id'], $neg, $token);
+        if (!$mov->execute()) throw new Exception($mov->error);
+
+        if ($det) {
+            $det->bind_param('iids', $despacho_id, $s['id'], $s['cantidad'], $s['unidad']);
+            if (!$det->execute()) throw new Exception($det->error);
+        }
+    }
+    $upd->close();
+    $mov->close();
+    if ($det) $det->close();
+
+    $conn->commit();
+} catch (Exception $e) {
+    $conn->rollback();
+    error('Error al guardar');
 }
 
 $dirPdf = __DIR__ . '/../../archivos/bodega/pdfs';
@@ -115,32 +156,10 @@ foreach ($seleccionados as $s) {
 
 generar_pdf_con_imagen($pdf_path, 'Salida de insumos', $lineas, $public_qr_path, 150, 10, 40, 40);
 
-// registrar detalles de despacho
-if ($despacho_id) {
-    $det = $conn->prepare('INSERT INTO despachos_detalle (despacho_id, insumo_id, cantidad, unidad, precio_unitario) VALUES (?, ?, ?, ?, 0)');
-    if ($det) {
-        foreach ($seleccionados as $s) {
-            $det->bind_param('iids', $despacho_id, $s['id'], $s['cantidad'], $s['unidad']);
-            $det->execute();
-        }
-        $det->close();
-    }
-}
-
 $up = $conn->prepare('UPDATE qrs_insumo SET pdf_envio = ? WHERE id = ?');
 $up->bind_param('si', $pdf_rel, $idqr);
 $up->execute();
 $up->close();
-
-$mov = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, cantidad, observacion, fecha, qr_token) VALUES (?, ?, ?, ?, ?, NOW(), ?)");
-foreach ($seleccionados as $s) {
-    $neg = -$s['cantidad'];
-    $tipo = 'traspaso';
-    $obs = '';
-    $mov->bind_param('siidss', $tipo, $usuario_id, $s['id'], $neg, $obs, $token);
-    $mov->execute();
-}
-$mov->close();
 
 $log = $conn->prepare('INSERT INTO logs_accion (usuario_id, modulo, accion, referencia_id) VALUES (?, ?, ?, ?)');
 if ($log) {
@@ -154,10 +173,7 @@ if ($log) {
 $base_url = defined('BASE_URL') ? BASE_URL : '/CDI';
 $url = $base_url . '/vistas/bodega/recepcion_qr.php?token=' . $token;
 
-success([
-    'pdf_url' => $pdf_rel,
-    'qr_url'  => $public_qr_rel,
-    'url'     => $url
-]);
+// se conserva generacion de QR y PDF pero se responde solo con el token
+success(['token' => $token]);
 ?>
 
