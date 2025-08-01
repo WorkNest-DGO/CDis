@@ -26,7 +26,8 @@ ob_start();
 <div class="container mt-4">
     <div class="mb-3">
         <button class="btn custom-btn me-2" id="btnAbrirCorte">Abrir corte</button>
-        <button class="btn custom-btn" id="btnCerrarCorte">Cerrar corte</button>
+        <button class="btn custom-btn me-2" id="btnCerrarCorte">Cerrar corte</button>
+        <button class="btn custom-btn" id="btnExportarExcel">Exportar a Excel</button>
     </div>
     <div id="formObservaciones" class="mb-3" style="display:none;">
         <textarea id="observaciones" class="form-control mb-2" placeholder="Observaciones"></textarea>
@@ -36,6 +37,23 @@ ob_start();
         <label for="buscarFecha">Fecha:</label>
         <input type="date" id="buscarFecha" class="form-control-sm">
         <button class="btn custom-btn-sm" id="btnBuscar">Buscar</button>
+    </div>
+    <div class="mb-3">
+        <select id="listaCortes" class="form-select form-select-sm">
+            <option value="">Seleccione corte...</option>
+        </select>
+    </div>
+    <div class="row mb-2">
+        <div class="col-md-6 mb-2">
+            <input type="text" id="filtroInsumo" class="form-control form-control-sm" placeholder="Buscar insumo">
+        </div>
+        <div class="col-md-3">
+            <select id="registrosPagina" class="form-select form-select-sm">
+                <option value="15">15</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+            </select>
+        </div>
     </div>
     <div class="table-responsive">
         <table id="tablaResumen" class="styled-table">
@@ -51,6 +69,10 @@ ob_start();
             </thead>
             <tbody></tbody>
         </table>
+        <div class="d-flex justify-content-between mt-2">
+            <button class="btn custom-btn-sm" id="prevPagina">&lt;</button>
+            <button class="btn custom-btn-sm" id="nextPagina">&gt;</button>
+        </div>
     </div>
 </div>
 
