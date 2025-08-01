@@ -139,7 +139,7 @@ if (!is_dir($dirQrPublic)) {
 
 $pdf_rel = 'archivos/bodega/pdfs/qr_' . $token . '.pdf';
 $pdf_path = __DIR__ . '/../../' . $pdf_rel;
-$public_qr_rel = 'archivos/qr/' . $token . '.png';
+$public_qr_rel = 'archivos/qr/qr_' . $token . '.png';
 $public_qr_path = __DIR__ . '/../../' . $public_qr_rel;
 
 QRcode::png($urlQR, $public_qr_path, QR_ECLEVEL_H, 8, 2);
@@ -155,6 +155,9 @@ foreach ($seleccionados as $s) {
 }
 
 generar_pdf_con_imagen($pdf_path, 'Salida de insumos', $lineas, $public_qr_path, 150, 10, 40, 40);
+if (!file_exists($pdf_path)) {
+    error('No se pudo generar el PDF');
+}
 
 $up = $conn->prepare('UPDATE qrs_insumo SET pdf_envio = ? WHERE id = ?');
 $up->bind_param('si', $pdf_rel, $idqr);
@@ -170,10 +173,18 @@ if ($log) {
     $log->close();
 }
 
-$base_url = defined('BASE_URL') ? BASE_URL : '/CDI';
-$url = $base_url . '/vistas/bodega/recepcion_qr.php?token=' . $token;
+$qr_url = 'archivos/qr/qr_' . $token . '.png';
+$pdf_url = 'archivos/bodega/pdfs/qr_' . $token . '.pdf';
 
-// se conserva generacion de QR y PDF pero se responde solo con el token
-success(['token' => $token]);
+header('Content-Type: application/json');
+echo json_encode([
+  'success' => true,
+  'resultado' => [
+    'token' => $token,
+    'qr_url' => $qr_url,
+    'pdf_url' => $pdf_url,
+  ]
+]);
+
 ?>
 
