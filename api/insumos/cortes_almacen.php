@@ -7,7 +7,7 @@ function abrirCorte($usuarioId) {
     if (!$usuarioId) {
         error('Usuario requerido');
     }
-    $stmt = $conn->prepare('INSERT INTO corte_almacen (usuario_abre_id, fecha_inicio) VALUES (?, NOW())');
+    $stmt = $conn->prepare('INSERT INTO cortes_almacen (usuario_abre_id, fecha_inicio) VALUES (?, NOW())');
     if (!$stmt) {
         error('Error al preparar: ' . $conn->error);
     }
@@ -26,7 +26,7 @@ function cerrarCorte($corteId, $usuarioId, $observaciones) {
     if (!$corteId || !$usuarioId) {
         error('Datos incompletos');
     }
-    $stmt = $conn->prepare('SELECT fecha_inicio FROM corte_almacen WHERE id = ?');
+    $stmt = $conn->prepare('SELECT fecha_inicio FROM cortes_almacen WHERE id = ?');
     if (!$stmt) {
         error('Error al obtener corte: ' . $conn->error);
     }
@@ -41,7 +41,7 @@ function cerrarCorte($corteId, $usuarioId, $observaciones) {
     $inicio = $row['fecha_inicio'];
     $stmt->close();
 
-    $upd = $conn->prepare('UPDATE corte_almacen SET usuario_cierra_id = ?, fecha_fin = NOW(), observaciones = ? WHERE id = ?');
+    $upd = $conn->prepare('UPDATE cortes_almacen SET usuario_cierra_id = ?, fecha_fin = NOW(), observaciones = ? WHERE id = ?');
     if (!$upd) {
         error('Error al preparar cierre: ' . $conn->error);
     }
@@ -93,7 +93,7 @@ function cerrarCorte($corteId, $usuarioId, $observaciones) {
         error('Error al obtener insumos: ' . $conn->error);
     }
 
-    $hasDetalle = $conn->query("SHOW TABLES LIKE 'corte_almacen_detalle'")->num_rows > 0;
+    $hasDetalle = $conn->query("SHOW TABLES LIKE 'cortes_almacen_detalle'")->num_rows > 0;
 
     $detalles = [];
     while ($ins = $resIns->fetch_assoc()) {
@@ -114,7 +114,7 @@ function cerrarCorte($corteId, $usuarioId, $observaciones) {
         ];
         $detalles[] = $d;
         if ($hasDetalle) {
-            $conn->query("INSERT INTO corte_almacen_detalle (corte_id, insumo_id, inicial, entradas, salidas, mermas, final) VALUES (
+            $conn->query("INSERT INTO cortes_almacen_detalle (corte_id, insumo_id, inicial, entradas, salidas, mermas, final) VALUES (
                 $corteId, $id, $inicial, $entradas, $salidas, $merma, $final
             )");
         }
@@ -125,7 +125,7 @@ function cerrarCorte($corteId, $usuarioId, $observaciones) {
 function obtenerCortes() {
     global $conn;
     $sql = "SELECT c.id, ui.nombre AS abierto_por, c.fecha_inicio, uc.nombre AS cerrado_por, c.fecha_fin
-            FROM corte_almacen c
+            FROM cortes_almacen c
             LEFT JOIN usuarios ui ON c.usuario_abre_id = ui.id
             LEFT JOIN usuarios uc ON c.usuario_cierra_id = uc.id
             ORDER BY c.id DESC";
@@ -143,7 +143,7 @@ function obtenerCortes() {
 function obtenerDetalleCorte($corteId) {
     global $conn;
     $stmt = $conn->prepare("SELECT i.nombre AS insumo, d.inicial, d.entradas, d.salidas, d.mermas, d.final
-        FROM corte_almacen_detalle d
+        FROM cortes_almacen_detalle d
         JOIN insumos i ON d.insumo_id = i.id
         WHERE d.corte_id = ?");
     if (!$stmt) {
