@@ -113,10 +113,36 @@ function cerrarCorte($corteId, $usuarioId, $observaciones) {
             'final' => $final
         ];
         $detalles[] = $d;
+
         if ($hasDetalle) {
-            $conn->query("INSERT INTO cortes_almacen_detalle (corte_id, insumo_id, inicial, entradas, salidas, mermas, final) VALUES (
-                $corteId, $id, $inicial, $entradas, $salidas, $merma, $final
-            )");
+            $existencia_inicial = $inicial;
+            $existencia_final   = $final;
+
+            $insert = "INSERT INTO cortes_almacen_detalle (
+                corte_id,
+                insumo_id,
+                existencia_inicial,
+                entradas,
+                salidas,
+                mermas,
+                existencia_final
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)";
+
+            $stmtDet = $conn->prepare($insert);
+            if ($stmtDet) {
+                $stmtDet->bind_param(
+                    "iiddddd",
+                    $corteId,
+                    $id,
+                    $existencia_inicial,
+                    $entradas,
+                    $salidas,
+                    $merma,
+                    $existencia_final
+                );
+                $stmtDet->execute();
+                $stmtDet->close();
+            }
         }
     }
     success(['mensaje' => 'Corte cerrado', 'detalles' => $detalles]);
