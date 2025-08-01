@@ -75,6 +75,17 @@ if (!$ins->execute()) {
 $idqr = $ins->insert_id;
 $ins->close();
 
+// registrar encabezado de despacho
+$desp = $conn->prepare('INSERT INTO despachos (sucursal_id, usuario_id, qr_token) VALUES (NULL, ?, ?)');
+if ($desp) {
+    $desp->bind_param('is', $usuario_id, $token);
+    $desp->execute();
+    $despacho_id = $desp->insert_id;
+    $desp->close();
+} else {
+    $despacho_id = null;
+}
+
 $dirPdf = __DIR__ . '/../../archivos/bodega/pdfs';
 if (!is_dir($dirPdf)) {
     mkdir($dirPdf, 0777, true);
@@ -104,14 +115,27 @@ foreach ($seleccionados as $s) {
 
 generar_pdf_con_imagen($pdf_path, 'Salida de insumos', $lineas, $public_qr_path, 150, 10, 40, 40);
 
+// registrar detalles de despacho
+if ($despacho_id) {
+    $det = $conn->prepare('INSERT INTO despachos_detalle (despacho_id, insumo_id, cantidad, unidad, precio_unitario) VALUES (?, ?, ?, ?, 0)');
+    if ($det) {
+        foreach ($seleccionados as $s) {
+            $det->bind_param('iids', $despacho_id, $s['id'], $s['cantidad'], $s['unidad']);
+            $det->execute();
+        }
+        $det->close();
+    }
+}
+
 $up = $conn->prepare('UPDATE qrs_insumo SET pdf_envio = ? WHERE id = ?');
 $up->bind_param('si', $pdf_rel, $idqr);
 $up->execute();
 $up->close();
 
-$mov = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, cantidad, qr_token) VALUES ('salida', ?, ?, ?, ?)");
+$mov = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, cantidad, qr_token) VALUES ('traspaso', ?, ?, ?, ?)");
 foreach ($seleccionados as $s) {
-    $mov->bind_param('iids', $usuario_id, $s['id'], $s['cantidad'], $token);
+    $neg = -$s['cantidad'];
+    $mov->bind_param('iids', $usuario_id, $s['id'], $neg, $token);
     $mov->execute();
 }
 $mov->close();

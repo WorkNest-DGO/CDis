@@ -34,6 +34,18 @@ ob_start();
     <div id="resultado" class="mb-3"></div>
     <div id="resultado2" class="mb-3"></div>
     <form id="formQR">
+        <div class="row mb-2">
+            <div class="col-md-6 mb-2">
+                <input type="text" id="buscarInsumo" class="form-control" placeholder="Buscar insumo">
+            </div>
+            <div class="col-md-2">
+                <select id="itemsPagina" class="form-select">
+                    <option value="15">15</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                </select>
+            </div>
+        </div>
         <div class="table-responsive">
             <table class="styled-table">
                 <thead>
@@ -44,22 +56,85 @@ ob_start();
                         <th>Cantidad a enviar</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <?php foreach ($insumos as $i): ?>
-                        <tr>
-                            <td><?= htmlspecialchars($i['nombre']) ?></td>
-                            <td><?= $i['existencia'] ?></td>
-                            <td><?= htmlspecialchars($i['unidad']) ?></td>
-                            <td><input type="number" step="0.01" min="0" data-id="<?= $i['id'] ?>" class="form-control"></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
+                <tbody id="tablaInsumos"></tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-center my-2">
+            <button type="button" id="prevPag" class="btn custom-btn me-2">Anterior</button>
+            <button type="button" id="nextPag" class="btn custom-btn">Siguiente</button>
+        </div>
+        <h5 class="text-white">Resumen</h5>
+        <div class="table-responsive">
+            <table class="styled-table" id="tablaResumen">
+                <thead>
+                    <tr><th>Insumo</th><th>Cantidad</th><th>Unidad</th></tr>
+                </thead>
+                <tbody></tbody>
             </table>
         </div>
         <button type="button" id="btnGenerar" class="btn custom-btn mt-3">Generar QR</button>
     </form>
 </div>
 <script>
+const catalogo = <?= json_encode($insumos) ?>;
+let filtrado = catalogo;
+let items = 15;
+let pagina = 1;
+
+function renderTabla(){
+    const tbody = document.getElementById('tablaInsumos');
+    tbody.innerHTML = '';
+    const inicio = (pagina-1)*items;
+    const fin = inicio + items;
+    filtrado.slice(inicio,fin).forEach(i => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${i.nombre}</td><td>${i.existencia}</td><td>${i.unidad}</td><td><input type="number" step="0.01" min="0" data-id="${i.id}" class="form-control"></td>`;
+        tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('input').forEach(inp=>{
+        inp.addEventListener('input', actualizarResumen);
+    });
+}
+
+function actualizarResumen(){
+    const body = document.querySelector('#tablaResumen tbody');
+    body.innerHTML='';
+    document.querySelectorAll('#tablaInsumos input[data-id]').forEach(inp=>{
+        const val = parseFloat(inp.value);
+        if(val>0){
+            const id = parseInt(inp.dataset.id);
+            const ins = catalogo.find(x=>x.id===id);
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${ins.nombre}</td><td>${val}</td><td>${ins.unidad}</td>`;
+            body.appendChild(tr);
+        }
+    });
+}
+
+function filtrar(){
+    const t = document.getElementById('buscarInsumo').value.toLowerCase();
+    filtrado = catalogo.filter(i=>i.nombre.toLowerCase().includes(t));
+    pagina=1;
+    renderTabla();
+    actualizarResumen();
+}
+
+document.getElementById('buscarInsumo').addEventListener('keyup',filtrar);
+document.getElementById('itemsPagina').addEventListener('change', e=>{
+    items = parseInt(e.target.value);
+    pagina=1;
+    renderTabla();
+    actualizarResumen();
+});
+document.getElementById('prevPag').addEventListener('click',()=>{
+    if(pagina>1){pagina--;renderTabla();actualizarResumen();}
+});
+document.getElementById('nextPag').addEventListener('click',()=>{
+    const total = Math.ceil(filtrado.length/items); if(pagina<total){pagina++;renderTabla();actualizarResumen();}
+});
+
+renderTabla();
+
 document.getElementById('btnGenerar').addEventListener('click', async function(e){
     e.preventDefault();
     const insumos = [];
