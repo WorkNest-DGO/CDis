@@ -160,7 +160,15 @@ document.getElementById('btnGenerar').addEventListener('click', async function(e
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ insumos })
         });
-        const data = await resp.json();
+        const text = await resp.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            console.error("Respuesta no es JSON:", text);
+            alert("Error al procesar la respuesta del servidor.");
+            return;
+        }
         if(data.success){
             const url = data.resultado.url;
             const pdf = '../../' + data.resultado.pdf_url;
