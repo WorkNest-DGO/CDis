@@ -37,12 +37,18 @@ ob_start();
         <div class="section-header text-center">
             <p>Insumos</p>
             <h2>Recuerda validar los datos antes de guardar altas</h2>
+
             <div class="d-flex justify-content-center mb-3">
                 <a class="btn custom-btn me-2" type="button" id="btnNuevoInsumo">Nuevo insumo</a>
             </div>
             <div class="d-flex justify-content-center mb-3">
                 <input type="text" id="buscarInsumo" class="form-control" placeholder="Buscar" style="text-align: right;">
             </div>
+                <div class="row">
+        <div class="col-12">
+            <ul id="paginador" class="pagination justify-content-center"></ul>
+        </div>
+    </div>
         </div>
         <div class="row" id="catalogoInsumos"></div>
 
@@ -70,11 +76,7 @@ ob_start();
         </form>
 
     </div>
-    <div class="row">
-        <div class="col-12">
-            <ul id="paginador" class="pagination justify-content-center"></ul>
-        </div>
-    </div>
+
 </div>
 </div>
 <!-- Blog End -->
