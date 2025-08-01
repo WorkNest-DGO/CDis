@@ -81,7 +81,7 @@ function cerrarCorte($corteId, $usuarioId, $observaciones) {
 
     $conn->begin_transaction();
 
-    // obtener fecha de inicio del corte y validar que esté abierto
+    // obtener inicio del corte y validar que no esté cerrado
     $stmt = $conn->prepare('SELECT fecha_inicio FROM cortes_almacen WHERE id = ? AND fecha_fin IS NULL');
     if (!$stmt) {
         $conn->rollback();
@@ -95,23 +95,74 @@ function cerrarCorte($corteId, $usuarioId, $observaciones) {
         $conn->rollback();
         error('Corte no encontrado o ya cerrado');
     }
-    $row = $res->fetch_assoc();
+    $row    = $res->fetch_assoc();
     $inicio = $row['fecha_inicio'];
     $stmt->close();
 
-    // obtener movimientos por insumo en el rango del corte
+    $fin = date('Y-m-d H:i:s');
+
+    // registrar cierre del corte para obtener fecha_fin fija
+    $updCorte = $conn->prepare('UPDATE cortes_almacen SET fecha_fin = ?, usuario_cierra_id = ?, observaciones = ? WHERE id = ? AND fecha_fin IS NULL');
+    if (!$updCorte) {
+        $conn->rollback();
+        error('Error al preparar cierre: ' . $conn->error);
+    }
+    $updCorte->bind_param('sisi', $fin, $usuarioId, $observaciones, $corteId);
+    if (!$updCorte->execute()) {
+        $updCorte->close();
+        $conn->rollback();
+        error('Error al cerrar corte: ' . $updCorte->error);
+    }
+    $updCorte->close();
+
+    // obtener insumos con existencia actual
+    $resIns = $conn->query('SELECT id, existencia FROM insumos');
+    if (!$resIns) {
+        $conn->rollback();
+        error('Error al obtener insumos: ' . $conn->error);
+    }
+
+    // obtener detalles existentes y validar duplicados
+    $det = $conn->prepare('SELECT insumo_id, existencia_inicial FROM cortes_almacen_detalle WHERE corte_id = ?');
+    if (!$det) {
+        $conn->rollback();
+        error('Error al obtener detalles: ' . $conn->error);
+    }
+    $det->bind_param('i', $corteId);
+    $det->execute();
+    $resDet = $det->get_result();
+    $detalleMap = [];
+    while ($d = $resDet->fetch_assoc()) {
+        $detalleMap[$d['insumo_id']] = (float)$d['existencia_inicial'];
+    }
+    $det->close();
+
+    $dupCheck = $conn->prepare('SELECT COUNT(*) c FROM cortes_almacen_detalle WHERE corte_id = ? GROUP BY insumo_id HAVING c > 1 LIMIT 1');
+    if ($dupCheck) {
+        $dupCheck->bind_param('i', $corteId);
+        $dupCheck->execute();
+        $dupRes = $dupCheck->get_result();
+        if ($dupRes && $dupRes->num_rows > 0) {
+            $dupCheck->close();
+            $conn->rollback();
+            error('Registros duplicados en detalle');
+        }
+        $dupCheck->close();
+    }
+
+    // movimientos y mermas en el rango
     $mov = $conn->prepare("SELECT insumo_id,
-            SUM(CASE WHEN tipo='entrada' THEN cantidad ELSE 0 END) AS entradas,
+            SUM(CASE WHEN tipo='entrada' OR (tipo='ajuste' AND cantidad>0) THEN cantidad ELSE 0 END) AS entradas,
             SUM(CASE WHEN tipo IN ('salida','traspaso') THEN cantidad ELSE 0 END) AS salidas,
-            SUM(CASE WHEN tipo='ajuste' AND cantidad < 0 THEN ABS(cantidad) ELSE 0 END) AS mermas
+            SUM(CASE WHEN tipo='ajuste' AND cantidad<0 THEN ABS(cantidad) ELSE 0 END) AS mermas
         FROM movimientos_insumos
-        WHERE fecha >= ? AND fecha <= NOW()
+        WHERE fecha BETWEEN ? AND ?
         GROUP BY insumo_id");
     if (!$mov) {
         $conn->rollback();
         error('Error al calcular movimientos: ' . $conn->error);
     }
-    $mov->bind_param('s', $inicio);
+    $mov->bind_param('ss', $inicio, $fin);
     $mov->execute();
     $rMov = $mov->get_result();
     $datosMov = [];
@@ -124,12 +175,11 @@ function cerrarCorte($corteId, $usuarioId, $observaciones) {
     }
     $mov->close();
 
-    // mermas adicionales si existe tabla mermas_insumo
     $hasMerma = $conn->query("SHOW TABLES LIKE 'mermas_insumo'")->num_rows > 0;
     if ($hasMerma) {
-        $mm = $conn->prepare('SELECT insumo_id, SUM(cantidad) AS merma FROM mermas_insumo WHERE fecha >= ? AND fecha <= NOW() GROUP BY insumo_id');
+        $mm = $conn->prepare('SELECT insumo_id, SUM(cantidad) AS merma FROM mermas_insumo WHERE fecha BETWEEN ? AND ? GROUP BY insumo_id');
         if ($mm) {
-            $mm->bind_param('s', $inicio);
+            $mm->bind_param('ss', $inicio, $fin);
             $mm->execute();
             $rm = $mm->get_result();
             while ($m = $rm->fetch_assoc()) {
@@ -144,76 +194,58 @@ function cerrarCorte($corteId, $usuarioId, $observaciones) {
         }
     }
 
-    // existencia final actual de insumos
-    $resIns = $conn->query('SELECT id, existencia FROM insumos');
-    if (!$resIns) {
-        $conn->rollback();
-        error('Error al obtener insumos: ' . $conn->error);
-    }
-    $existenciasFinales = [];
-    while ($row = $resIns->fetch_assoc()) {
-        $existenciasFinales[$row['id']] = (float)$row['existencia'];
-    }
-
-    // obtener existencias iniciales del corte
-    $det = $conn->prepare('SELECT insumo_id, existencia_inicial FROM cortes_almacen_detalle WHERE corte_id = ?');
-    if (!$det) {
-        $conn->rollback();
-        error('Error al obtener detalles: ' . $conn->error);
-    }
-    $det->bind_param('i', $corteId);
-    $det->execute();
-    $resDet = $det->get_result();
-
     $updDet = $conn->prepare('UPDATE cortes_almacen_detalle SET entradas = ?, salidas = ?, mermas = ?, existencia_final = ? WHERE corte_id = ? AND insumo_id = ?');
     if (!$updDet) {
-        $det->close();
         $conn->rollback();
         error('Error al preparar actualización de detalle: ' . $conn->error);
     }
 
+    $insDet = $conn->prepare('INSERT INTO cortes_almacen_detalle (corte_id, insumo_id, existencia_inicial, entradas, salidas, mermas, existencia_final) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    if (!$insDet) {
+        $updDet->close();
+        $conn->rollback();
+        error('Error al preparar inserción de detalle: ' . $conn->error);
+    }
+
     $detalles = [];
-    while ($row = $resDet->fetch_assoc()) {
-        $insumoId = (int)$row['insumo_id'];
-        $existenciaInicial = (float)$row['existencia_inicial'];
+    while ($ins = $resIns->fetch_assoc()) {
+        $insumoId = (int)$ins['id'];
+        $existenciaActual = (float)$ins['existencia'];
         $entradas = $datosMov[$insumoId]['entradas'] ?? 0;
         $salidas  = $datosMov[$insumoId]['salidas'] ?? 0;
         $mermas   = $datosMov[$insumoId]['mermas'] ?? 0;
-        $final    = $existenciasFinales[$insumoId] ?? 0;
 
-        $updDet->bind_param('ddddii', $entradas, $salidas, $mermas, $final, $corteId, $insumoId);
-        if (!$updDet->execute()) {
-            $updDet->close();
-            $det->close();
-            $conn->rollback();
-            error('Error al actualizar detalle: ' . $updDet->error);
+        if (isset($detalleMap[$insumoId])) {
+            $updDet->bind_param('ddddii', $entradas, $salidas, $mermas, $existenciaActual, $corteId, $insumoId);
+            if (!$updDet->execute()) {
+                $insDet->close();
+                $updDet->close();
+                $conn->rollback();
+                error('Error al actualizar detalle: ' . $updDet->error);
+            }
+            $inicial = $detalleMap[$insumoId];
+        } else {
+            $insDet->bind_param('iiddddd', $corteId, $insumoId, $existenciaActual, $entradas, $salidas, $mermas, $existenciaActual);
+            if (!$insDet->execute()) {
+                $insDet->close();
+                $updDet->close();
+                $conn->rollback();
+                error('Error al insertar detalle: ' . $insDet->error);
+            }
+            $inicial = $existenciaActual;
         }
 
         $detalles[] = [
             'insumo_id' => $insumoId,
-            'inicial'   => $existenciaInicial,
+            'inicial'   => $inicial,
             'entradas'  => $entradas,
             'salidas'   => $salidas,
             'mermas'    => $mermas,
-            'final'     => $final
+            'final'     => $existenciaActual
         ];
     }
+    $insDet->close();
     $updDet->close();
-    $det->close();
-
-    // cerrar corte
-    $upd = $conn->prepare('UPDATE cortes_almacen SET fecha_fin = NOW(), usuario_cierra_id = ?, observaciones = ? WHERE id = ?');
-    if (!$upd) {
-        $conn->rollback();
-        error('Error al preparar cierre: ' . $conn->error);
-    }
-    $upd->bind_param('isi', $usuarioId, $observaciones, $corteId);
-    if (!$upd->execute()) {
-        $upd->close();
-        $conn->rollback();
-        error('Error al cerrar corte: ' . $upd->error);
-    }
-    $upd->close();
 
     $conn->commit();
     success(['corte_id' => $corteId, 'detalles' => $detalles]);
