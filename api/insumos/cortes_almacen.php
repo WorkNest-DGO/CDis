@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../utils/response.php';
+require_once __DIR__ . '/../../vendor/autoload.php';
 
 function abrirCorte($usuarioId) {
     global $conn;
@@ -41,7 +42,7 @@ function abrirCorte($usuarioId) {
     $stmt->close();
 
     // registrar inventario inicial por insumo
-    $resIns = $conn->query('SELECT id, existencia FROM insumos');
+    $resIns = $conn->query('SELECT id, existencia, nombre, unidad FROM insumos');
     if (!$resIns) {
         $conn->rollback();
         error('Error al obtener insumos: ' . $conn->error);
@@ -236,12 +237,13 @@ function cerrarCorte($corteId, $usuarioId, $observaciones) {
         }
 
         $detalles[] = [
-            'insumo_id' => $insumoId,
-            'inicial'   => $inicial,
+            'insumo'    => $ins['nombre'] ?? 'Insumo eliminado',
+            'unidad'    => $ins['unidad'] ?? '',
+            'existencia_inicial' => $inicial,
             'entradas'  => $entradas,
             'salidas'   => $salidas,
             'mermas'    => $mermas,
-            'final'     => $existenciaActual
+            'existencia_final' => $existenciaActual
         ];
     }
     $insDet->close();
@@ -251,29 +253,42 @@ function cerrarCorte($corteId, $usuarioId, $observaciones) {
     success(['corte_id' => $corteId, 'detalles' => $detalles]);
 }
 
-function obtenerCortes() {
+function obtenerCortes($fecha = null) {
     global $conn;
     $sql = "SELECT c.id, ui.nombre AS abierto_por, c.fecha_inicio, uc.nombre AS cerrado_por, c.fecha_fin
             FROM cortes_almacen c
             LEFT JOIN usuarios ui ON c.usuario_abre_id = ui.id
-            LEFT JOIN usuarios uc ON c.usuario_cierra_id = uc.id
-            ORDER BY c.id DESC";
-    $res = $conn->query($sql);
-    if (!$res) {
-        error('Error al listar cortes: ' . $conn->error);
+            LEFT JOIN usuarios uc ON c.usuario_cierra_id = uc.id";
+    $params = [];
+    if ($fecha) {
+        $sql .= " WHERE DATE(c.fecha_inicio) = ?";
+        $params[] = $fecha;
     }
+    $sql .= " ORDER BY c.id DESC";
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        error('Error al preparar listado: ' . $conn->error);
+    }
+    if ($fecha) {
+        $stmt->bind_param('s', $fecha);
+    }
+    $stmt->execute();
+    $res = $stmt->get_result();
     $rows = [];
     while ($r = $res->fetch_assoc()) {
         $rows[] = $r;
     }
+    $stmt->close();
     success($rows);
 }
 
 function obtenerDetalleCorte($corteId) {
     global $conn;
-    $stmt = $conn->prepare("SELECT i.nombre AS insumo, d.inicial, d.entradas, d.salidas, d.mermas, d.final
+    $stmt = $conn->prepare("SELECT COALESCE(i.nombre,'Insumo eliminado') AS insumo,
+            COALESCE(i.unidad,'') AS unidad,
+            d.existencia_inicial, d.entradas, d.salidas, d.mermas, d.existencia_final
         FROM cortes_almacen_detalle d
-        JOIN insumos i ON d.insumo_id = i.id
+        LEFT JOIN insumos i ON d.insumo_id = i.id
         WHERE d.corte_id = ?");
     if (!$stmt) {
         error('Error al preparar detalle: ' . $conn->error);
@@ -287,6 +302,50 @@ function obtenerDetalleCorte($corteId) {
     }
     $stmt->close();
     success($detalles);
+}
+
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+
+function exportarExcel($corteId) {
+    global $conn;
+    if (!$corteId) {
+        error('Corte inválido');
+    }
+    $stmt = $conn->prepare("SELECT COALESCE(i.nombre,'Insumo eliminado') AS insumo,
+            COALESCE(i.unidad,'') AS unidad,
+            d.existencia_inicial, d.entradas, d.salidas, d.mermas, d.existencia_final
+        FROM cortes_almacen_detalle d
+        LEFT JOIN insumos i ON d.insumo_id = i.id
+        WHERE d.corte_id = ?");
+    if (!$stmt) {
+        error('Error al obtener datos: ' . $conn->error);
+    }
+    $stmt->bind_param('i', $corteId);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $spreadsheet = new Spreadsheet();
+    $sheet = $spreadsheet->getActiveSheet();
+    $sheet->fromArray(['Insumo','Unidad','Inicial','Entradas','Salidas','Mermas','Final'], NULL, 'A1');
+    $row = 2;
+    while ($d = $res->fetch_assoc()) {
+        $sheet->fromArray([
+            $d['insumo'],
+            $d['unidad'],
+            $d['existencia_inicial'],
+            $d['entradas'],
+            $d['salidas'],
+            $d['mermas'],
+            $d['existencia_final']
+        ], NULL, 'A' . $row);
+        $row++;
+    }
+    $stmt->close();
+    $fileName = '/uploads/reportes/corte_almacen_' . $corteId . '_' . date('Ymd_His') . '.xlsx';
+    $path = __DIR__ . '/../../' . ltrim($fileName, '/');
+    $writer = new Xlsx($spreadsheet);
+    $writer->save($path);
+    success(['archivo' => $fileName]);
 }
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
@@ -303,11 +362,16 @@ switch ($accion) {
         cerrarCorte($corteId, $user, $obs);
         break;
     case 'listar':
-        obtenerCortes();
+        $fecha = $_GET['fecha'] ?? null;
+        obtenerCortes($fecha);
         break;
     case 'detalle':
         $cid = isset($_GET['corte_id']) ? (int)$_GET['corte_id'] : 0;
         obtenerDetalleCorte($cid);
+        break;
+    case 'exportar_excel':
+        $cid = isset($_POST['corte_id']) ? (int)$_POST['corte_id'] : 0;
+        exportarExcel($cid);
         break;
     default:
         error('Acción no válida');
