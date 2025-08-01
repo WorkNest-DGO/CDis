@@ -132,10 +132,12 @@ $up->bind_param('si', $pdf_rel, $idqr);
 $up->execute();
 $up->close();
 
-$mov = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, cantidad, qr_token) VALUES ('traspaso', ?, ?, ?, ?)");
+$mov = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, cantidad, observacion, fecha, qr_token) VALUES (?, ?, ?, ?, ?, NOW(), ?)");
 foreach ($seleccionados as $s) {
     $neg = -$s['cantidad'];
-    $mov->bind_param('iids', $usuario_id, $s['id'], $neg, $token);
+    $tipo = 'traspaso';
+    $obs = '';
+    $mov->bind_param('siidss', $tipo, $usuario_id, $s['id'], $neg, $obs, $token);
     $mov->execute();
 }
 $mov->close();
