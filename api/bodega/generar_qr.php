@@ -40,7 +40,7 @@ foreach ($input['insumos'] as $d) {
     $id = isset($d['id']) ? (int)$d['id'] : 0;
     $cant = isset($d['cantidad']) ? (float)$d['cantidad'] : 0;
     if ($id > 0 && $cant > 0) {
-        $q = $conn->prepare('SELECT nombre, unidad FROM insumo_bodega WHERE id = ?');
+        $q = $conn->prepare('SELECT nombre, unidad FROM insumos WHERE id = ?');
         if ($q) {
             $q->bind_param('i', $id);
             $q->execute();

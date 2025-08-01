@@ -9,7 +9,7 @@ if (!in_array($path_actual, $_SESSION['rutas_permitidas'])) {
 
 require_once __DIR__ . '/../../config/db.php';
 
-$res = $conn->query('SELECT id, nombre, unidad, existencia FROM insumo_bodega');
+$res = $conn->query('SELECT id, nombre, unidad, existencia FROM insumos');
 $insumos = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
 
 $title = 'Generar QR';
