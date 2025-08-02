@@ -130,6 +130,29 @@ async function exportarExcel() {
     }
 }
 
+async function exportarPdf() {
+    if (!corteActual) {
+        alert('Seleccione un corte');
+        return;
+    }
+    try {
+        const resp = await fetch('../../api/insumos/cortes_almacen.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ accion: 'exportar_pdf', corte_id: corteActual })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            window.open(data.resultado.archivo, '_blank');
+        } else {
+            alert(data.mensaje);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('No se pudo exportar');
+    }
+}
+
 function cambiarPagina(delta) {
     const total = detalles.filter(d => d.insumo.toLowerCase().includes(document.getElementById('filtroInsumo').value.toLowerCase())).length;
     const maxPagina = Math.ceil(total / pageSize);
@@ -148,6 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('filtroInsumo')?.addEventListener('input', () => { pagina = 1; renderTabla(); });
     document.getElementById('registrosPagina')?.addEventListener('change', () => { pagina = 1; renderTabla(); });
     document.getElementById('btnExportarExcel')?.addEventListener('click', exportarExcel);
+    document.getElementById('btnExportarPdf')?.addEventListener('click', exportarPdf);
     document.getElementById('prevPagina')?.addEventListener('click', () => cambiarPagina(-1));
     document.getElementById('nextPagina')?.addEventListener('click', () => cambiarPagina(1));
 });
