@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../utils/response.php';
 require_once __DIR__ . '/../../utils/PhpSpreadsheet/src/Bootstrap.php';
 require_once __DIR__ . '/../../utils/PhpSpreadsheet/src/Spreadsheet.php';
 require_once __DIR__ . '/../../utils/PhpSpreadsheet/src/Writer/Xlsx.php';
-require_once __DIR__ . '/../../utils/PhpSpreadsheet/Settings.php';
+require_once __DIR__ . '/../../utils/pdf_simple.php';
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -330,9 +330,6 @@ function exportarExcel($corteId) {
     $stmt->execute();
     $res = $stmt->get_result();
 
-    \PhpOffice\PhpSpreadsheet\Settings::setCacheStorageMethod(
-        \PhpOffice\PhpSpreadsheet\Settings::CACHE_MEMORY
-    );
     $spreadsheet = new Spreadsheet();
     $sheet = $spreadsheet->getActiveSheet();
     $sheet->fromArray(['Insumo','Unidad','Inicial','Entradas','Salidas','Mermas','Final'], NULL, 'A1');
@@ -354,6 +351,37 @@ function exportarExcel($corteId) {
     $path = __DIR__ . '/..' . '/..' . $fileName;
     $writer = new Xlsx($spreadsheet);
     $writer->save($path);
+    success(['archivo' => $fileName]);
+}
+
+function exportarPdf($corteId) {
+    global $conn;
+    if (!$corteId) {
+        error('Corte inválido');
+    }
+    $stmt = $conn->prepare("SELECT COALESCE(i.nombre,'Insumo eliminado') AS insumo,
+            COALESCE(i.unidad,'') AS unidad,
+            d.existencia_inicial, d.entradas, d.salidas, d.mermas, d.existencia_final
+        FROM cortes_almacen_detalle d
+        LEFT JOIN insumos i ON d.insumo_id = i.id
+        WHERE d.corte_id = ?");
+    if (!$stmt) {
+        error('Error al obtener datos: ' . $conn->error);
+    }
+    $stmt->bind_param('i', $corteId);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $lineas = [];
+    $lineas[] = 'Insumo | Unidad | Inicial | Entradas | Salidas | Mermas | Final';
+    while ($d = $res->fetch_assoc()) {
+        $lineas[] = $d['insumo'] . ' | ' . $d['unidad'] . ' | ' .
+            $d['existencia_inicial'] . ' | ' . $d['entradas'] . ' | ' .
+            $d['salidas'] . ' | ' . $d['mermas'] . ' | ' . $d['existencia_final'];
+    }
+    $stmt->close();
+    $fileName = '/uploads/reportes/corte_almacen_' . $corteId . '.pdf';
+    $path = __DIR__ . '/..' . '/..' . $fileName;
+    generar_pdf_simple($path, 'Corte de Almacen', $lineas);
     success(['archivo' => $fileName]);
 }
 
@@ -381,6 +409,10 @@ switch ($accion) {
     case 'exportar_excel':
         $cid = isset($_POST['corte_id']) ? (int)$_POST['corte_id'] : 0;
         exportarExcel($cid);
+        break;
+    case 'exportar_pdf':
+        $cid = isset($_POST['corte_id']) ? (int)$_POST['corte_id'] : 0;
+        exportarPdf($cid);
         break;
     default:
         error('Acción no válida');
