@@ -1,7 +1,13 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../utils/response.php';
-require_once __DIR__ . '/../../vendor/autoload.php';
+// Cargar PhpSpreadsheet manualmente sin Composer
+require_once __DIR__ . '/../../utils/PhpSpreadsheet/src/Bootstrap.php';
+require_once __DIR__ . '/../../utils/PhpSpreadsheet/src/Spreadsheet.php';
+require_once __DIR__ . '/../../utils/PhpSpreadsheet/src/Writer/Xlsx.php';
+
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 function abrirCorte($usuarioId) {
     global $conn;
@@ -304,8 +310,6 @@ function obtenerDetalleCorte($corteId) {
     success($detalles);
 }
 
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 function exportarExcel($corteId) {
     global $conn;
@@ -324,6 +328,7 @@ function exportarExcel($corteId) {
     $stmt->bind_param('i', $corteId);
     $stmt->execute();
     $res = $stmt->get_result();
+
     $spreadsheet = new Spreadsheet();
     $sheet = $spreadsheet->getActiveSheet();
     $sheet->fromArray(['Insumo','Unidad','Inicial','Entradas','Salidas','Mermas','Final'], NULL, 'A1');
@@ -341,8 +346,8 @@ function exportarExcel($corteId) {
         $row++;
     }
     $stmt->close();
-    $fileName = '/uploads/reportes/corte_almacen_' . $corteId . '_' . date('Ymd_His') . '.xlsx';
-    $path = __DIR__ . '/../../' . ltrim($fileName, '/');
+    $fileName = 'uploads/reportes/corte_almacen_' . $corteId . '.xlsx';
+    $path = __DIR__ . '/../../' . $fileName;
     $writer = new Xlsx($spreadsheet);
     $writer->save($path);
     success(['archivo' => $fileName]);
