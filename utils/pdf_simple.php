@@ -33,6 +33,12 @@ function generar_pdf_simple($archivo, $titulo, array $lineas) {
     }
     $pdf .= "trailer\n<< /Size " . (count($objs) + 1) . " /Root 1 0 R >>\nstartxref\n$xref\n%%EOF";
 
+    // Ensure destination directory exists before saving the PDF
+    $directorio = dirname($archivo);
+    if (!file_exists($directorio)) {
+        mkdir($directorio, 0777, true);
+    }
+
     file_put_contents($archivo, $pdf);
 }
 
@@ -83,6 +89,11 @@ function generar_pdf_con_imagen($archivo, $titulo, array $lineas, $imagen, $x = 
         $pdf .= sprintf("%010d 00000 n \n", $pos[$i]);
     }
     $pdf .= "trailer\n<< /Size " . (count($objs) + 1) . " /Root 1 0 R >>\nstartxref\n$xref\n%%EOF";
+    // Ensure destination directory exists before saving the PDF
+    $directorio = dirname($archivo);
+    if (!file_exists($directorio)) {
+        mkdir($directorio, 0777, true);
+    }
     file_put_contents($archivo, $pdf);
 }
 ?>
