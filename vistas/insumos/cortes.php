@@ -27,7 +27,8 @@ ob_start();
     <div class="mb-3">
         <button class="btn custom-btn me-2" id="btnAbrirCorte">Abrir corte</button>
         <button class="btn custom-btn me-2" id="btnCerrarCorte">Cerrar corte</button>
-        <button class="btn custom-btn" id="btnExportarExcel">Exportar a Excel</button>
+        <button class="btn custom-btn me-2" id="btnExportarExcel">Exportar a Excel</button>
+        <button class="btn custom-btn" id="btnExportarPdf">Exportar a PDF</button>
     </div>
     <div id="formObservaciones" class="mb-3" style="display:none;">
         <textarea id="observaciones" class="form-control mb-2" placeholder="Observaciones"></textarea>
