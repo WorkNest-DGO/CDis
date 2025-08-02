@@ -1,14 +1,10 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../utils/response.php';
-// Cargar PhpSpreadsheet manualmente sin Composer
-require_once __DIR__ . '/../../utils/PhpSpreadsheet/src/Bootstrap.php';
-require_once __DIR__ . '/../../utils/PhpSpreadsheet/src/Spreadsheet.php';
-require_once __DIR__ . '/../../utils/PhpSpreadsheet/src/Writer/Xlsx.php';
+require_once __DIR__ . '/../../utils/SimpleXLSXGen.php';
 require_once __DIR__ . '/../../utils/pdf_simple.php';
 
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+
 
 function abrirCorte($usuarioId) {
     global $conn;
@@ -312,46 +308,46 @@ function obtenerDetalleCorte($corteId) {
 }
 
 
-function exportarExcel($corteId) {
+function exportarExcel($corte_id) {
     global $conn;
-    if (!$corteId) {
-        error('Corte inválido');
-    }
-    $stmt = $conn->prepare("SELECT COALESCE(i.nombre,'Insumo eliminado') AS insumo,
-            COALESCE(i.unidad,'') AS unidad,
-            d.existencia_inicial, d.entradas, d.salidas, d.mermas, d.existencia_final
-        FROM cortes_almacen_detalle d
-        LEFT JOIN insumos i ON d.insumo_id = i.id
-        WHERE d.corte_id = ?");
-    if (!$stmt) {
-        error('Error al obtener datos: ' . $conn->error);
-    }
-    $stmt->bind_param('i', $corteId);
-    $stmt->execute();
-    $res = $stmt->get_result();
 
-    $spreadsheet = new Spreadsheet();
-    $sheet = $spreadsheet->getActiveSheet();
-    $sheet->fromArray(['Insumo','Unidad','Inicial','Entradas','Salidas','Mermas','Final'], NULL, 'A1');
-    $row = 2;
-    while ($d = $res->fetch_assoc()) {
-        $sheet->fromArray([
-            $d['insumo'],
-            $d['unidad'],
-            $d['existencia_inicial'],
-            $d['entradas'],
-            $d['salidas'],
-            $d['mermas'],
-            $d['existencia_final']
-        ], NULL, 'A' . $row);
-        $row++;
+    $query = "SELECT i.nombre AS insumo, i.unidad, d.existencia_inicial, d.entradas, d.salidas, d.mermas, d.existencia_final
+              FROM cortes_almacen_detalle d
+              JOIN insumos i ON i.id = d.insumo_id
+              WHERE d.corte_id = ?";
+
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("i", $corte_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $data = [
+        ['Insumo', 'Unidad', 'Inicial', 'Entradas', 'Salidas', 'Mermas', 'Final']
+    ];
+
+    while ($row = $result->fetch_assoc()) {
+        $data[] = [
+            $row['insumo'],
+            $row['unidad'],
+            $row['existencia_inicial'],
+            $row['entradas'],
+            $row['salidas'],
+            $row['mermas'],
+            $row['existencia_final']
+        ];
     }
-    $stmt->close();
-    $fileName = '/uploads/reportes/corte_almacen_' . $corteId . '.xlsx';
-    $path = __DIR__ . '/..' . '/..' . $fileName;
-    $writer = new Xlsx($spreadsheet);
-    $writer->save($path);
-    success(['archivo' => $fileName]);
+
+    $xlsx = SimpleXLSXGen::fromArray($data);
+    $ruta = "../../uploads/reportes/corte_almacen_{$corte_id}.xlsx";
+
+    // Crear carpeta si no existe
+    if (!file_exists(dirname($ruta))) {
+        mkdir(dirname($ruta), 0777, true);
+    }
+
+    $xlsx->saveAs($ruta);
+
+    echo json_encode(["success" => true, "resultado" => ["archivo" => $ruta]]);
 }
 
 function exportarPdf($corteId) {
@@ -385,7 +381,7 @@ function exportarPdf($corteId) {
     success(['archivo' => $fileName]);
 }
 
-$accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
+$accion = $_GET['accion'] ?? $_POST['accion'] ?? $_GET['action'] ?? $_POST['action'] ?? '';
 
 switch ($accion) {
     case 'abrir':
@@ -407,7 +403,8 @@ switch ($accion) {
         obtenerDetalleCorte($cid);
         break;
     case 'exportar_excel':
-        $cid = isset($_POST['corte_id']) ? (int)$_POST['corte_id'] : 0;
+    case 'exportarExcel':
+        $cid = isset($_POST['corte_id']) ? (int)$_POST['corte_id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
         exportarExcel($cid);
         break;
     case 'exportar_pdf':
