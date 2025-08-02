@@ -346,8 +346,8 @@ function exportarExcel($corteId) {
         $row++;
     }
     $stmt->close();
-    $fileName = 'uploads/reportes/corte_almacen_' . $corteId . '.xlsx';
-    $path = __DIR__ . '/../../' . $fileName;
+    $fileName = '/uploads/reportes/corte_almacen_' . $corteId . '.xlsx';
+    $path = __DIR__ . '/..' . '/..' . $fileName;
     $writer = new Xlsx($spreadsheet);
     $writer->save($path);
     success(['archivo' => $fileName]);
