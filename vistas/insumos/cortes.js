@@ -113,11 +113,7 @@ async function exportarExcel() {
         return;
     }
     try {
-        const resp = await fetch('../../api/insumos/cortes_almacen.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ accion: 'exportar_excel', corte_id: corteActual })
-        });
+        const resp = await fetch(`../../api/insumos/cortes_almacen.php?action=exportarExcel&id=${corteActual}`);
         const data = await resp.json();
         if (data.success) {
             window.open(data.resultado.archivo, '_blank');
