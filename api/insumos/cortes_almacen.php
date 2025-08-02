@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../utils/response.php';
 require_once __DIR__ . '/../../utils/PhpSpreadsheet/src/Bootstrap.php';
 require_once __DIR__ . '/../../utils/PhpSpreadsheet/src/Spreadsheet.php';
 require_once __DIR__ . '/../../utils/PhpSpreadsheet/src/Writer/Xlsx.php';
+require_once __DIR__ . '/../../utils/PhpSpreadsheet/Settings.php';
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -329,6 +330,9 @@ function exportarExcel($corteId) {
     $stmt->execute();
     $res = $stmt->get_result();
 
+    \PhpOffice\PhpSpreadsheet\Settings::setCacheStorageMethod(
+        \PhpOffice\PhpSpreadsheet\Settings::CACHE_MEMORY
+    );
     $spreadsheet = new Spreadsheet();
     $sheet = $spreadsheet->getActiveSheet();
     $sheet->fromArray(['Insumo','Unidad','Inicial','Entradas','Salidas','Mermas','Final'], NULL, 'A1');
