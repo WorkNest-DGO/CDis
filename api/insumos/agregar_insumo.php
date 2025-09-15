@@ -2,11 +2,6 @@
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../utils/response.php';
 require_once __DIR__ . '/../../utils/imagen.php';
-session_start();
-
-if (!isset($_SESSION['usuario_id'])) {
-    error('No autenticado');
-}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     error('Método no permitido');
@@ -39,17 +34,7 @@ if (!$stmt->execute()) {
     $stmt->close();
     error('Error al agregar insumo: ' . $stmt->error);
 }
-$insumo_id = $stmt->insert_id;
 $stmt->close();
-
-// registrar movimiento de entrada inicial
-$mov = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, cantidad, observacion) VALUES ('entrada', ?, ?, ?, ?)");
-if ($mov) {
-    $obs = 'Entrada directa por usuario';
-    $mov->bind_param('iids', $_SESSION['usuario_id'], $insumo_id, $existencia, $obs);
-    $mov->execute();
-    $mov->close();
-}
 
 success(['mensaje' => 'Insumo agregado']);
 ?>

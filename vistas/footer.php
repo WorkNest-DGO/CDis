@@ -1,4 +1,12 @@
-<?php if (!isset($base_url)) { $base_url = '/CDI'; } ?>
+<?php
+// Asegura base URL dinámico si no fue definido por nav
+if (!isset($base_url)) {
+    $sn = isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '';
+    $pos = strpos($sn, '/vistas/');
+    $base_url = $pos !== false ? substr($sn, 0, $pos) : rtrim(dirname($sn), '/');
+    if ($base_url === '') { $base_url = '/'; }
+}
+?>
         <!-- Footer Start -->
  <hr style="border-color:#fff;">     
 <div class="footer">

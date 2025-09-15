@@ -2,7 +2,7 @@
 $host = 'localhost';
 $user = 'root';
 $pass = '';
-$db   = 'cdis';
+$db   = 'restaurante_cdis';
 
 $conn = new mysqli($host, $user, $pass, $db);
 
