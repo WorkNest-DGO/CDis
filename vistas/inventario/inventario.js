@@ -1,40 +1,21 @@
+function showAppMsg(msg) {
+    const body = document.querySelector('#appMsgModal .modal-body');
+    if (body) body.textContent = String(msg);
+    showModal('#appMsgModal');
+}
+window.alert = showAppMsg;
+
+let productos = [];
+const itemsPorPaginaInv = 20;
+let paginaActualInv = 1;
+
 async function cargarProductos() {
     try {
         const resp = await fetch('../../api/inventario/listar_productos.php');
         const data = await resp.json();
         if (data.success) {
-            const tbody = document.querySelector('#tablaProductos tbody');
-            tbody.innerHTML = '';
-            data.resultado.forEach(p => {
-                const tr = document.createElement('tr');
-                tr.classList.add('table-row'); // Clase opcional para filas si deseas estilizar más
-                tr.innerHTML = `
-                    <td class="text-center">${p.id}</td>
-                    <td>${p.nombre}</td>
-                    <td>$${parseFloat(p.precio).toFixed(2)}</td>
-                    <td>
-                        <input type="number" class="existencia form-control" data-id="${p.id}" value="${p.existencia}" style="max-width:80px;">
-                    </td>
-                    <td>${p.descripcion || ''}</td>
-                    <td>${p.activo == 1 ? '<span class="badge bg-success">Sí</span>' : '<span class="badge bg-danger">No</span>'}</td>
-                    <td>
-                        <button class="actualizar btn custom-btn btn-sm" data-id="${p.id}">Editar existencia</button>
-                        <button class="eliminar btn custom-btn btn-sm ms-2" data-id="${p.id}">Eliminar</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-
-            // Vincular evento a botones
-            tbody.querySelectorAll('button.actualizar').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const input = btn.closest('tr').querySelector('.existencia');
-                    actualizarExistencia(btn.dataset.id, input.value);
-                });
-            });
-            tbody.querySelectorAll('button.eliminar').forEach(btn => {
-                btn.addEventListener('click', () => eliminarProducto(btn.dataset.id));
-            });
+            productos = Array.isArray(data.resultado) ? data.resultado : [];
+            renderTablaInventario(paginaActualInv);
         } else {
             alert(data.mensaje);
         }
@@ -42,6 +23,98 @@ async function cargarProductos() {
         console.error(err);
         alert('Error al cargar inventario');
     }
+}
+
+function renderTablaInventario(pagina = 1) {
+    const tbody = document.querySelector('#tablaProductos tbody');
+    if (!tbody) return;
+
+    const totalPaginas = Math.max(1, Math.ceil(productos.length / itemsPorPaginaInv));
+    paginaActualInv = Math.min(Math.max(1, pagina), totalPaginas);
+    const inicio = (paginaActualInv - 1) * itemsPorPaginaInv;
+    const fin = inicio + itemsPorPaginaInv;
+    const visibles = productos.slice(inicio, fin);
+
+    tbody.innerHTML = '';
+    visibles.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.classList.add('table-row');
+        tr.innerHTML = `
+            <td class="text-center">${p.id}</td>
+            <td>${p.nombre}</td>
+            <td>$${parseFloat(p.precio).toFixed(2)}</td>
+            <td>
+                <input type="number" class="existencia form-control" data-id="${p.id}" value="${p.existencia}" style="max-width:80px;">
+            </td>
+            <td>${p.descripcion || ''}</td>
+            <td>${p.activo == 1 ? '<span class="badge bg-success">Sí</span>' : '<span class="badge bg-danger">No</span>'}</td>
+            <td>
+                <button class="actualizar btn custom-btn btn-sm" data-id="${p.id}">Editar existencia</button>
+                <button class="eliminar btn custom-btn btn-sm ms-2" data-id="${p.id}">Eliminar</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    // Eventos visibles
+    tbody.querySelectorAll('button.actualizar').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const input = btn.closest('tr').querySelector('.existencia');
+            actualizarExistencia(btn.dataset.id, input.value);
+        });
+    });
+    tbody.querySelectorAll('button.eliminar').forEach(btn => {
+        btn.addEventListener('click', () => eliminarProducto(btn.dataset.id));
+    });
+
+    renderPaginadorInventario(totalPaginas);
+}
+
+function renderPaginadorInventario(totalPaginas) {
+    const pag = document.getElementById('paginadorInv');
+    if (!pag) return;
+    pag.innerHTML = '';
+
+    const prevLi = document.createElement('li');
+    prevLi.className = 'page-item' + (paginaActualInv === 1 ? ' disabled' : '');
+    const prevA = document.createElement('a');
+    prevA.className = 'page-link';
+    prevA.href = '#';
+    prevA.textContent = 'Anterior';
+    prevA.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (paginaActualInv > 1) renderTablaInventario(paginaActualInv - 1);
+    });
+    prevLi.appendChild(prevA);
+    pag.appendChild(prevLi);
+
+    for (let i = 1; i <= totalPaginas; i++) {
+        const li = document.createElement('li');
+        li.className = 'page-item' + (i === paginaActualInv ? ' active' : '');
+        const a = document.createElement('a');
+        a.className = 'page-link';
+        a.href = '#';
+        a.textContent = String(i);
+        a.addEventListener('click', (e) => {
+            e.preventDefault();
+            renderTablaInventario(i);
+        });
+        li.appendChild(a);
+        pag.appendChild(li);
+    }
+
+    const nextLi = document.createElement('li');
+    nextLi.className = 'page-item' + (paginaActualInv === totalPaginas ? ' disabled' : '');
+    const nextA = document.createElement('a');
+    nextA.className = 'page-link';
+    nextA.href = '#';
+    nextA.textContent = 'Siguiente';
+    nextA.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (paginaActualInv < totalPaginas) renderTablaInventario(paginaActualInv + 1);
+    });
+    nextLi.appendChild(nextA);
+    pag.appendChild(nextLi);
 }
 
 
@@ -56,7 +129,9 @@ async function actualizarExistencia(id, valor) {
         const data = await resp.json();
         if (data && data.success) {
             mostrarConfirmacion('¡Cambiado exitosamente!');
-            cargarProductos();
+            const pagina = paginaActualInv;
+            await cargarProductos();
+            renderTablaInventario(pagina);
         } else {
             mostrarModal('Error', (data && data.mensaje) || 'No se pudo actualizar');
         }
@@ -77,7 +152,9 @@ async function eliminarProducto(id) {
         const data = await resp.json();
         if (data && data.success) {
             mostrarConfirmacion('Producto eliminado');
-            cargarProductos();
+            const pagina = paginaActualInv;
+            await cargarProductos();
+            renderTablaInventario(pagina);
         } else {
             mostrarModal('Error', (data && data.mensaje) || 'No se pudo eliminar');
         }
@@ -87,15 +164,12 @@ async function eliminarProducto(id) {
     }
 }
 
-
 function abrirModalAgregar() {
-    document.getElementById('modalAgregar').style.display = 'flex';
+    showModal('#modalAgregar');
 }
-function agregarProducto() {
-    abrirModalAgregar();
-}
-function cerrarModal() {
-    document.getElementById('modalAgregar').style.display = 'none';
+
+function cerrarModalAgregar() {
+    hideModal('#modalAgregar');
     document.getElementById('formAgregar').reset();
 }
 
@@ -116,7 +190,7 @@ document.getElementById('formAgregar').addEventListener('submit', async (e) => {
         const data = await resp.json();
         if (data.success) {
             alert(data.resultado?.mensaje || 'Producto agregado');
-            cerrarModal();
+            cerrarModalAgregar();
             cargarProductos();
         } else {
             alert(data.mensaje);
@@ -128,28 +202,21 @@ document.getElementById('formAgregar').addEventListener('submit', async (e) => {
 });
 
 
-
 function mostrarModal(titulo, mensaje) {
-    const modal = document.getElementById('modalAlerta');
-    const mensajeEl = document.getElementById('mensajeModal');
-
-    mensajeEl.innerText = mensaje;
-    modal.style.display = 'flex';
-
-    document.getElementById('cerrarModal').onclick = () => {
-        modal.style.display = 'none';
-    };
+    document.getElementById('modalTitulo').textContent = titulo;
+    document.getElementById('mensajeModal').textContent = mensaje;
+    showModal('#modalAlerta');
 }
 
 function mostrarConfirmacion(mensaje) {
-    const $modal = $('#modalConfirmacion');
-    $modal.find('.mensaje').text(mensaje);
-    $modal.modal('show');
+    const modal = document.getElementById('modalConfirmacion');
+    modal.querySelector('.mensaje').textContent = mensaje;
+    showModal('#modalConfirmacion');
 }
 
 
 document.addEventListener('DOMContentLoaded', () => {
     cargarProductos();
-    document.getElementById('agregarProducto').addEventListener('click', agregarProducto);
+    document.getElementById('agregarProducto').addEventListener('click', abrirModalAgregar);
 });
 

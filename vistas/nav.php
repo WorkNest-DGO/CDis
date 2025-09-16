@@ -1,6 +1,11 @@
 <?php
+// Detecta el base URL dinámicamente según la ruta del script (raíz del app)
 if (!defined('BASE_URL')) {
-    define('BASE_URL', '/CDI');
+    $sn = isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '';
+    $pos = strpos($sn, '/vistas/');
+    $bu = $pos !== false ? substr($sn, 0, $pos) : rtrim(dirname($sn), '/');
+    if ($bu === '') { $bu = '/'; }
+    define('BASE_URL', $bu);
 }
 $base_url = BASE_URL;
 

@@ -7,7 +7,7 @@ use Mike42\Escpos\EscposImage;
 use Mike42\Escpos\GdEscposImage;
 use Mike42\Escpos\PrintConnectors\WindowsPrintConnector;
 //$connector = new WindowsPrintConnector("smb://ip_maquina/nombre_impresora");
-$connector = new WindowsPrintConnector("smb://FUED/80");
+$connector = new WindowsPrintConnector("smb://FUED/pos58");
 
 $printer = new Printer($connector);
 

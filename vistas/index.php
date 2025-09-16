@@ -1,6 +1,11 @@
 <?php
 require_once __DIR__ . '/../utils/cargar_permisos.php';
-$path_actual = str_replace('/CDI', '', $_SERVER['PHP_SELF']);
+// Determina la base del app de forma dinámica (dos niveles arriba del script)
+$__sn = isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '';
+$__pos = strpos($__sn, '/vistas/');
+$__app_base = $__pos !== false ? substr($__sn, 0, $__pos) : rtrim(dirname($__sn), '/');
+// Normaliza ruta actual relativa al app (ej. /vistas/index.php)
+$path_actual = preg_replace('#^' . preg_quote($__app_base, '#') . '#', '', ($__sn ?: $_SERVER['PHP_SELF']));
 if (!in_array($path_actual, $_SESSION['rutas_permitidas'])) {
     http_response_code(403);
     echo 'Acceso no autorizado';
@@ -9,9 +14,13 @@ if (!in_array($path_actual, $_SESSION['rutas_permitidas'])) {
 ?>
 <?php
 if (!defined('BASE_URL')) {
-    define('BASE_URL', '/CDI');
+    $sn = isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '';
+    $pos = strpos($sn, '/vistas/');
+    $bu = $pos !== false ? substr($sn, 0, $pos) : rtrim(dirname($sn), '/');
+    if ($bu === '') { $bu = '/'; }
+    define('BASE_URL', $bu);
 }
-$base_url = '/CDI'; 
+$base_url = BASE_URL; 
 
 require_once __DIR__ . '/../utils/cargar_permisos.php';
 
