@@ -31,17 +31,25 @@ ob_start();
     <div class="mb-3">
         <button class="btn custom-btn me-2" id="btnAbrirCorte">Abrir corte</button>
         <button class="btn custom-btn me-2" id="btnCerrarCorte">Cerrar corte</button>
-        <button class="btn custom-btn me-2" id="btnExportarExcel">Exportar a Excel</button>
+        <button class="btn custom-btn me-2" id="btnExportarCsv">Exportar CSV</button>
         <button class="btn custom-btn" id="btnExportarPdf">Exportar a PDF</button>
     </div>
     <div id="formObservaciones" class="mb-3" style="display:none;">
         <textarea id="observaciones" class="form-control mb-2" placeholder="Observaciones"></textarea>
         <button class="btn custom-btn" id="guardarCierre">Guardar cierre</button>
     </div>
-    <div class="mb-3">
-        <label for="buscarFecha">Fecha:</label>
-        <input type="date" id="buscarFecha" class="form-control-sm">
-        <button class="btn custom-btn-sm" id="btnBuscar">Buscar</button>
+    <div class="mb-3 d-flex align-items-end gap-2 flex-wrap">
+        <div>
+            <label for="buscarDesde" class="form-label mb-0">Desde:</label>
+            <input type="date" id="buscarDesde" class="form-control form-control-sm">
+        </div>
+        <div>
+            <label for="buscarHasta" class="form-label mb-0">Hasta:</label>
+            <input type="date" id="buscarHasta" class="form-control form-control-sm">
+        </div>
+        <div>
+            <button class="btn custom-btn-sm" id="btnBuscar">Buscar</button>
+        </div>
     </div>
     <div class="mb-3">
         <select id="listaCortes" class="form-select form-select-sm">
