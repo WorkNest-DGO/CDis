@@ -1,6 +1,10 @@
 <?php
 require_once __DIR__ . '/../../utils/cargar_permisos.php';
-$path_actual = str_replace('/CDI', '', $_SERVER['PHP_SELF']);
+// Base app dinámica y ruta relativa para validación
+$__sn = isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '';
+$__pos = strpos($__sn, '/vistas/');
+$__app_base = $__pos !== false ? substr($__sn, 0, $__pos) : rtrim(dirname($__sn), '/');
+$path_actual = preg_replace('#^' . preg_quote($__app_base, '#') . '#', '', ($__sn ?: $_SERVER['PHP_SELF']));
 if (!in_array($path_actual, $_SESSION['rutas_permitidas'])) {
     http_response_code(403);
     echo 'Acceso no autorizado';

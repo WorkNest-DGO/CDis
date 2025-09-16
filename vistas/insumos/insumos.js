@@ -1,7 +1,37 @@
+function showAppMsg(msg) {
+    const body = document.querySelector('#appMsgModal .modal-body');
+    if (body) body.textContent = String(msg);
+    showModal('#appMsgModal');
+}
+window.alert = showAppMsg;
+
 let catalogo = [];
 let filtrado = [];
+const usuarioId = 1; // En entorno real se obtendría de la sesión
 const itemsPorPagina = 12;
 let paginaActual = 1;
+
+async function cargarProveedores() {
+    try {
+        const resp = await fetch('../../api/insumos/listar_proveedores.php');
+        const data = await resp.json();
+        if (data.success) {
+            const select = document.getElementById('proveedor');
+            select.innerHTML = '<option value="">--Selecciona--</option>';
+            data.resultado.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.nombre;
+                select.appendChild(opt);
+            });
+        } else {
+            alert(data.mensaje);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error al cargar proveedores');
+    }
+}
 
 async function cargarInsumos() {
     try {
@@ -10,6 +40,7 @@ async function cargarInsumos() {
         if (data.success) {
             catalogo = data.resultado;
             filtrado = catalogo;
+            actualizarSelectsProducto();
             mostrarCatalogo(1);
         } else {
             alert(data.mensaje);
@@ -20,13 +51,101 @@ async function cargarInsumos() {
     }
 }
 
+function actualizarSelectsProducto() {
+    document.querySelectorAll('select.producto').forEach(sel => {
+        sel.innerHTML = '<option value="">--Selecciona--</option>';
+        catalogo.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.nombre;
+            opt.dataset.unidad = p.unidad;
+            sel.appendChild(opt);
+        });
+        sel.addEventListener('change', () => mostrarTipoEnFila(sel));
+    });
+}
+
 function filtrarCatalogo() {
     const termino = document.getElementById('buscarInsumo').value.toLowerCase();
     filtrado = catalogo.filter(i => i.nombre.toLowerCase().includes(termino));
     mostrarCatalogo(1);
 }
 
+function mostrarTipoEnFila(select) {
+    const id = parseInt(select.value);
+    const fila = select.closest('tr');
+    const tipoCell = fila.querySelector('.tipo');
+    const unidadCell = fila.querySelector('.unidad');
+    const unidadesInput = fila.querySelector('.unidades');
+    const cantidadInput = fila.querySelector('.cantidad');
+    const precioInput = fila.querySelector('.precio');
+    const encontrado = catalogo.find(c => c.id == id);
+    if (encontrado) {
+        tipoCell.textContent = encontrado.tipo_control;
+        unidadCell.textContent = encontrado.unidad;
+        if (encontrado.tipo_control === 'desempaquetado') {
+            unidadesInput.style.display = '';
+        } else {
+            unidadesInput.style.display = 'none';
+            unidadesInput.value = '';
+        }
+
+        if (encontrado.tipo_control === 'unidad_completa' || encontrado.tipo_control === 'desempaquetado') {
+            cantidadInput.step = 1;
+            cantidadInput.min = 1;
+        } else {
+            cantidadInput.step = '0.01';
+            cantidadInput.min = 0;
+        }
+
+        if (encontrado.tipo_control === 'no_controlado') {
+            cantidadInput.disabled = true;
+            precioInput.disabled = true;
+        } else {
+            cantidadInput.disabled = false;
+            precioInput.disabled = false;
+        }
+    } else {
+        tipoCell.textContent = '';
+        unidadCell.textContent = '';
+        unidadesInput.style.display = 'none';
+        unidadesInput.value = '';
+        cantidadInput.disabled = false;
+        precioInput.disabled = false;
+    }
+}
+
+function calcularTotal() {
+    let total = 0;
+    document.querySelectorAll('#tablaProductos tbody tr').forEach(f => {
+        const cantidad = parseFloat(f.querySelector('.cantidad').value) || 0;
+        const precio = parseFloat(f.querySelector('.precio').value) || 0;
+        total += cantidad * precio;
+    });
+    const totalEl = document.getElementById('total');
+    if (totalEl) {
+        totalEl.textContent = total.toFixed(2);
+    }
+}
+
+function agregarFila() {
+    const tbody = document.querySelector('#tablaProductos tbody');
+    const base = tbody.querySelector('tr');
+    const nueva = base.cloneNode(true);
+    nueva.querySelectorAll('input').forEach(i => i.value = '');
+    const unidadCell = nueva.querySelector('.unidad');
+    if (unidadCell) unidadCell.textContent = '';
+    nueva.querySelector('.cantidad').addEventListener('input', calcularTotal);
+    nueva.querySelector('.precio').addEventListener('input', calcularTotal);
+    tbody.appendChild(nueva);
+    actualizarSelectsProducto();
+}
+
 function mostrarCatalogo(pagina = paginaActual) {
+    const tbody = document.querySelector('#listaInsumos tbody');
+    if (tbody) {
+        tbody.innerHTML = '';
+    }
     const cont = document.getElementById('catalogoInsumos');
     if (cont) cont.innerHTML = '';
 
@@ -48,10 +167,11 @@ function mostrarCatalogo(pagina = paginaActual) {
                         <div class="blog-meta">
                             <p class="card-text">Unidad: ${i.unidad}<br>Existencia: ${i.existencia}</p>
                             <div>
-                            <a class="btn custom-btn editar" data-id="${i.id}">Editar</a>
-                            <a class="btn custom-btn eliminar" data-id="${i.id}">Eliminar</a>
+                            <a class="btn custom-btn editar"   data-id="${i.id}">Editar</a>
+                            <a class="btn custom-btn eliminar"  data-id="${i.id}">Eliminar</a>
                             </div>
                         </div>
+
                     </div>
                 </div>`;
             cont.appendChild(col);
@@ -119,6 +239,70 @@ function renderPaginador() {
     pag.appendChild(nextLi);
 }
 
+async function cargarBajoStock() {
+    try {
+        const resp = await fetch('../../api/insumos/listar_bajo_stock.php');
+        const data = await resp.json();
+        if (data.success) {
+            mostrarBajoStock(data.resultado);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error al cargar insumos de bajo stock');
+    }
+}
+
+function mostrarBajoStock(lista) {
+    const tbody = document.querySelector('#bajoStock tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    lista.forEach(i => {
+        const tr = document.createElement('tr');
+        if (parseFloat(i.existencia) < 20) {
+            tr.style.backgroundColor = '#f8d7da';
+        }
+        tr.innerHTML = `<td>${i.id}</td><td>${i.nombre}</td><td>${i.unidad}</td><td>${i.existencia}</td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+async function nuevoProveedor() {
+    const form = document.getElementById('formProveedor');
+    if (form) form.reset();
+    showModal('#modalProveedor');
+}
+
+async function guardarProveedor(ev) {
+    ev.preventDefault();
+    const nombre = document.getElementById('provNombre').value.trim();
+    const telefono = document.getElementById('provTelefono').value.trim();
+    const direccion = document.getElementById('provDireccion').value.trim();
+    if (!nombre) {
+        alert('Nombre requerido');
+        return;
+    }
+    try {
+        const resp = await fetch('../../api/insumos/agregar_proveedor.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre, telefono, direccion })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            alert('Proveedor agregado');
+            hideModal('#modalProveedor');
+            document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+            document.body.classList.remove('modal-open');
+            cargarProveedores();
+        } else {
+            alert(data.mensaje);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error al agregar proveedor');
+    }
+}
+
 function nuevoInsumo() {
     abrirFormulario(null);
 }
@@ -149,7 +333,6 @@ async function eliminarInsumo(id) {
 
 function abrirFormulario(id) {
     const form = document.getElementById('formInsumo');
-    form.style.display = 'block';
     document.getElementById('insumoId').value = id || '';
     if (id) {
         const ins = catalogo.find(i => i.id == id);
@@ -162,10 +345,11 @@ function abrirFormulario(id) {
         form.reset();
         document.getElementById('existencia').value = 0;
     }
+    showModal('#modalInsumo');
 }
 
 function cerrarFormulario() {
-    document.getElementById('formInsumo').style.display = 'none';
+    hideModal('#modalInsumo');
 }
 
 async function guardarInsumo(ev) {
@@ -195,8 +379,86 @@ async function guardarInsumo(ev) {
     }
 }
 
+async function registrarEntrada() {
+    const proveedor_id = parseInt(document.getElementById('proveedor').value);
+    if (isNaN(proveedor_id)) {
+        alert('Selecciona un proveedor');
+        return;
+    }
+    const filas = document.querySelectorAll('#tablaProductos tbody tr');
+    const productos = [];
+    filas.forEach(f => {
+        const insumo_id = parseInt(f.querySelector('.producto').value);
+        const cantidad = parseInt(f.querySelector('.cantidad').value);
+        const precio_unitario = parseFloat(f.querySelector('.precio').value) || 0;
+        const unidades = parseFloat(f.querySelector('.unidades').value) || 0;
+        if (!isNaN(insumo_id) && !isNaN(cantidad)) {
+            const obj = { insumo_id, cantidad, precio_unitario };
+            if (unidades > 0) obj.unidades = unidades;
+            productos.push(obj);
+        }
+    });
+    const payload = { proveedor_id, usuario_id: usuarioId, productos };
+    try {
+        const resp = await fetch('../../api/insumos/crear_entrada.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        if (data.success) {
+            alert('Entrada registrada');
+            cargarHistorial();
+            document.querySelectorAll('#tablaProductos tbody tr').forEach((f, i) => {
+                if (i > 0) f.remove();
+                f.querySelectorAll('input').forEach(inp => inp.value = '');
+                const uCell = f.querySelector('.unidad');
+                if (uCell) uCell.textContent = '';
+            });
+            calcularTotal();
+        } else {
+            alert(data.mensaje);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error al registrar entrada');
+    }
+}
+
+async function cargarHistorial() {
+    try {
+        const resp = await fetch('../../api/insumos/listar_entradas.php');
+        const data = await resp.json();
+        if (data.success) {
+            const tbody = document.querySelector('#historial tbody');
+            tbody.innerHTML = '';
+            data.resultado.forEach(e => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${e.proveedor}</td>
+                    <td>${e.fecha}</td>
+                    <td>${e.total}</td>
+                    <td>${e.producto}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } else {
+            alert(data.mensaje);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error al cargar historial');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    cargarProveedores();
     cargarInsumos();
+    cargarBajoStock();
+    cargarHistorial();
+    document.getElementById('agregarFila').addEventListener('click', agregarFila);
+    document.getElementById('registrarEntrada').addEventListener('click', registrarEntrada);
+    document.getElementById('btnNuevoProveedor').addEventListener('click', nuevoProveedor);
     const btnNuevoInsumo = document.getElementById('btnNuevoInsumo');
     if (btnNuevoInsumo) {
         btnNuevoInsumo.addEventListener('click', nuevoInsumo);
@@ -206,8 +468,26 @@ document.addEventListener('DOMContentLoaded', () => {
         form.addEventListener('submit', guardarInsumo);
         document.getElementById('cancelarInsumo').addEventListener('click', cerrarFormulario);
     }
+    const formProv = document.getElementById('formProveedor');
+    if (formProv) {
+        formProv.addEventListener('submit', guardarProveedor);
+        document.getElementById('cancelarProveedor').addEventListener('click', () => {
+            hideModal('#modalProveedor');
+            document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+            document.body.classList.remove('modal-open');
+        });
+        document.getElementById('modalProveedor').addEventListener('hidden.bs.modal', () => {
+            document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+            document.body.classList.remove('modal-open');
+        });
+    }
     const buscador = document.getElementById('buscarInsumo');
     if (buscador) {
         buscador.addEventListener('input', filtrarCatalogo);
     }
+    document.querySelectorAll('.cantidad').forEach(i => i.addEventListener('input', calcularTotal));
+    document.querySelectorAll('.precio').forEach(i => i.addEventListener('input', calcularTotal));
+    calcularTotal();
 });
+
+

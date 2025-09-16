@@ -2,11 +2,6 @@
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../utils/response.php';
 require_once __DIR__ . '/../../utils/imagen.php';
-session_start();
-
-if (!isset($_SESSION['usuario_id'])) {
-    error('No autenticado');
-}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     error('Método no permitido');
@@ -22,8 +17,8 @@ if ($id <= 0 || $nombre === '' || $unidad === '' || $tipo === '') {
     error('Datos incompletos');
 }
 
-// obtener datos actuales
-$sel = $conn->prepare('SELECT existencia, imagen FROM insumos WHERE id = ?');
+// obtener imagen actual
+$sel = $conn->prepare('SELECT imagen FROM insumos WHERE id = ?');
 if (!$sel) {
     error('Error al preparar consulta: ' . $conn->error);
 }
@@ -34,9 +29,7 @@ if (!$res || $res->num_rows === 0) {
     $sel->close();
     error('Insumo no encontrado');
 }
-$rowActual = $res->fetch_assoc();
-$actualExist = (float)$rowActual['existencia'];
-$actual = $rowActual['imagen'];
+$actual = $res->fetch_assoc()['imagen'];
 $sel->close();
 
 $aliasImagen = $actual;
@@ -61,18 +54,6 @@ if (!$stmt->execute()) {
     error('Error al actualizar insumo: ' . $stmt->error);
 }
 $stmt->close();
-
-// registrar ajuste de existencia si aplica
-$diferencia = $existencia - $actualExist;
-if ($diferencia != 0) {
-    $mov = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, cantidad, observacion) VALUES ('ajuste', ?, ?, ?, ?)");
-    if ($mov) {
-        $obs = 'Ajuste manual de existencia';
-        $mov->bind_param('iids', $_SESSION['usuario_id'], $id, $diferencia, $obs);
-        $mov->execute();
-        $mov->close();
-    }
-}
 
 success(true);
 ?>
