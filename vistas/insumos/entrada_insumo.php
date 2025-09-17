@@ -73,8 +73,10 @@ ob_start();
                             <h5 class="text-dark">Última salida registrada</h5>
                             <p id="retiro-qr-info" class="text-muted small mb-1">—</p>
                             <p class="text-muted small mb-2">Token: <code id="retiro-qr-token">—</code></p>
+                            <p class="text-muted small mb-2">URL de consulta: <code id="retiro-qr-consulta-text">—</code></p>
                             <img id="retiro-qr-img" src="" alt="Código QR de salida" class="img-fluid mx-auto mb-2 d-none" style="max-width: 220px;">
                             <a id="retiro-qr-link" href="#" class="btn btn-sm custom-btn d-none" target="_blank" rel="noopener">Abrir QR de salida</a>
+                            <a id="retiro-qr-consulta" href="#" class="btn btn-sm btn-outline-primary mt-2 d-none" target="_blank" rel="noopener">Abrir detalles del retiro</a>
                         </div>
                     </div>
                 </div>
@@ -105,6 +107,8 @@ ob_start();
     const retiroQrToken = document.getElementById('retiro-qr-token');
     const retiroQrImg = document.getElementById('retiro-qr-img');
     const retiroQrLink = document.getElementById('retiro-qr-link');
+    const retiroQrConsultaText = document.getElementById('retiro-qr-consulta-text');
+    const retiroQrConsultaLink = document.getElementById('retiro-qr-consulta');
     let entradaActual = null;
 
     function limpiarQrRetiro() {
@@ -117,6 +121,9 @@ ob_start();
         if (retiroQrToken) {
             retiroQrToken.textContent = '—';
         }
+        if (retiroQrConsultaText) {
+            retiroQrConsultaText.textContent = '—';
+        }
         if (retiroQrImg) {
             retiroQrImg.src = '';
             retiroQrImg.classList.add('d-none');
@@ -124,6 +131,10 @@ ob_start();
         if (retiroQrLink) {
             retiroQrLink.href = '#';
             retiroQrLink.classList.add('d-none');
+        }
+        if (retiroQrConsultaLink) {
+            retiroQrConsultaLink.href = '#';
+            retiroQrConsultaLink.classList.add('d-none');
         }
     }
 
@@ -152,6 +163,9 @@ ob_start();
         if (retiroQrToken) {
             retiroQrToken.textContent = datos.qr_token || '—';
         }
+        if (retiroQrConsultaText) {
+            retiroQrConsultaText.textContent = datos.qr_consulta_url || '—';
+        }
         let ruta = String(datos.qr_imagen || '');
         if (ruta && !/^https?:/i.test(ruta)) {
             ruta = '../../' + ruta.replace(/^\/+/g, '');
@@ -171,6 +185,16 @@ ob_start();
             } else {
                 retiroQrLink.href = '#';
                 retiroQrLink.classList.add('d-none');
+            }
+        }
+        if (retiroQrConsultaLink) {
+            const consultaUrl = datos.qr_consulta_url ? String(datos.qr_consulta_url) : '';
+            if (consultaUrl) {
+                retiroQrConsultaLink.href = consultaUrl;
+                retiroQrConsultaLink.classList.remove('d-none');
+            } else {
+                retiroQrConsultaLink.href = '#';
+                retiroQrConsultaLink.classList.add('d-none');
             }
         }
         retiroQrContainer.classList.remove('d-none');
