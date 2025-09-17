@@ -75,7 +75,7 @@ ob_start();
                             <p class="text-muted small mb-2">Token: <code id="retiro-qr-token">—</code></p>
                             <p class="text-muted small mb-2">URL de consulta: <code id="retiro-qr-consulta-text">—</code></p>
                             <img id="retiro-qr-img" src="" alt="Código QR de salida" class="img-fluid mx-auto mb-2 d-none" style="max-width: 220px;">
-                            <a id="retiro-qr-link" href="#" class="btn btn-sm custom-btn d-none" target="_blank" rel="noopener">Abrir QR de salida</a>
+                            <button id="retiro-qr-imprimir" type="button" class="btn btn-sm custom-btn d-none">Imprimir QR de salida</button>
                             <a id="retiro-qr-consulta" href="#" class="btn btn-sm btn-outline-primary mt-2 d-none" target="_blank" rel="noopener">Abrir detalles del retiro</a>
                         </div>
                     </div>
@@ -124,7 +124,7 @@ ob_start();
     const retiroQrInfo = document.getElementById('retiro-qr-info');
     const retiroQrToken = document.getElementById('retiro-qr-token');
     const retiroQrImg = document.getElementById('retiro-qr-img');
-    const retiroQrLink = document.getElementById('retiro-qr-link');
+    const retiroQrImprimirBtn = document.getElementById('retiro-qr-imprimir');
     const retiroQrConsultaText = document.getElementById('retiro-qr-consulta-text');
     const retiroQrConsultaLink = document.getElementById('retiro-qr-consulta');
     const historialMensaje = document.getElementById('historial-retiros-mensaje');
@@ -178,6 +178,56 @@ ob_start();
                     console.error(error);
                     restaurarBoton();
                     alert('No fue posible imprimir el QR: ' + error.message);
+                });
+        });
+    }
+
+    if (retiroQrImprimirBtn) {
+        retiroQrImprimirBtn.addEventListener('click', function () {
+            var movimientoIdAttr = this.dataset.movimientoId || '';
+            var movimientoId = parseInt(movimientoIdAttr, 10);
+            if (!Number.isFinite(movimientoId) || movimientoId <= 0) {
+                alert('No hay un QR de salida disponible para imprimir.');
+                return;
+            }
+            var btn = this;
+            var originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Imprimiendo...';
+            var restaurarBoton = function () {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            };
+            fetch('../../api/insumos/imprimir_qrs_salida.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ movimiento_ids: [movimientoId] })
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('HTTP ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(function (payload) {
+                    if (!payload || payload.success !== true) {
+                        throw new Error(payload && payload.mensaje ? payload.mensaje : 'No se pudo imprimir');
+                    }
+                    var resultado = payload.resultado || {};
+                    var impresos = (typeof resultado.impresos !== 'undefined') ? resultado.impresos : null;
+                    var faltantes = Array.isArray(resultado.sin_qr) ? resultado.sin_qr : [];
+                    restaurarBoton();
+                    var mensaje = impresos !== null ? ('Solicitud de impresión enviada (' + impresos + ' QR).') : 'Solicitud de impresión enviada correctamente.';
+                    if (faltantes.length > 0) {
+                        mensaje += '\nSin QR disponible para: ' + faltantes.join(', ');
+                    }
+                    alert(mensaje);
+                })
+                .catch(function (error) {
+                    console.error(error);
+                    restaurarBoton();
+                    alert('No fue posible imprimir el QR de salida: ' + error.message);
                 });
         });
     }
@@ -393,9 +443,11 @@ ob_start();
             retiroQrImg.src = '';
             retiroQrImg.classList.add('d-none');
         }
-        if (retiroQrLink) {
-            retiroQrLink.href = '#';
-            retiroQrLink.classList.add('d-none');
+        if (retiroQrImprimirBtn) {
+            retiroQrImprimirBtn.classList.add('d-none');
+            retiroQrImprimirBtn.disabled = false;
+            retiroQrImprimirBtn.textContent = 'Imprimir QR de salida';
+            delete retiroQrImprimirBtn.dataset.movimientoId;
         }
         if (retiroQrConsultaLink) {
             retiroQrConsultaLink.href = '#';
@@ -444,13 +496,20 @@ ob_start();
                 retiroQrImg.classList.add('d-none');
             }
         }
-        if (retiroQrLink) {
-            if (ruta) {
-                retiroQrLink.href = ruta;
-                retiroQrLink.classList.remove('d-none');
+        const movimientoIdOrigen = (datos && typeof datos.id !== 'undefined') ? datos.id : (datos && typeof datos.movimiento_id !== 'undefined' ? datos.movimiento_id : null);
+        const movimientoIdNumero = movimientoIdOrigen !== null ? parseInt(movimientoIdOrigen, 10) : NaN;
+        const tieneQrDisponible = !!(datos && (datos.qr_token || datos.qr_imagen));
+        if (retiroQrImprimirBtn) {
+            if (tieneQrDisponible && Number.isFinite(movimientoIdNumero) && movimientoIdNumero > 0) {
+                retiroQrImprimirBtn.dataset.movimientoId = String(movimientoIdNumero);
+                retiroQrImprimirBtn.disabled = false;
+                retiroQrImprimirBtn.textContent = 'Imprimir QR de salida';
+                retiroQrImprimirBtn.classList.remove('d-none');
             } else {
-                retiroQrLink.href = '#';
-                retiroQrLink.classList.add('d-none');
+                retiroQrImprimirBtn.classList.add('d-none');
+                retiroQrImprimirBtn.disabled = false;
+                retiroQrImprimirBtn.textContent = 'Imprimir QR de salida';
+                delete retiroQrImprimirBtn.dataset.movimientoId;
             }
         }
         if (retiroQrConsultaLink) {
