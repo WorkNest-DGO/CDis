@@ -68,7 +68,7 @@ ob_start();
                     <div class="border rounded p-3 h-100 d-flex flex-column justify-content-center">
                         <img id="entrada-qr" src="" alt="Código QR" class="img-fluid mx-auto mb-3 d-none" style="max-width: 260px;">
                         <p id="entrada-sin-qr" class="text-muted">No se encontró un código QR asociado.</p>
-                        <a id="entrada-qr-link" href="#" class="btn custom-btn d-none" target="_blank" rel="noopener">Abrir QR</a>
+                        <button id="entrada-qr-imprimir" type="button" class="btn custom-btn d-none">Imprimir QR</button>
                         <div id="retiro-qr-container" class="mt-4 d-none">
                             <h5 class="text-dark">Última salida registrada</h5>
                             <p id="retiro-qr-info" class="text-muted small mb-1">—</p>
@@ -130,7 +130,57 @@ ob_start();
     const historialMensaje = document.getElementById('historial-retiros-mensaje');
     const historialWrapper = document.getElementById('historial-retiros-wrapper');
     const historialBody = document.getElementById('historial-retiros-body');
+    const imprimirQrBtn = document.getElementById('entrada-qr-imprimir');
     let entradaActual = null;
+
+    if (imprimirQrBtn) {
+        imprimirQrBtn.addEventListener('click', function () {
+            var entradaIdAttr = this.dataset.entradaId || '';
+            var entradaId = parseInt(entradaIdAttr, 10);
+            if (!Number.isFinite(entradaId) || entradaId <= 0) {
+                alert('No hay un QR disponible para imprimir.');
+                return;
+            }
+            var btn = this;
+            var originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Imprimiendo...';
+            var restaurarBoton = function () {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            };
+            fetch('../../api/insumos/imprimir_qrs_entrada.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ entrada_ids: [entradaId] })
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('HTTP ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(function (payload) {
+                    if (!payload || payload.success !== true) {
+                        throw new Error(payload && payload.mensaje ? payload.mensaje : 'No se pudo imprimir');
+                    }
+                    var resultado = payload.resultado || {};
+                    var impresos = (typeof resultado.impresos !== 'undefined') ? resultado.impresos : null;
+                    restaurarBoton();
+                    if (impresos !== null) {
+                        alert('Solicitud de impresión enviada (' + impresos + ' QR).');
+                    } else {
+                        alert('Solicitud de impresión enviada correctamente.');
+                    }
+                })
+                .catch(function (error) {
+                    console.error(error);
+                    restaurarBoton();
+                    alert('No fue posible imprimir el QR: ' + error.message);
+                });
+        });
+    }
 
     function formatNumber(value, opts) {
         if (value === null || value === undefined || value === '') {
@@ -471,22 +521,29 @@ ob_start();
 
             var qrPath = data.qr ? String(data.qr).trim() : '';
             var qrImg = document.getElementById('entrada-qr');
-            var qrLink = document.getElementById('entrada-qr-link');
             var qrEmpty = document.getElementById('entrada-sin-qr');
             if (qrPath) {
                 var absoluteQr = resolverRuta(qrPath);
                 qrImg.src = absoluteQr;
                 qrImg.classList.remove('d-none');
-                qrLink.href = absoluteQr || '#';
-                qrLink.classList.remove('d-none');
+                if (imprimirQrBtn) {
+                    imprimirQrBtn.classList.remove('d-none');
+                    imprimirQrBtn.disabled = false;
+                    imprimirQrBtn.textContent = 'Imprimir QR';
+                    imprimirQrBtn.dataset.entradaId = data && data.id ? String(data.id) : '';
+                }
                 if (qrEmpty) {
                     qrEmpty.classList.add('d-none');
                 }
             } else {
                 qrImg.classList.add('d-none');
                 qrImg.src = '';
-                qrLink.classList.add('d-none');
-                qrLink.href = '#';
+                if (imprimirQrBtn) {
+                    imprimirQrBtn.classList.add('d-none');
+                    imprimirQrBtn.disabled = false;
+                    imprimirQrBtn.textContent = 'Imprimir QR';
+                    delete imprimirQrBtn.dataset.entradaId;
+                }
                 if (qrEmpty) {
                     qrEmpty.classList.remove('d-none');
                 }
