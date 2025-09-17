@@ -1,3 +1,62 @@
+﻿// Helpers Bootstrap modal
+function showModal(selector) {
+    try {
+        if (window.jQuery && typeof $(selector)?.modal === 'function') {
+            $(selector).modal('show');
+            return;
+        }
+    } catch (e) {}
+    const el = document.querySelector(selector);
+    if (!el) return;
+    el.classList.add('show');
+    el.style.display = 'block';
+    document.body.classList.add('modal-open');
+    const bd = document.createElement('div');
+    bd.className = 'modal-backdrop fade show';
+    document.body.appendChild(bd);
+}
+
+function hideModal(selector) {
+    try {
+        if (window.jQuery && typeof $(selector)?.modal === 'function') {
+            $(selector).modal('hide');
+            return;
+        }
+    } catch (e) {}
+    const el = document.querySelector(selector);
+    if (!el) return;
+    el.classList.remove('show');
+    el.style.display = 'none';
+    document.body.classList.remove('modal-open');
+    document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+}
+
+const qs = (root, sel) => (root || document).querySelector(sel);
+const qsa = (root, sel) => Array.from((root || document).querySelectorAll(sel));
+
+function markError(el, msg) {
+    if (!el) {
+        console.warn(msg);
+        return;
+    }
+    el.classList.add('is-invalid');
+    try {
+        el.focus({ preventScroll: true });
+    } catch (e) {}
+    console.warn(msg);
+}
+
+function clearError(el) {
+    if (el) {
+        el.classList.remove('is-invalid');
+    }
+}
+const formatMoneda = (valor) => {
+    const num = Number(String(valor).replace(',', '.'));
+    return Number.isFinite(num) ? num.toFixed(2) : (valor ?? '');
+};
+
+
 function showAppMsg(msg) {
     const body = document.querySelector('#appMsgModal .modal-body');
     if (body) body.textContent = String(msg);
@@ -7,9 +66,11 @@ window.alert = showAppMsg;
 
 let catalogo = [];
 let filtrado = [];
-const usuarioId = 1; // En entorno real se obtendría de la sesión
+const usuarioId = 1; // En entorno real se obtendrÃ­a de la sesiÃ³n
 const itemsPorPagina = 12;
 let paginaActual = 1;
+let ultimaEntradaIds = [];
+
 
 async function cargarProveedores() {
     try {
@@ -17,6 +78,9 @@ async function cargarProveedores() {
         const data = await resp.json();
         if (data.success) {
             const select = document.getElementById('proveedor');
+            if (!select) {
+                return;
+            }
             select.innerHTML = '<option value="">--Selecciona--</option>';
             data.resultado.forEach(p => {
                 const opt = document.createElement('option');
@@ -40,7 +104,7 @@ async function cargarInsumos() {
         if (data.success) {
             catalogo = data.resultado;
             filtrado = catalogo;
-            actualizarSelectsProducto();
+            poblarSelectsInsumo();
             mostrarCatalogo(1);
         } else {
             alert(data.mensaje);
@@ -51,76 +115,102 @@ async function cargarInsumos() {
     }
 }
 
-function actualizarSelectsProducto() {
-    document.querySelectorAll('select.producto').forEach(sel => {
+function poblarSelectsInsumo(root = document) {
+    const selects = qsa(root, 'select[name="insumo_id"], select.insumo_id');
+    selects.forEach(sel => {
+        const current = sel.value;
         sel.innerHTML = '<option value="">--Selecciona--</option>';
         catalogo.forEach(p => {
             const opt = document.createElement('option');
             opt.value = p.id;
             opt.textContent = p.nombre;
-            opt.dataset.unidad = p.unidad;
+            opt.dataset.unidad = p.unidad || '';
+            opt.dataset.tipo = p.tipo_control || '';
+            if (String(p.id) === String(current)) {
+                opt.selected = true;
+            }
             sel.appendChild(opt);
         });
-        sel.addEventListener('change', () => mostrarTipoEnFila(sel));
+        if (current && sel.value !== current) {
+            sel.value = current;
+        }
+        mostrarTipoEnFila(sel.closest('tr'));
     });
 }
 
+
 function filtrarCatalogo() {
-    const termino = document.getElementById('buscarInsumo').value.toLowerCase();
+    const input = document.getElementById('buscarInsumo');
+    if (!input) {
+        return;
+    }
+    const termino = input.value.toLowerCase();
     filtrado = catalogo.filter(i => i.nombre.toLowerCase().includes(termino));
     mostrarCatalogo(1);
 }
 
-function mostrarTipoEnFila(select) {
-    const id = parseInt(select.value);
-    const fila = select.closest('tr');
-    const tipoCell = fila.querySelector('.tipo');
-    const unidadCell = fila.querySelector('.unidad');
-    const unidadesInput = fila.querySelector('.unidades');
-    const cantidadInput = fila.querySelector('.cantidad');
-    const precioInput = fila.querySelector('.precio');
-    const encontrado = catalogo.find(c => c.id == id);
-    if (encontrado) {
-        tipoCell.textContent = encontrado.tipo_control;
-        unidadCell.textContent = encontrado.unidad;
-        if (encontrado.tipo_control === 'desempaquetado') {
-            unidadesInput.style.display = '';
+function mostrarTipoEnFila(fila) {
+    if (!fila) return;
+    const unidadField = qs(fila, '[name="unidad"], .unidad, .unidades');
+    if (!unidadField) {
+        console.warn('No se encontró el campo de unidad en la fila', fila);
+        return;
+    }
+    const selectInsumo = qs(fila, '[name="insumo_id"], .insumo_id');
+    const tipoCell = qs(fila, '.tipo');
+    const cantidadInput = qs(fila, '.cantidad');
+    const costoInput = qs(fila, '.costo_total, .precio');
+    const seleccionado = catalogo.find(c => String(c.id) === String(selectInsumo ? selectInsumo.value : ''));
+    if (seleccionado) {
+        if (tipoCell) tipoCell.textContent = seleccionado.tipo_control || '';
+        if (unidadField.tagName === 'INPUT') {
+            unidadField.value = seleccionado.unidad || '';
         } else {
-            unidadesInput.style.display = 'none';
-            unidadesInput.value = '';
+            unidadField.textContent = seleccionado.unidad || '';
         }
-
-        if (encontrado.tipo_control === 'unidad_completa' || encontrado.tipo_control === 'desempaquetado') {
-            cantidadInput.step = 1;
-            cantidadInput.min = 1;
-        } else {
-            cantidadInput.step = '0.01';
-            cantidadInput.min = 0;
+        if (cantidadInput) {
+            if (seleccionado.tipo_control === 'unidad_completa' || seleccionado.tipo_control === 'desempaquetado') {
+                cantidadInput.step = '1';
+                cantidadInput.min = '1';
+            } else {
+                cantidadInput.step = '0.01';
+                cantidadInput.min = '0';
+            }
+            cantidadInput.disabled = seleccionado.tipo_control === 'no_controlado';
         }
-
-        if (encontrado.tipo_control === 'no_controlado') {
-            cantidadInput.disabled = true;
-            precioInput.disabled = true;
-        } else {
-            cantidadInput.disabled = false;
-            precioInput.disabled = false;
+        if (costoInput) {
+            costoInput.disabled = seleccionado.tipo_control === 'no_controlado';
         }
     } else {
-        tipoCell.textContent = '';
-        unidadCell.textContent = '';
-        unidadesInput.style.display = 'none';
-        unidadesInput.value = '';
-        cantidadInput.disabled = false;
-        precioInput.disabled = false;
+        if (tipoCell) tipoCell.textContent = '';
+        if (unidadField.tagName === 'INPUT') {
+            unidadField.value = '';
+        } else {
+            unidadField.textContent = '';
+        }
+        if (cantidadInput) {
+            cantidadInput.disabled = false;
+        }
+        if (costoInput) {
+            costoInput.disabled = false;
+        }
     }
 }
+function actualizarSelectsProducto(e) {
+    const fila = e && e.target ? e.target.closest('tr') : null;
+    if (!fila) return;
+    mostrarTipoEnFila(fila);
+}
+
+
+
 
 function calcularTotal() {
     let total = 0;
-    document.querySelectorAll('#tablaProductos tbody tr').forEach(f => {
-        const cantidad = parseFloat(f.querySelector('.cantidad').value) || 0;
-        const precio = parseFloat(f.querySelector('.precio').value) || 0;
-        total += cantidad * precio;
+    qsa(document, '#tablaProductos tbody tr').forEach(fila => {
+        const costoInput = qs(fila, '.costo_total, .precio');
+        const monto = parseFloat(costoInput ? costoInput.value.replace(',', '.') : '0') || 0;
+        total += monto;
     });
     const totalEl = document.getElementById('total');
     if (totalEl) {
@@ -128,18 +218,29 @@ function calcularTotal() {
     }
 }
 
+
 function agregarFila() {
-    const tbody = document.querySelector('#tablaProductos tbody');
+    const tbody = qs(document, '#tablaProductos tbody');
+    if (!tbody) return;
     const base = tbody.querySelector('tr');
+    if (!base) return;
     const nueva = base.cloneNode(true);
-    nueva.querySelectorAll('input').forEach(i => i.value = '');
-    const unidadCell = nueva.querySelector('.unidad');
-    if (unidadCell) unidadCell.textContent = '';
-    nueva.querySelector('.cantidad').addEventListener('input', calcularTotal);
-    nueva.querySelector('.precio').addEventListener('input', calcularTotal);
+    qsa(nueva, 'input').forEach(input => {
+        input.value = '';
+        clearError(input);
+    });
+    qsa(nueva, 'select').forEach(select => {
+        select.value = '';
+        clearError(select);
+    });
+    const tipoCell = qs(nueva, '.tipo');
+    if (tipoCell) tipoCell.textContent = '-';
     tbody.appendChild(nueva);
-    actualizarSelectsProducto();
+    poblarSelectsInsumo(nueva);
+    mostrarTipoEnFila(nueva);
 }
+
+
 
 function mostrarCatalogo(pagina = paginaActual) {
     const tbody = document.querySelector('#listaInsumos tbody');
@@ -312,7 +413,7 @@ function editarInsumo(id) {
 }
 
 async function eliminarInsumo(id) {
-    if (!confirm('¿Eliminar insumo?')) return;
+    if (!confirm('Â¿Eliminar insumo?')) return;
     try {
         const resp = await fetch('../../api/insumos/eliminar_insumo.php', {
             method: 'POST',
@@ -379,51 +480,169 @@ async function guardarInsumo(ev) {
     }
 }
 
-async function registrarEntrada() {
-    const proveedor_id = parseInt(document.getElementById('proveedor').value);
-    if (isNaN(proveedor_id)) {
-        alert('Selecciona un proveedor');
+async function registrarEntrada(e) {
+    if (e && typeof e.preventDefault === 'function') {
+        e.preventDefault();
+    }
+    const form = (e && e.target && e.target.closest('form')) || qs(document, '#form-entrada, form[name="form-entrada"]');
+    if (!form) {
+        console.error('No se encontró el formulario de entrada');
         return;
     }
-    const filas = document.querySelectorAll('#tablaProductos tbody tr');
+    const proveedorField = qs(form, '[name="proveedor_id"]');
+    if (!proveedorField || !String(proveedorField.value).trim()) {
+        markError(proveedorField, 'Selecciona un proveedor');
+        return;
+    }
+    clearError(proveedorField);
+
+    const filas = qsa(form, '#tablaProductos tbody tr');
     const productos = [];
-    filas.forEach(f => {
-        const insumo_id = parseInt(f.querySelector('.producto').value);
-        const cantidad = parseInt(f.querySelector('.cantidad').value);
-        const precio_unitario = parseFloat(f.querySelector('.precio').value) || 0;
-        const unidades = parseFloat(f.querySelector('.unidades').value) || 0;
-        if (!isNaN(insumo_id) && !isNaN(cantidad)) {
-            const obj = { insumo_id, cantidad, precio_unitario };
-            if (unidades > 0) obj.unidades = unidades;
-            productos.push(obj);
+    const resumenProductos = [];
+    let filasInvalidas = 0;
+
+    filas.forEach((fila, index) => {
+        const insumoEl = qs(fila, '[name="insumo_id"], .insumo_id');
+        const cantidadEl = qs(fila, '[name="cantidad"], .cantidad');
+        const unidadEl = qs(fila, '[name="unidad"], .unidad');
+        const costoEl = qs(fila, '[name="costo_total"], .costo_total');
+        if (!insumoEl || !cantidadEl || !unidadEl || !costoEl) {
+            return;
         }
-    });
-    const payload = { proveedor_id, usuario_id: usuarioId, productos };
-    try {
-        const resp = await fetch('../../api/insumos/crear_entrada.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+        const insumoVal = String(insumoEl.value).trim();
+        const cantidadVal = String(cantidadEl.value).replace(',', '.').trim();
+        const costoVal = String(costoEl.value).replace(',', '.').trim();
+        const unidadVal = unidadEl.tagName === 'INPUT' ? unidadEl.value.trim() : unidadEl.textContent.trim();
+        const filaVacia = !insumoVal && !cantidadVal && !costoVal;
+
+        if (filaVacia) {
+            return;
+        }
+
+        if (!insumoVal || !cantidadVal || !costoVal || !unidadVal) {
+            filasInvalidas++;
+            markError(insumoEl, `Completa el insumo en la fila ${index + 1}`);
+            markError(cantidadEl, `Completa la cantidad en la fila ${index + 1}`);
+            markError(costoEl, `Completa el costo en la fila ${index + 1}`);
+            markError(unidadEl, `Falta la unidad en la fila ${index + 1}`);
+            return;
+        }
+
+        const insumoId = parseInt(insumoVal, 10);
+        const cantidad = parseFloat(cantidadVal);
+        const costoTotal = parseFloat(costoVal);
+
+        if (!Number.isFinite(insumoId) || insumoId <= 0 || !Number.isFinite(cantidad) || cantidad <= 0 || !Number.isFinite(costoTotal) || costoTotal <= 0) {
+            filasInvalidas++;
+            markError(cantidadEl, `Valores inválidos en la fila ${index + 1}`);
+            markError(costoEl, `Valores inválidos en la fila ${index + 1}`);
+            return;
+        }
+
+        clearError(insumoEl);
+        clearError(cantidadEl);
+        clearError(costoEl);
+        clearError(unidadEl);
+
+        const descripcionFila = qs(fila, '[name="descripcion"]');
+        const referenciaFila = qs(fila, '[name="referencia_doc"]');
+        const folioFila = qs(fila, '[name="folio_fiscal"]');
+        const qrFila = qs(fila, '[name="qr"]');
+
+        const catalogoItem = catalogo.find(item => Number(item.id) === insumoId);
+        const nombreCompuesto = catalogoItem && catalogoItem.nombre ? `${catalogoItem.id} - ${catalogoItem.nombre}` : `ID ${insumoId}`;
+        resumenProductos.push({
+            insumo_id: insumoId,
+            nombre: nombreCompuesto,
+            cantidad,
+            unidad: unidadVal
         });
-        const data = await resp.json();
-        if (data.success) {
-            alert('Entrada registrada');
-            cargarHistorial();
-            document.querySelectorAll('#tablaProductos tbody tr').forEach((f, i) => {
-                if (i > 0) f.remove();
-                f.querySelectorAll('input').forEach(inp => inp.value = '');
-                const uCell = f.querySelector('.unidad');
-                if (uCell) uCell.textContent = '';
-            });
-            calcularTotal();
-        } else {
-            alert(data.mensaje);
+
+
+        productos.push({
+            insumo_id: insumoId,
+            cantidad,
+            unidad: unidadVal,
+            costo_total: costoTotal,
+            descripcion: descripcionFila ? descripcionFila.value.trim() : '',
+            referencia_doc: referenciaFila ? referenciaFila.value.trim() : '',
+            folio_fiscal: folioFila ? folioFila.value.trim() : '',
+            qr: qrFila ? qrFila.value.trim() : ''
+        });
+    });
+
+    if (filasInvalidas > 0) {
+        console.warn('Corrige las filas con datos incompletos o inválidos');
+        return;
+    }
+
+    if (productos.length === 0) {
+        markError(qs(form, '[name="insumo_id"]'), 'Agrega al menos un insumo');
+        return;
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('proveedor_id', proveedorField.value);
+        formData.append('usuario_id', String(usuarioId));
+        const descripcionGeneral = qs(form, '[name="descripcion"]');
+        const referenciaGeneral = qs(form, '[name="referencia_doc"]');
+        const folioGeneral = qs(form, '[name="folio_fiscal"]');
+        const qrGeneral = qs(form, '[name="qr"]');
+        if (descripcionGeneral && descripcionGeneral.value) {
+            formData.append('descripcion', descripcionGeneral.value.trim());
         }
+        if (referenciaGeneral && referenciaGeneral.value) {
+            formData.append('referencia_doc', referenciaGeneral.value.trim());
+        }
+        if (folioGeneral && folioGeneral.value) {
+            formData.append('folio_fiscal', folioGeneral.value.trim());
+        }
+        if (qrGeneral && qrGeneral.value) {
+            formData.append('qr', qrGeneral.value.trim());
+        }
+        formData.append('productos', JSON.stringify(productos));
+
+        const resp = await fetch('../../api/insumos/crear_entrada.php', { method: 'POST', body: formData });
+        if (!resp.ok) {
+            throw new Error(`HTTP ${resp.status}`);
+        }        const data = await resp.json().catch(() => ({}));
+        if (!data || data.success !== true) {
+            const mensajeError = data && (data.error || data.mensaje) ? (data.error || data.mensaje) : 'No se pudo registrar la entrada';
+            alert(mensajeError);
+            return;
+        }
+        mostrarResumenEntrada(Array.isArray(data.entradas) ? data.entradas : [], resumenProductos);
+        console.log('Entrada registrada', data);
+        qsa(form, '.is-invalid').forEach(clearError);
+        const filas = qsa(form, '#tablaProductos tbody tr');
+        filas.forEach((fila, index) => {
+            if (index > 0) {
+                fila.remove();
+            } else {
+                qsa(fila, 'input').forEach(input => input.value = '');
+                const tipoCell = qs(fila, '.tipo');
+                if (tipoCell) tipoCell.textContent = '-';
+                const unidadField = qs(fila, '[name="unidad"], .unidad');
+                if (unidadField) {
+                    if (unidadField.tagName === 'INPUT') {
+                        unidadField.value = '';
+                    } else {
+                        unidadField.textContent = '';
+                    }
+                }
+            }
+        });
+        form.reset();
+        poblarSelectsInsumo(form);
+        calcularTotal();
+        cargarHistorial();
     } catch (err) {
-        console.error(err);
-        alert('Error al registrar entrada');
+        console.error('Error registrando entrada:', err);
     }
 }
+
+
 
 async function cargarHistorial() {
     try {
@@ -431,14 +650,24 @@ async function cargarHistorial() {
         const data = await resp.json();
         if (data.success) {
             const tbody = document.querySelector('#historial tbody');
+            if (!tbody) return;
             tbody.innerHTML = '';
             data.resultado.forEach(e => {
                 const tr = document.createElement('tr');
+                const proveedor = e.proveedor ?? '';
+                const fecha = e.fecha ?? '';
+                const costoTotal = formatMoneda(e.costo_total ?? e.total ?? '');
+                const cantidadActual = e.cantidad_actual ?? '';
+                const unidad = e.unidad ? (' ' + e.unidad) : '';
+                const total = formatMoneda(e.total ?? e.costo_total ?? '');
+                const producto = e.producto ?? '';
                 tr.innerHTML = `
-                    <td>${e.proveedor}</td>
-                    <td>${e.fecha}</td>
-                    <td>${e.total}</td>
-                    <td>${e.producto}</td>
+                    <td>${proveedor}</td>
+                    <td>${fecha}</td>
+                    <td>${costoTotal}</td>
+                    <td>${cantidadActual}${unidad}</td>
+                    <td>${total}</td>
+                    <td>${producto}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -451,43 +680,157 @@ async function cargarHistorial() {
     }
 }
 
+
+
 document.addEventListener('DOMContentLoaded', () => {
     cargarProveedores();
     cargarInsumos();
     cargarBajoStock();
     cargarHistorial();
-    document.getElementById('agregarFila').addEventListener('click', agregarFila);
-    document.getElementById('registrarEntrada').addEventListener('click', registrarEntrada);
-    document.getElementById('btnNuevoProveedor').addEventListener('click', nuevoProveedor);
+
+    const btnAgregar = document.getElementById('agregarFila');
+    if (btnAgregar) {
+        btnAgregar.addEventListener('click', agregarFila);
+    }
+
+    const formEntrada = qs(document, '#form-entrada, form[name="form-entrada"]');
+    if (formEntrada) {
+        formEntrada.addEventListener('submit', registrarEntrada);
+    }
+
+    const btnRegistrar = qs(document, '#btn-registrar, [data-action="registrar-entrada"]');
+    if (btnRegistrar) {
+        btnRegistrar.addEventListener('click', registrarEntrada);
+    }
+
+    const btnNuevoProveedor = document.getElementById('btnNuevoProveedor');
+    if (btnNuevoProveedor) {
+        btnNuevoProveedor.addEventListener('click', nuevoProveedor);
+    }
+
     const btnNuevoInsumo = document.getElementById('btnNuevoInsumo');
     if (btnNuevoInsumo) {
         btnNuevoInsumo.addEventListener('click', nuevoInsumo);
     }
-    const form = document.getElementById('formInsumo');
-    if (form) {
-        form.addEventListener('submit', guardarInsumo);
-        document.getElementById('cancelarInsumo').addEventListener('click', cerrarFormulario);
-    }
+
+    document.addEventListener('change', e => {
+        if (e.target && e.target.matches('[name="insumo_id"], .insumo_id')) {
+            actualizarSelectsProducto(e);
+        }
+    });
+
+    document.addEventListener('input', e => {
+        if (e.target && e.target.matches('.cantidad, .costo_total, .precio')) {
+            calcularTotal();
+        }
+    });
+
     const formProv = document.getElementById('formProveedor');
     if (formProv) {
         formProv.addEventListener('submit', guardarProveedor);
-        document.getElementById('cancelarProveedor').addEventListener('click', () => {
-            hideModal('#modalProveedor');
-            document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
-            document.body.classList.remove('modal-open');
-        });
-        document.getElementById('modalProveedor').addEventListener('hidden.bs.modal', () => {
-            document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
-            document.body.classList.remove('modal-open');
-        });
+        const cancelar = document.getElementById('cancelarProveedor');
+        if (cancelar) {
+            cancelar.addEventListener('click', () => {
+                hideModal('#modalProveedor');
+                document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+                document.body.classList.remove('modal-open');
+            });
+        }
+        const modal = document.getElementById('modalProveedor');
+        if (modal) {
+            modal.addEventListener('hidden.bs.modal', () => {
+                document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+                document.body.classList.remove('modal-open');
+            });
+        }
     }
+
+    const formInsumo = document.getElementById('formInsumo');
+    if (formInsumo) {
+        formInsumo.addEventListener('submit', guardarInsumo);
+        const cancelarInsumo = document.getElementById('cancelarInsumo');
+        if (cancelarInsumo) {
+            cancelarInsumo.addEventListener('click', cerrarFormulario);
+        }
+    }
+
     const buscador = document.getElementById('buscarInsumo');
     if (buscador) {
         buscador.addEventListener('input', filtrarCatalogo);
     }
-    document.querySelectorAll('.cantidad').forEach(i => i.addEventListener('input', calcularTotal));
-    document.querySelectorAll('.precio').forEach(i => i.addEventListener('input', calcularTotal));
+
     calcularTotal();
 });
 
+// Modal de resumen: renderiza tarjetas con QR, nombre (id - nombre) y cantidad
+function mostrarResumenEntrada(entradas, resumenProductos) {
+    const cont = document.getElementById('resumenEntradasLista');
+    if (!cont) return;
+    cont.innerHTML = '';
 
+    const ids = [];
+    const count = Math.min(entradas.length, (resumenProductos && resumenProductos.length) || entradas.length);
+    for (let i = 0; i < count; i++) {
+        const ent = entradas[i] || {};
+        const res = (resumenProductos && resumenProductos[i]) || {};
+        const eid = ent.id;
+        if (eid) ids.push(eid);
+        const qr = ent.qr ? String(ent.qr) : '';
+        const imgSrc = qr ? ('../../' + qr.replace(/^\/+/, '')) : '';
+        const nombre = res && res.nombre ? res.nombre : (res && res.insumo_id ? ('ID ' + res.insumo_id) : '');
+        const cant = (res && typeof res.cantidad !== 'undefined') ? res.cantidad : '';
+        const unidad = (res && res.unidad) ? res.unidad : '';
+
+        const col = document.createElement('div');
+        col.className = 'col-12 col-sm-6 col-md-4 col-lg-3';
+        col.innerHTML = `
+            <div class="card h-100 text-center" data-entrada-id="${eid ?? ''}">
+                <div class="card-body d-flex flex-column align-items-center justify-content-start">
+                    ${imgSrc ? `<img src="${imgSrc}" alt="QR" style="width:180px;height:180px;object-fit:contain;"/>` : ''}
+                    <div class="mt-2" style="font-size: 0.9rem;">
+                        ${nombre ? `<div><strong>${nombre}</strong></div>` : ''}
+                        <div>${cant !== '' ? `Cantidad: ${cant}${unidad ? ' ' + unidad : ''}` : ''}</div>
+                        ${eid ? `<div class="text-muted" style="font-size:0.8rem;">Entrada #${eid}</div>` : ''}
+                    </div>
+                </div>
+            </div>`;
+        cont.appendChild(col);
+    }
+
+    const btnImp = document.getElementById('btnImprimirResumen');
+    if (btnImp) {
+        btnImp.dataset.ids = ids.join(',');
+        if (!btnImp.dataset.bound) {
+            btnImp.addEventListener('click', imprimirResumenQRs);
+            btnImp.dataset.bound = '1';
+        }
+    }
+
+    showModal('#modalResumenEntrada');
+}
+
+async function imprimirResumenQRs() {
+    const btn = document.getElementById('btnImprimirResumen');
+    const idsStr = btn && btn.dataset.ids ? btn.dataset.ids : '';
+    const entradaIds = idsStr ? idsStr.split(',').map(s => parseInt(s, 10)).filter(n => Number.isFinite(n) && n > 0) : [];
+    if (!entradaIds.length) {
+        alert('No hay entradas para imprimir');
+        return;
+    }
+    try {
+        const resp = await fetch('../../api/insumos/imprimir_qrs_entrada.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entrada_ids: entradaIds })
+        });
+        const data = await resp.json();
+        if (data && data.success) {
+            alert(`Enviados a impresión: ${data.resultado.impresos}`);
+        } else {
+            alert((data && (data.mensaje || data.error)) || 'Error al imprimir');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error de comunicación al imprimir');
+    }
+}

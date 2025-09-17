@@ -1,6 +1,6 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../../utils/cargar_permisos.php';
-// Base app dinámica y ruta relativa para validación
+// Base app dinÇ­mica y ruta relativa para validaciï¿½ï¿½n
 $__sn = isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '';
 $__pos = strpos($__sn, '/vistas/');
 $__app_base = $__pos !== false ? substr($__sn, 0, $__pos) : rtrim(dirname($__sn), '/');
@@ -13,8 +13,9 @@ if (!in_array($path_actual, $_SESSION['rutas_permitidas'])) {
 $title = 'Insumos';
 ob_start();
 ?>
-
-
+<style>
+    .is-invalid { outline: 2px solid #e74c3c; }
+</style>
 
 <!-- Page Header Start -->
 <div class="page-header">
@@ -31,7 +32,6 @@ ob_start();
     </div>
 </div>
 <!-- Page Header End -->
-
 
 
 
@@ -108,48 +108,46 @@ ob_start();
 <!-- Blog End -->
 
 <!-- insumo -->
-<form id="formEntrada">
-    <div class="container mt-5">
-        <h2 class="text-white">Registrar entrada de productos</h2>
-        <form id="formEntrada" class="bg-dark p-4 rounded">
-            <div class="form-group">
-                <label for="proveedor" class="text-white">Proveedor:</label>
-                <select id="proveedor" name="proveedor" class="form-control"></select>
-                <button type="button" id="btnNuevoProveedor" class="btn custom-btn mt-2">Nuevo proveedor</button>
-            </div>
+<div class="container mt-5">
+    <h2 class="text-white">Registrar entrada de productos</h2>
+    <form id="form-entrada" class="bg-dark p-4 rounded" name="form-entrada">
+        <div class="form-group">
+            <label for="proveedor" class="text-white">Proveedor:</label>
+            <select id="proveedor" name="proveedor_id" class="form-control"></select>
+            <button type="button" id="btnNuevoProveedor" class="btn custom-btn mt-2">Nuevo proveedor</button>
+        </div>
 
-            <div class="table-responsive">
-                <table id="tablaProductos" class="styled-table">
-                    <thead>
-                        <tr>
-                            <th>Producto</th>
-                            <th>Tipo de control</th>
-                            <th>Cantidad</th>
-                            <th>Unidad</th>
-                            <th>Precio unitario</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><select class="form-control producto"></select></td>
-                            <td class="tipo">-</td>
-                            <td><input type="number" class="form-control cantidad"></td>
-                            <td class="unidad">-</td>
-                            <td><input type="number" class="form-control precio"></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        <div class="table-responsive">
+            <table id="tablaProductos" class="styled-table">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Tipo de control</th>
+                        <th>Cantidad</th>
+                        <th>Unidad</th>
+                        <th>Costo total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="fila-producto">
+                        <td><select class="form-control insumo_id" name="insumo_id"></select></td>
+                        <td class="tipo">-</td>
+                        <td><input type="number" class="form-control cantidad" name="cantidad" step="0.01" min="0"></td>
+                        <td><input type="text" class="form-control unidad" name="unidad" readonly></td>
+                        <td><input type="number" class="form-control costo_total" name="costo_total" step="0.01" min="0"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
-            <p class="text-white"><strong>Total: $<span id="total">0.00</span></strong></p>
+        <p class="text-white"><strong>Total: $<span id="total">0.00</span></strong></p>
 
-            <div class="form-group">
-                <button type="button" id="agregarFila" class="btn custom-btn">Agregar producto</button>
-                <button type="button" id="registrarEntrada" class="btn custom-btn">Registrar entrada</button>
-            </div>
-        </form>
-    </div>
-</form>
+        <div class="form-group">
+            <button type="button" id="agregarFila" class="btn custom-btn">Agregar producto</button>
+            <button type="submit" id="btn-registrar" class="btn custom-btn" data-action="registrar-entrada">Registrar entrada</button>
+        </div>
+    </form>
+</div>
 <!-- insumo End -->
 
 <!-- alerta stock-->
@@ -174,11 +172,13 @@ ob_start();
 <div class="container mt-5">
     <h2 class="text-white">Historial de Entradas por Proveedor</h2>
     <div class="table-responsive">
-        <table id="historial" class="styled-table">
+                <table id="historial" class="styled-table">
             <thead>
                 <tr>
                     <th>Proveedor</th>
                     <th>Fecha</th>
+                    <th>Costo total</th>
+                    <th>Cantidad actual</th>
                     <th>Total</th>
                     <th>Producto</th>
                 </tr>
@@ -211,10 +211,10 @@ ob_start();
                                         <label class="drag-options-label" for="provNombre">Nombre:
                                             <input type="text" id="provNombre" class="form-control">
                                         </label>
-                                        <label class="drag-options-label" for="provTelefono">Teléfono:
+                                        <label class="drag-options-label" for="provTelefono">TelÇ¸fono:
                                             <input type="text" id="provTelefono" class="form-control">
                                         </label>
-                                        <label class="drag-options-label" for="provDireccion">Dirección:
+                                        <label class="drag-options-label" for="provDireccion">Direcciï¿½ï¿½n:
                                             <input type="text" id="provDireccion" class="form-control">
                                         </label>
                                     </li>
@@ -232,6 +232,26 @@ ob_start();
     </div>
 </div>
 <!-- Modal Nuevo Proveedor End -->
+<!-- Modal Resumen Entrada -->
+<div class="modal fade" id="modalResumenEntrada" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Entradas registradas</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <p id="resumenEntradaMensaje" class="text-muted mb-3">Se generaron las siguientes entradas y códigos QR.</p>
+                <div id="resumenEntradasLista" class="row gy-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn custom-btn" id="btnImprimirResumen">Imprimir QRs</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal Resumen Entrada End -->
 <!-- Modal global de mensajes -->
 <div class="modal fade" id="appMsgModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
@@ -250,7 +270,7 @@ ob_start();
 
 <?php require_once __DIR__ . '/../footer.php'; ?>
 
-<script src="insumos.js"></script>
+<script src="insumos.js" defer></script>
 </body>
 
 </html>
@@ -259,3 +279,5 @@ ob_start();
 $content = ob_get_clean();
 include __DIR__ . '/../nav.php';
 ?>
+
+
