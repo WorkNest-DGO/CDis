@@ -17,91 +17,55 @@ $idPreset = isset($_GET['id']) ? (int) $_GET['id'] : 0;
     <title>Consulta de movimiento de insumo</title>
     <link href="<?= $baseUrl ? $baseUrl : '' ?>/utils/css/bootstrap.min.css" rel="stylesheet">
     <link href="<?= $baseUrl ? $baseUrl : '' ?>/utils/css/style1.css" rel="stylesheet">
-    <style>
-        body {
-            background: #f7f8fa;
-        }
-        .consulta-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        .consulta-header h1 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: #2c3e50;
-        }
-        .consulta-header p {
-            color: #6c757d;
-            margin-bottom: 0;
-        }
-        .card-info {
-            border: none;
-            border-radius: 1rem;
-        }
-        .card-info .card-body {
-            padding: 2rem;
-        }
-        .info-label {
-            font-weight: 600;
-            color: #495057;
-        }
-        .texto-importante {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #1f3c88;
-        }
-        code {
-            color: #c7254e;
-            background-color: #f9f2f4;
-            border-radius: 4px;
-            padding: 2px 4px;
-        }
-        #mov-qr-img {
-            max-width: 240px;
-        }
-    </style>
 </head>
 <body>
-<div class="container py-4 py-md-5">
-    <div class="consulta-header">
-        <h1>Consulta de movimiento de insumo</h1>
-        <p>Información vinculada al código QR de salida.</p>
+<div class="container py-5">
+    <div class="section-header text-center">
+        <p>Movimientos de insumos</p>
+        <h2>Consulta de movimiento</h2>
     </div>
 
-    <div id="mov-status" class="alert alert-info">Buscando información del movimiento...</div>
-
-    <div id="mov-detalle" class="card card-info shadow-sm d-none">
-        <div class="card-body">
-            <h2 class="texto-importante mb-3">Movimiento <span id="mov-id">—</span></h2>
-            <dl class="row">
-                <dt class="col-sm-4 info-label">Tipo</dt>
-                <dd class="col-sm-8" id="mov-tipo">—</dd>
-                <dt class="col-sm-4 info-label">Fecha</dt>
-                <dd class="col-sm-8" id="mov-fecha">—</dd>
-                <dt class="col-sm-4 info-label">Insumo</dt>
-                <dd class="col-sm-8" id="mov-insumo">—</dd>
-                <dt class="col-sm-4 info-label">Cantidad</dt>
-                <dd class="col-sm-8" id="mov-cantidad">—</dd>
-                <dt class="col-sm-4 info-label">Usuario</dt>
-                <dd class="col-sm-8" id="mov-usuario">—</dd>
-                <dt class="col-sm-4 info-label">Usuario destino</dt>
-                <dd class="col-sm-8" id="mov-usuario-destino">—</dd>
-                <dt class="col-sm-4 info-label">Observación</dt>
-                <dd class="col-sm-8" id="mov-observacion">—</dd>
-            </dl>
-            <div class="mt-3">
-                <p class="mb-1 text-muted">Token del movimiento: <code id="mov-token">—</code></p>
-                <p class="mb-1 text-muted">URL de consulta: <code id="mov-consulta-url">—</code></p>
-            </div>
-            <div id="mov-qr-section" class="text-center mt-4 d-none">
-                <img id="mov-qr-img" src="" alt="Código QR del movimiento" class="img-fluid mb-2">
-                <p class="small"><a id="mov-qr-link" href="#" target="_blank" rel="noopener">Descargar código QR</a></p>
-            </div>
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div id="mov-status" class="alert alert-info shadow-sm">Buscando información del movimiento...</div>
         </div>
     </div>
 
-    <div class="text-center mt-4">
-        <a class="btn btn-outline-secondary" href="<?= $baseUrl ? $baseUrl : '' ?>/index.php">Ir al inicio</a>
+    <div class="row justify-content-center mt-4">
+        <div class="col-lg-8">
+            <div id="mov-detalle" class="card bg-dark border-0 shadow-lg text-white d-none">
+                <div class="card-body p-4">
+                    <h2 class="h4 fw-bold text-uppercase mb-4">Movimiento <span id="mov-id" class="text-danger">—</span></h2>
+                    <dl class="row g-3 mb-0">
+                        <dt class="col-sm-4 text-white-50 text-uppercase small">Tipo</dt>
+                        <dd class="col-sm-8" id="mov-tipo">—</dd>
+                        <dt class="col-sm-4 text-white-50 text-uppercase small">Fecha</dt>
+                        <dd class="col-sm-8" id="mov-fecha">—</dd>
+                        <dt class="col-sm-4 text-white-50 text-uppercase small">Insumo</dt>
+                        <dd class="col-sm-8" id="mov-insumo">—</dd>
+                        <dt class="col-sm-4 text-white-50 text-uppercase small">Cantidad</dt>
+                        <dd class="col-sm-8" id="mov-cantidad">—</dd>
+                        <dt class="col-sm-4 text-white-50 text-uppercase small">Usuario</dt>
+                        <dd class="col-sm-8" id="mov-usuario">—</dd>
+                        <dt class="col-sm-4 text-white-50 text-uppercase small">Usuario destino</dt>
+                        <dd class="col-sm-8" id="mov-usuario-destino">—</dd>
+                        <dt class="col-sm-4 text-white-50 text-uppercase small">Observación</dt>
+                        <dd class="col-sm-8" id="mov-observacion">—</dd>
+                    </dl>
+                    <div class="border-top border-secondary mt-4 pt-3 text-white-50 small">
+                        <p class="mb-2">Token del movimiento: <span id="mov-token" class="badge bg-secondary text-uppercase">—</span></p>
+                        <p class="mb-0">URL de consulta: <span id="mov-consulta-url" class="badge bg-secondary text-break">—</span></p>
+                    </div>
+                    <div id="mov-qr-section" class="text-center mt-4 d-none">
+                        <img id="mov-qr-img" src="" alt="Código QR del movimiento" class="img-fluid mb-3" style="max-width: 240px;">
+                        <p class="small mb-0"><a id="mov-qr-link" href="#" target="_blank" rel="noopener" class="text-decoration-none text-light">Descargar código QR</a></p>
+                    </div>
+                </div>
+            </div>
+            <div class="text-center mt-4">
+                <a class="btn custom-btn" href="<?= $baseUrl ? $baseUrl : '' ?>/index.php">Ir al inicio</a>
+            </div>
+        </div>
     </div>
 </div>
 

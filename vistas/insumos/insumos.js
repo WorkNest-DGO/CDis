@@ -56,6 +56,37 @@ const formatMoneda = (valor) => {
     return Number.isFinite(num) ? num.toFixed(2) : (valor ?? '');
 };
 
+function formatFechaEntrada(fechaStr) {
+    if (!fechaStr) {
+        return '';
+    }
+    const texto = String(fechaStr).trim();
+    if (!texto) {
+        return '';
+    }
+    const normalizado = texto.replace(' ', 'T').replace(/\.\d+$/, '');
+    const fecha = new Date(normalizado);
+    if (!Number.isNaN(fecha.getTime())) {
+        try {
+            return fecha.toLocaleString('es-MX', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (e) {
+            const yyyy = fecha.getFullYear();
+            const mm = String(fecha.getMonth() + 1).padStart(2, '0');
+            const dd = String(fecha.getDate()).padStart(2, '0');
+            const hh = String(fecha.getHours()).padStart(2, '0');
+            const min = String(fecha.getMinutes()).padStart(2, '0');
+            return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+        }
+    }
+    return texto;
+}
+
 
 function showAppMsg(msg) {
     const body = document.querySelector('#appMsgModal .modal-body');
@@ -780,6 +811,9 @@ function mostrarResumenEntrada(entradas, resumenProductos) {
         const nombre = res && res.nombre ? res.nombre : (res && res.insumo_id ? ('ID ' + res.insumo_id) : '');
         const cant = (res && typeof res.cantidad !== 'undefined') ? res.cantidad : '';
         const unidad = (res && res.unidad) ? res.unidad : '';
+        const fechaTexto = formatFechaEntrada(ent && ent.fecha ? ent.fecha : '');
+        const cantidadTexto = (cant !== '' ? `Cantidad: ${cant}${unidad ? ' ' + unidad : ''}` : '');
+        const loteTexto = eid ? `Lote: ${eid}` : '';
 
         const col = document.createElement('div');
         col.className = 'col-12 col-sm-6 col-md-4 col-lg-3';
@@ -789,8 +823,9 @@ function mostrarResumenEntrada(entradas, resumenProductos) {
                     ${imgSrc ? `<img src="${imgSrc}" alt="QR" style="width:180px;height:180px;object-fit:contain;"/>` : ''}
                     <div class="mt-2" style="font-size: 0.9rem;">
                         ${nombre ? `<div><strong>${nombre}</strong></div>` : ''}
-                        <div>${cant !== '' ? `Cantidad: ${cant}${unidad ? ' ' + unidad : ''}` : ''}</div>
-                        ${eid ? `<div class="text-muted" style="font-size:0.8rem;">Entrada #${eid}</div>` : ''}
+                        ${cantidadTexto ? `<div>${cantidadTexto}</div>` : ''}
+                        ${fechaTexto ? `<div class="text-muted" style="font-size:0.8rem;">Fecha: ${fechaTexto}</div>` : ''}
+                        ${loteTexto ? `<div class="text-muted" style="font-size:0.8rem;">${loteTexto}</div>` : ''}
                     </div>
                 </div>
             </div>`;
