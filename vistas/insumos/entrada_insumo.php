@@ -69,6 +69,13 @@ ob_start();
                         <img id="entrada-qr" src="" alt="Código QR" class="img-fluid mx-auto mb-3 d-none" style="max-width: 260px;">
                         <p id="entrada-sin-qr" class="text-muted">No se encontró un código QR asociado.</p>
                         <a id="entrada-qr-link" href="#" class="btn custom-btn d-none" target="_blank" rel="noopener">Abrir QR</a>
+                        <div id="retiro-qr-container" class="mt-4 d-none">
+                            <h5 class="text-dark">Última salida registrada</h5>
+                            <p id="retiro-qr-info" class="text-muted small mb-1">—</p>
+                            <p class="text-muted small mb-2">Token: <code id="retiro-qr-token">—</code></p>
+                            <img id="retiro-qr-img" src="" alt="Código QR de salida" class="img-fluid mx-auto mb-2 d-none" style="max-width: 220px;">
+                            <a id="retiro-qr-link" href="#" class="btn btn-sm custom-btn d-none" target="_blank" rel="noopener">Abrir QR de salida</a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -93,7 +100,81 @@ ob_start();
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
     const apiLink = document.getElementById('entrada-api-url');
+    const retiroQrContainer = document.getElementById('retiro-qr-container');
+    const retiroQrInfo = document.getElementById('retiro-qr-info');
+    const retiroQrToken = document.getElementById('retiro-qr-token');
+    const retiroQrImg = document.getElementById('retiro-qr-img');
+    const retiroQrLink = document.getElementById('retiro-qr-link');
     let entradaActual = null;
+
+    function limpiarQrRetiro() {
+        if (retiroQrContainer) {
+            retiroQrContainer.classList.add('d-none');
+        }
+        if (retiroQrInfo) {
+            retiroQrInfo.textContent = '—';
+        }
+        if (retiroQrToken) {
+            retiroQrToken.textContent = '—';
+        }
+        if (retiroQrImg) {
+            retiroQrImg.src = '';
+            retiroQrImg.classList.add('d-none');
+        }
+        if (retiroQrLink) {
+            retiroQrLink.href = '#';
+            retiroQrLink.classList.add('d-none');
+        }
+    }
+
+    function mostrarQrRetiro(datos) {
+        if (!retiroQrContainer) {
+            return;
+        }
+        if (!datos || !datos.qr_imagen) {
+            limpiarQrRetiro();
+            return;
+        }
+        const cantidad = Number(datos.retirado);
+        const unidad = datos.unidad ? String(datos.unidad) : '';
+        let descripcion = '';
+        if (Number.isFinite(cantidad)) {
+            descripcion = 'Cantidad retirada: ' + cantidad.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (unidad ? ' ' + unidad : '');
+        } else if (typeof datos.retirado !== 'undefined') {
+            descripcion = 'Cantidad retirada: ' + datos.retirado + (unidad ? ' ' + unidad : '');
+        }
+        if (datos.fecha) {
+            descripcion += (descripcion ? ' — ' : '') + 'Fecha: ' + datos.fecha;
+        }
+        if (retiroQrInfo) {
+            retiroQrInfo.textContent = descripcion || '—';
+        }
+        if (retiroQrToken) {
+            retiroQrToken.textContent = datos.qr_token || '—';
+        }
+        let ruta = String(datos.qr_imagen || '');
+        if (ruta && !/^https?:/i.test(ruta)) {
+            ruta = '../../' + ruta.replace(/^\/+/g, '');
+        }
+        if (retiroQrImg) {
+            retiroQrImg.src = ruta || '';
+            if (ruta) {
+                retiroQrImg.classList.remove('d-none');
+            } else {
+                retiroQrImg.classList.add('d-none');
+            }
+        }
+        if (retiroQrLink) {
+            if (ruta) {
+                retiroQrLink.href = ruta;
+                retiroQrLink.classList.remove('d-none');
+            } else {
+                retiroQrLink.href = '#';
+                retiroQrLink.classList.add('d-none');
+            }
+        }
+        retiroQrContainer.classList.remove('d-none');
+    }
     if (!id) {
         statusEl.classList.remove('alert-info');
         statusEl.classList.add('alert-warning');
@@ -119,6 +200,7 @@ ob_start();
             }
             const data = payload.resultado;
             entradaActual = data;
+            limpiarQrRetiro();
             statusEl.classList.remove('alert-info');
             statusEl.classList.add('alert-success');
             statusEl.textContent = 'Entrada localizada correctamente.';
@@ -251,12 +333,14 @@ ob_start();
             body: JSON.stringify({ entrada_id: parseInt(entradaActual.id), retirar: val })
         }).then(r=>r.json()).then(function(data){
             if (data && data.success) {
+                const info = data.resultado || {};
                 const nuevo = (max - val);
                 entradaActual.cantidad_actual = nuevo;
                 const el = document.getElementById('entrada-cantidad-actual');
                 if (el) el.textContent = Number(nuevo).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                alert('Retiro registrado');
+                mostrarQrRetiro(info);
                 cerrarModalRetiro();
+                alert('Retiro registrado');
             } else {
                 alert((data && (data.mensaje||data.error))||'Error al retirar');
             }
