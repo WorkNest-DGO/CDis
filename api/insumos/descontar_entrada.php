@@ -51,16 +51,63 @@ if ($retirar > $actual) {
     error('La cantidad a retirar supera la cantidad actual');
 }
 
-if (!function_exists('generarTokenQrSalida')) {
-    function generarTokenQrSalida()
+if (!function_exists('obtenerBaseUrl')) {
+    function obtenerBaseUrl()
     {
-        return bin2hex(random_bytes(16));
+        $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+                 (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+        $scheme = $https ? 'https' : 'http';
+        $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : (isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : 'localhost');
+        if (strpos($host, ':') === false && isset($_SERVER['SERVER_PORT']) && !in_array($_SERVER['SERVER_PORT'], ['80', '443'], true)) {
+            $host .= ':' . $_SERVER['SERVER_PORT'];
+        }
+        return $scheme . '://' . $host;
+    }
+}
+
+if (!function_exists('construirUrlConsultaMovimiento')) {
+    function construirUrlConsultaMovimiento($token)
+    {
+        $token = trim((string) $token);
+        if ($token === '') {
+            throw new InvalidArgumentException('Token de consulta inválido');
+        }
+        $scriptName = isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '/api/insumos/descontar_entrada.php';
+        $scriptDir = str_replace('\\', '/', dirname($scriptName));
+        if ($scriptDir === '.' || $scriptDir === '/' || $scriptDir === '\\') {
+            $scriptDir = '';
+        }
+        $basePath = preg_replace('#/api/insumos/?$#', '', $scriptDir);
+        $relativePath = rtrim($basePath, '/') . '/vistas/insumos/consulta_movimiento.php';
+        $relativePath = '/' . ltrim($relativePath, '/');
+        return rtrim(obtenerBaseUrl(), '/') . $relativePath . '?token=' . urlencode($token);
+    }
+}
+
+if (!function_exists('generarTokenQrSalida')) {
+    function generarTokenQrSalida(mysqli $conn)
+    {
+        do {
+            $token = bin2hex(random_bytes(16));
+            $stmt = $conn->prepare('SELECT id FROM movimientos_insumos WHERE qr_token = ? LIMIT 1');
+            if (!$stmt) {
+                throw new RuntimeException('No se pudo preparar la validación del token QR');
+            }
+            $stmt->bind_param('s', $token);
+            $stmt->execute();
+            $stmt->store_result();
+            $existe = $stmt->num_rows > 0;
+            $stmt->close();
+        } while ($existe);
+
+        return $token;
     }
 }
 
 $qrToken = null;
 $qrRelPath = null;
 $qrAbsPath = null;
+$qrConsultaUrl = null;
 $fechaMovimiento = null;
 $movimientoId = null;
 
@@ -83,7 +130,8 @@ try {
         $updIns->close();
     }
 
-    $qrToken = generarTokenQrSalida();
+    $qrToken = generarTokenQrSalida($conn);
+    $qrConsultaUrl = construirUrlConsultaMovimiento($qrToken);
     $qrDir = __DIR__ . '/../../archivos/qr';
     if (!is_dir($qrDir)) {
         if (!mkdir($qrDir, 0777, true) && !is_dir($qrDir)) {
@@ -95,20 +143,7 @@ try {
     $qrAbsPath = $qrDir . DIRECTORY_SEPARATOR . $qrFileName;
 
     $fechaMovimiento = date('Y-m-d H:i:s');
-    $qrPayload = json_encode([
-        'tipo' => 'salida_insumo',
-        'entrada_id' => $entradaId,
-        'insumo_id' => $insumoId,
-        'cantidad' => $retirar,
-        'unidad' => $unidad,
-        'fecha' => $fechaMovimiento,
-        'usuario_id' => $usuarioId
-    ], JSON_UNESCAPED_UNICODE);
-    if ($qrPayload === false) {
-        throw new RuntimeException('No se pudo preparar la información del código QR');
-    }
-
-    QRcode::png($qrPayload, $qrAbsPath, QR_ECLEVEL_Q, 8, 2);
+    QRcode::png($qrConsultaUrl, $qrAbsPath, QR_ECLEVEL_Q, 8, 2);
     if (!is_file($qrAbsPath)) {
         throw new RuntimeException('No se pudo generar el código QR de salida');
     }
@@ -143,6 +178,7 @@ success([
     'unidad' => $unidad,
     'valor_unitario' => $valorUnit,
     'qr_token' => $qrToken,
+    'qr_consulta_url' => $qrConsultaUrl,
     'qr_imagen' => $qrRelPath,
     'fecha' => $fechaMovimiento,
     'movimiento_id' => $movimientoId
