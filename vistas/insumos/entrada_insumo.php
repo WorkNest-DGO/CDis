@@ -37,7 +37,7 @@ ob_start();
             <h3 class="card-title text-dark">Entrada #<span id="entrada-id"></span></h3>
             <p class="text-muted mb-4">Registrada el <span id="entrada-fecha"></span></p>
             <div class="row g-4">
-                <div class="col-md-6">
+                <div style="color:black" class="col-md-6">
                     <dl class="row mb-0">
                         <dt class="col-sm-5">Insumo</dt>
                         <dd class="col-sm-7" id="entrada-insumo">-</dd>
@@ -90,7 +90,7 @@ ob_start();
                 <h5 class="text-dark">Historial de retiros</h5>
                 <p id="historial-retiros-mensaje" class="text-muted small">Selecciona una entrada para consultar el historial de retiros.</p>
                 <div id="historial-retiros-wrapper" class="table-responsive d-none">
-                    <table class="table table-sm table-hover table-bordered align-middle mb-0">
+                    <table style="color:black" class="table table-sm table-hover table-bordered align-middle mb-0">
                         <thead class="table-light">
                             <tr>
                                 <th scope="col">Fecha</th>
@@ -592,10 +592,10 @@ ob_start();
 </script>
 <!-- Modal Retiro -->
 <div class="modal fade" id="modalRetiro" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog" role="document">
+    <div style="color:black" class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Retirar de esta entrada</h5>
+                <h5 style="color:black" class="modal-title">Retirar de esta entrada</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
             </div>
             <div class="modal-body">
