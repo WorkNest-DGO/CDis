@@ -86,6 +86,24 @@ ob_start();
                 <h5>Descripción</h5>
                 <p id="entrada-descripcion" class="mb-3">-</p>
             </div>
+            <div class="mt-4" id="historial-retiros-section">
+                <h5 class="text-dark">Historial de retiros</h5>
+                <p id="historial-retiros-mensaje" class="text-muted small">Selecciona una entrada para consultar el historial de retiros.</p>
+                <div id="historial-retiros-wrapper" class="table-responsive d-none">
+                    <table class="table table-sm table-hover table-bordered align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Fecha</th>
+                                <th scope="col">Cantidad</th>
+                                <th scope="col">Usuario</th>
+                                <th scope="col">Observación</th>
+                                <th scope="col" class="text-nowrap">QR</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historial-retiros-body"></tbody>
+                    </table>
+                </div>
+            </div>
             <div>
                 <h6 class="text-muted">Consulta del API</h6>
                 <a id="entrada-api-url" href="#" target="_blank" rel="noopener" class="small text-break"></a>
@@ -109,7 +127,204 @@ ob_start();
     const retiroQrLink = document.getElementById('retiro-qr-link');
     const retiroQrConsultaText = document.getElementById('retiro-qr-consulta-text');
     const retiroQrConsultaLink = document.getElementById('retiro-qr-consulta');
+    const historialMensaje = document.getElementById('historial-retiros-mensaje');
+    const historialWrapper = document.getElementById('historial-retiros-wrapper');
+    const historialBody = document.getElementById('historial-retiros-body');
     let entradaActual = null;
+
+    function formatNumber(value, opts) {
+        if (value === null || value === undefined || value === '') {
+            return '';
+        }
+        const num = Number(value);
+        if (!Number.isFinite(num)) {
+            return String(value);
+        }
+        const options = Object.assign({ minimumFractionDigits: 2, maximumFractionDigits: 2 }, opts || {});
+        return num.toLocaleString('es-MX', options);
+    }
+
+    function resolverRuta(ruta) {
+        if (!ruta) {
+            return '';
+        }
+        let path = String(ruta).trim();
+        if (!path) {
+            return '';
+        }
+        if (/^https?:/i.test(path)) {
+            return path;
+        }
+        path = path.replace(/^[\/\\]+/, '');
+        if (!path) {
+            return '';
+        }
+        return '../../' + path;
+    }
+
+    function mostrarMensajeHistorial(texto, esError) {
+        if (!historialMensaje) {
+            return;
+        }
+        historialMensaje.textContent = texto;
+        if (esError) {
+            historialMensaje.classList.add('text-danger');
+        } else {
+            historialMensaje.classList.remove('text-danger');
+        }
+        historialMensaje.classList.remove('d-none');
+    }
+
+    function limpiarHistorialTabla() {
+        if (historialBody) {
+            historialBody.innerHTML = '';
+        }
+        if (historialWrapper) {
+            historialWrapper.classList.add('d-none');
+        }
+    }
+
+    function renderHistorial(movimientos) {
+        limpiarHistorialTabla();
+        if (!historialBody) {
+            return;
+        }
+        if (!Array.isArray(movimientos) || movimientos.length === 0) {
+            mostrarMensajeHistorial('Sin retiros registrados para esta entrada.');
+            return;
+        }
+        const fragment = document.createDocumentFragment();
+        movimientos.forEach(function (movimiento) {
+            const tr = document.createElement('tr');
+
+            const fechaTd = document.createElement('td');
+            fechaTd.textContent = movimiento && movimiento.fecha ? String(movimiento.fecha) : '-';
+            tr.appendChild(fechaTd);
+
+            const cantidadTd = document.createElement('td');
+            const unidadMovimiento = movimiento && (movimiento.unidad || movimiento.insumo_unidad) ? String(movimiento.unidad || movimiento.insumo_unidad) : '';
+            const valorCantidad = (movimiento && typeof movimiento.retirado !== 'undefined' && movimiento.retirado !== null) ? movimiento.retirado : (movimiento ? movimiento.cantidad : null);
+            let textoCantidad = '-';
+            if (valorCantidad !== null && typeof valorCantidad !== 'undefined') {
+                const cantidadNumero = Number(valorCantidad);
+                if (Number.isFinite(cantidadNumero)) {
+                    textoCantidad = formatNumber(cantidadNumero, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                } else {
+                    textoCantidad = String(valorCantidad);
+                }
+                if (unidadMovimiento) {
+                    textoCantidad += ' ' + unidadMovimiento;
+                }
+            }
+            cantidadTd.textContent = textoCantidad;
+            tr.appendChild(cantidadTd);
+
+            const usuarioTd = document.createElement('td');
+            let usuarioTexto = '-';
+            if (movimiento) {
+                if (movimiento.usuario_nombre) {
+                    usuarioTexto = String(movimiento.usuario_nombre);
+                    if (movimiento.usuario_id) {
+                        usuarioTexto += ' (ID ' + movimiento.usuario_id + ')';
+                    }
+                } else if (movimiento.usuario_id) {
+                    usuarioTexto = 'ID ' + movimiento.usuario_id;
+                }
+            }
+            usuarioTd.textContent = usuarioTexto;
+            tr.appendChild(usuarioTd);
+
+            const observacionTd = document.createElement('td');
+            observacionTd.textContent = movimiento && movimiento.observacion ? String(movimiento.observacion) : '-';
+            tr.appendChild(observacionTd);
+
+            const qrTd = document.createElement('td');
+            qrTd.className = 'text-nowrap';
+            const acciones = document.createElement('div');
+            acciones.className = 'd-flex flex-column gap-1';
+            let tieneAccion = false;
+
+            const rutaQr = movimiento ? resolverRuta(movimiento.qr_imagen) : '';
+            if (rutaQr) {
+                const linkQr = document.createElement('a');
+                linkQr.href = rutaQr;
+                linkQr.target = '_blank';
+                linkQr.rel = 'noopener';
+                linkQr.className = 'btn btn-sm btn-outline-primary';
+                linkQr.textContent = 'Ver QR';
+                acciones.appendChild(linkQr);
+                tieneAccion = true;
+            }
+
+            const consultaUrl = movimiento && movimiento.qr_consulta_url ? String(movimiento.qr_consulta_url) : '';
+            if (consultaUrl) {
+                const linkConsulta = document.createElement('a');
+                linkConsulta.href = consultaUrl;
+                linkConsulta.target = '_blank';
+                linkConsulta.rel = 'noopener';
+                linkConsulta.className = 'btn btn-sm btn-outline-secondary';
+                linkConsulta.textContent = 'Detalle';
+                acciones.appendChild(linkConsulta);
+                tieneAccion = true;
+            }
+
+            if (movimiento && movimiento.qr_token) {
+                const tokenWrap = document.createElement('div');
+                tokenWrap.className = 'small text-muted';
+                tokenWrap.appendChild(document.createTextNode('Token: '));
+                const codeEl = document.createElement('code');
+                codeEl.textContent = String(movimiento.qr_token);
+                tokenWrap.appendChild(codeEl);
+                acciones.appendChild(tokenWrap);
+                tieneAccion = true;
+            }
+
+            if (!tieneAccion) {
+                acciones.textContent = '—';
+            }
+            qrTd.appendChild(acciones);
+            tr.appendChild(qrTd);
+
+            fragment.appendChild(tr);
+        });
+        historialBody.appendChild(fragment);
+        if (historialWrapper) {
+            historialWrapper.classList.remove('d-none');
+        }
+        mostrarMensajeHistorial('Se encontraron ' + movimientos.length + ' retiros registrados.');
+    }
+
+    function cargarHistorialRetiros(entradaId) {
+        if (!entradaId) {
+            limpiarHistorialTabla();
+            mostrarMensajeHistorial('Selecciona una entrada para consultar el historial de retiros.');
+            return;
+        }
+        mostrarMensajeHistorial('Cargando historial de retiros...');
+        fetch('../../api/insumos/listar_movimientos_entrada.php?entrada_id=' + encodeURIComponent(entradaId), { credentials: 'same-origin' })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                return response.json();
+            })
+            .then(function (payload) {
+                if (!payload || payload.success !== true) {
+                    throw new Error(payload && payload.mensaje ? payload.mensaje : 'Sin datos');
+                }
+                const movimientos = Array.isArray(payload.resultado) ? payload.resultado : [];
+                renderHistorial(movimientos);
+                if (movimientos.length > 0) {
+                    mostrarQrRetiro(movimientos[0]);
+                } else {
+                    limpiarQrRetiro();
+                }
+            })
+            .catch(function (error) {
+                limpiarHistorialTabla();
+                mostrarMensajeHistorial('No fue posible obtener el historial de retiros: ' + error.message, true);
+            });
+    }
 
     function limpiarQrRetiro() {
         if (retiroQrContainer) {
@@ -142,17 +357,20 @@ ob_start();
         if (!retiroQrContainer) {
             return;
         }
-        if (!datos || !datos.qr_imagen) {
+        if (!datos || (!datos.qr_imagen && !datos.qr_consulta_url && !datos.qr_token)) {
             limpiarQrRetiro();
             return;
         }
-        const cantidad = Number(datos.retirado);
-        const unidad = datos.unidad ? String(datos.unidad) : '';
+        const unidadMovimiento = datos && (datos.unidad || datos.insumo_unidad) ? String(datos.unidad || datos.insumo_unidad) : '';
+        const valorCantidad = (datos && typeof datos.retirado !== 'undefined' && datos.retirado !== null) ? datos.retirado : (datos ? datos.cantidad : null);
         let descripcion = '';
-        if (Number.isFinite(cantidad)) {
-            descripcion = 'Cantidad retirada: ' + cantidad.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (unidad ? ' ' + unidad : '');
-        } else if (typeof datos.retirado !== 'undefined') {
-            descripcion = 'Cantidad retirada: ' + datos.retirado + (unidad ? ' ' + unidad : '');
+        if (valorCantidad !== null && typeof valorCantidad !== 'undefined') {
+            const cantidadNumero = Number(valorCantidad);
+            if (Number.isFinite(cantidadNumero)) {
+                descripcion = 'Cantidad retirada: ' + formatNumber(cantidadNumero, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (unidadMovimiento ? ' ' + unidadMovimiento : '');
+            } else {
+                descripcion = 'Cantidad retirada: ' + valorCantidad + (unidadMovimiento ? ' ' + unidadMovimiento : '');
+            }
         }
         if (datos.fecha) {
             descripcion += (descripcion ? ' — ' : '') + 'Fecha: ' + datos.fecha;
@@ -166,15 +384,13 @@ ob_start();
         if (retiroQrConsultaText) {
             retiroQrConsultaText.textContent = datos.qr_consulta_url || '—';
         }
-        let ruta = String(datos.qr_imagen || '');
-        if (ruta && !/^https?:/i.test(ruta)) {
-            ruta = '../../' + ruta.replace(/^\/+/g, '');
-        }
+        const ruta = resolverRuta(datos.qr_imagen);
         if (retiroQrImg) {
-            retiroQrImg.src = ruta || '';
             if (ruta) {
+                retiroQrImg.src = ruta;
                 retiroQrImg.classList.remove('d-none');
             } else {
+                retiroQrImg.src = '';
                 retiroQrImg.classList.add('d-none');
             }
         }
@@ -203,6 +419,8 @@ ob_start();
         statusEl.classList.remove('alert-info');
         statusEl.classList.add('alert-warning');
         statusEl.textContent = 'Selecciona una entrada del listado para ver el detalle.';
+        limpiarHistorialTabla();
+        mostrarMensajeHistorial('Selecciona una entrada para consultar el historial de retiros.');
     }
 
     const apiUrl = id ? ('../../api/insumos/consultar_entrada_insumo.php?id=' + encodeURIComponent(id)) : '';
@@ -236,14 +454,6 @@ ob_start();
                     el.textContent = value !== null && value !== undefined && value !== '' ? String(value) : '-';
                 }
             };
-            const formatNumber = function (value, opts) {
-                const num = Number(value);
-                if (!Number.isFinite(num)) {
-                    return value;
-                }
-                const options = Object.assign({ minimumFractionDigits: 2, maximumFractionDigits: 2 }, opts || {});
-                return num.toLocaleString('es-MX', options);
-            };
 
             setText('entrada-id', data.id);
             setText('entrada-fecha', data.fecha);
@@ -264,27 +474,32 @@ ob_start();
             var qrLink = document.getElementById('entrada-qr-link');
             var qrEmpty = document.getElementById('entrada-sin-qr');
             if (qrPath) {
-                var absoluteQr = qrPath.match(/^https?:/i) ? qrPath : '../../' + qrPath.replace(/^\/+/g, '');
+                var absoluteQr = resolverRuta(qrPath);
                 qrImg.src = absoluteQr;
                 qrImg.classList.remove('d-none');
-                qrLink.href = absoluteQr;
+                qrLink.href = absoluteQr || '#';
                 qrLink.classList.remove('d-none');
                 if (qrEmpty) {
                     qrEmpty.classList.add('d-none');
                 }
             } else {
                 qrImg.classList.add('d-none');
+                qrImg.src = '';
                 qrLink.classList.add('d-none');
+                qrLink.href = '#';
                 if (qrEmpty) {
                     qrEmpty.classList.remove('d-none');
                 }
             }
+            cargarHistorialRetiros(data.id);
         })
         .catch(function (error) {
             statusEl.classList.remove('alert-info');
             statusEl.classList.add('alert-danger');
             statusEl.textContent = 'No fue posible obtener la información de la entrada: ' + error.message;
             detalleEl.classList.add('d-none');
+            limpiarHistorialTabla();
+            mostrarMensajeHistorial('No se pudo cargar el historial de retiros porque la entrada no está disponible.', true);
         });
     // Desplegable con listado de entradas (GET a la tabla)
     const selector = document.getElementById('selector-entradas');
@@ -361,8 +576,11 @@ ob_start();
                 const nuevo = (max - val);
                 entradaActual.cantidad_actual = nuevo;
                 const el = document.getElementById('entrada-cantidad-actual');
-                if (el) el.textContent = Number(nuevo).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                if (el) el.textContent = formatNumber(nuevo, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 mostrarQrRetiro(info);
+                if (entradaActual && entradaActual.id) {
+                    cargarHistorialRetiros(entradaActual.id);
+                }
                 cerrarModalRetiro();
                 alert('Retiro registrado');
             } else {
