@@ -139,7 +139,7 @@ try {
         }
         $selInsumo->free_result();
 
-        $cantidadActual = $existenciaActual + $cantidad;
+        $cantidadActual = $cantidad;
         $qrPlaceholder = 'pendiente';
 
         $insEntrada->bind_param(
