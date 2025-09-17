@@ -34,7 +34,7 @@ if (empty($ids)) {
 $inPlaceholders = implode(',', array_fill(0, count($ids), '?'));
 $types = str_repeat('i', count($ids));
 
-$sql = "SELECT ei.id, ei.qr, ei.cantidad, ei.unidad, ei.insumo_id, i.nombre AS insumo_nombre
+$sql = "SELECT ei.id, ei.fecha, ei.qr, ei.cantidad, ei.unidad, ei.insumo_id, i.nombre AS insumo_nombre
         FROM entradas_insumos ei
         LEFT JOIN insumos i ON i.id = ei.insumo_id
         WHERE ei.id IN ($inPlaceholders)";
@@ -104,9 +104,20 @@ try {
 
         // Texto debajo del QR: "id - nombre" y "Cant: X unidad"
         $insumoId = (int)($item['insumo_id'] ?? 0);
+        $entradaId = (int)($item['id'] ?? 0);
         $nombre = trim((string)($item['insumo_nombre'] ?? ''));
         $cantidad = rtrim(rtrim(number_format((float)($item['cantidad'] ?? 0), 2, '.', ''), '0'), '.');
         $unidad = trim((string)($item['unidad'] ?? ''));
+        $fechaRegistro = trim((string)($item['fecha'] ?? ''));
+        $fechaLinea = '';
+        if ($fechaRegistro !== '') {
+            try {
+                $dt = new DateTime($fechaRegistro);
+                $fechaLinea = 'Fecha: ' . $dt->format('d/m/Y H:i');
+            } catch (Exception $e) {
+                $fechaLinea = 'Fecha: ' . $fechaRegistro;
+            }
+        }
 
         $lineaNombre = ($insumoId > 0 ? ($insumoId . ' - ') : '') . ($nombre !== '' ? $nombre : '');
         $lineaCantidad = 'Cant: ' . ($cantidad !== '' ? $cantidad : '0') . ($unidad !== '' ? (' ' . $unidad) : '');
@@ -115,6 +126,12 @@ try {
             $printer->text($lineaNombre . "\n");
         }
         $printer->text($lineaCantidad . "\n");
+        if ($fechaLinea !== '') {
+            $printer->text($fechaLinea . "\n");
+        }
+        if ($entradaId > 0) {
+            $printer->text('Lote: ' . $entradaId . "\n");
+        }
         $printer->feed(2);
         $printer->cut();
     }

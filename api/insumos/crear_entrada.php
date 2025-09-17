@@ -108,6 +108,10 @@ try {
     $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     $updInsumo = $conn->prepare('UPDATE insumos SET existencia = existencia + ? WHERE id = ?');
     $updQr = $conn->prepare('UPDATE entradas_insumos SET qr = ? WHERE id = ?');
+    $selEntradaInfo = $conn->prepare('SELECT fecha FROM entradas_insumos WHERE id = ?');
+    if (!$selEntradaInfo) {
+        throw new RuntimeException('No se pudo preparar la consulta de información de la entrada');
+    }
 
     $conn->begin_transaction();
     $ids = [];
@@ -177,11 +181,22 @@ try {
         $updInsumo->bind_param('di', $cantidad, $insumoId);
         $updInsumo->execute();
 
+        $selEntradaInfo->bind_param('i', $entradaId);
+        $selEntradaInfo->execute();
+        $fechaTmp = null;
+        $selEntradaInfo->bind_result($fechaTmp);
+        $fechaRegistro = null;
+        if ($selEntradaInfo->fetch()) {
+            $fechaRegistro = $fechaTmp;
+        }
+        $selEntradaInfo->free_result();
+
         $ids[] = $entradaId;
         $entradasRegistradas[] = [
             'id' => $entradaId,
             'qr' => $qrRelativePath,
-            'consulta_url' => $qrUrl
+            'consulta_url' => $qrUrl,
+            'fecha' => $fechaRegistro
         ];
     }
 
@@ -191,6 +206,7 @@ try {
     $updInsumo->close();
     $selInsumo->close();
     $updQr->close();
+    $selEntradaInfo->close();
 
     echo json_encode([
         'success' => true,
