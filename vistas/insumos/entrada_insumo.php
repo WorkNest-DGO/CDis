@@ -685,7 +685,7 @@ ob_start();
         if (val > max) { alert('No puedes retirar más de la cantidad actual'); return; }
         fetch('../../api/insumos/descontar_entrada.php', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ entrada_id: parseInt(entradaActual.id), retirar: val })
+            body: JSON.stringify({ entrada_id: parseInt(entradaActual.id), retirar: val, tipo: (document.getElementById('tipo-retiro') ? document.getElementById('tipo-retiro').value : 'salida') })
         }).then(r=>r.json()).then(function(data){
             if (data && data.success) {
                 const info = data.resultado || {};
@@ -715,9 +715,17 @@ ob_start();
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
             </div>
             <div class="modal-body">
-                <div class="form-group">
+            <div class="form-group">
                     <label for="retirar-cantidad">Retirar</label>
                     <input type="number" step="0.01" min="0" id="retirar-cantidad" class="form-control" placeholder="Cantidad a retirar">
+                </div>
+                <div class="form-group mt-2">
+                    <label for="tipo-retiro">Tipo</label>
+                    <select id="tipo-retiro" class="form-control">
+                        <option value="salida" selected>Salida</option>
+                        <option value="traspaso">Traspaso</option>
+                        <option value="merma">Merma</option>
+                    </select>
                 </div>
                 <p id="lbl-valor-unitario" class="text-muted mb-0">Valor unitario: -</p>
             </div>
