@@ -6,9 +6,17 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     error('Método no permitido');
 }
 
-$entradaId = isset($_GET['entrada_id']) ? (int) $_GET['entrada_id'] : 0;
-if ($entradaId <= 0) {
-    error('Entrada inválida');
+$entradaId = null;
+if (isset($_GET['id_entrada'])) {
+    $entradaId = (int) $_GET['id_entrada'];
+} elseif (isset($_GET['entrada_id'])) {
+    $entradaId = (int) $_GET['entrada_id'];
+}
+if (!$entradaId) {
+    http_response_code(400);
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'mensaje' => 'Falta id_entrada']);
+    exit;
 }
 
 if (!function_exists('obtenerBaseUrl')) {
@@ -69,25 +77,24 @@ function buscarRutaQrPorToken($token)
     return $relativa !== '' ? $relativa : null;
 }
 
-$pattern = 'Retiro de entrada #' . $entradaId . '%';
-$sql = "SELECT m.*, 
-               u.nombre AS usuario_nombre,
-               ud.nombre AS usuario_destino_nombre,
-               i.nombre AS insumo_nombre,
-               i.unidad AS insumo_unidad
+$sql = "SELECT m.id, m.id_entrada, m.tipo, m.fecha, m.usuario_id, u.nombre AS usuario_nombre,
+               m.usuario_destino_id, ud.nombre AS usuario_destino_nombre,
+               m.insumo_id, i.nombre AS insumo_nombre, i.unidad AS insumo_unidad,
+               m.cantidad, m.observacion, m.qr_token, m.qr_consulta_url, m.qr_imagen
         FROM movimientos_insumos m
-        LEFT JOIN usuarios u ON u.id = m.usuario_id
-        LEFT JOIN usuarios ud ON ud.id = m.usuario_destino_id
-        LEFT JOIN insumos i ON i.id = m.insumo_id
-        WHERE m.tipo = 'salida' AND m.observacion LIKE ?
-        ORDER BY m.fecha DESC, m.id DESC";
+        LEFT JOIN usuarios u   ON u.id  = m.usuario_id
+        LEFT JOIN usuarios ud  ON ud.id = m.usuario_destino_id
+        LEFT JOIN insumos  i   ON i.id  = m.insumo_id
+        WHERE m.tipo = 'salida'
+          AND m.id_entrada = ?
+        ORDER BY m.fecha DESC";
 
 $stmt = $conn->prepare($sql);
 if (!$stmt) {
     error('Error al preparar consulta: ' . $conn->error);
 }
 
-$stmt->bind_param('s', $pattern);
+$stmt->bind_param('i', $entradaId);
 if (!$stmt->execute()) {
     $mensaje = method_exists($stmt, 'error') ? $stmt->error : 'Error al ejecutar consulta';
     $stmt->close();
@@ -107,7 +114,8 @@ if ($resultado) {
         }
         $movimientos[] = [
             'id' => isset($row['id']) ? (int) $row['id'] : null,
-            'entrada_id' => $entradaId,
+            'entrada_id' => isset($row['id_entrada']) ? (int) $row['id_entrada'] : null,
+            'id_entrada' => isset($row['id_entrada']) ? (int) $row['id_entrada'] : null,
             'tipo' => isset($row['tipo']) ? $row['tipo'] : null,
             'fecha' => isset($row['fecha']) ? $row['fecha'] : null,
             'usuario_id' => isset($row['usuario_id']) ? (int) $row['usuario_id'] : null,
