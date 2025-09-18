@@ -77,17 +77,19 @@ function buscarRutaQrPorToken($token)
     return $relativa !== '' ? $relativa : null;
 }
 
-$sql = "SELECT m.id, m.id_entrada, m.tipo, m.fecha, m.usuario_id, u.nombre AS usuario_nombre,
-               m.usuario_destino_id, ud.nombre AS usuario_destino_nombre,
-               m.insumo_id, i.nombre AS insumo_nombre, i.unidad AS insumo_unidad,
-               m.cantidad, m.observacion, m.qr_token, m.qr_consulta_url, m.qr_imagen
-        FROM movimientos_insumos m
-        LEFT JOIN usuarios u   ON u.id  = m.usuario_id
-        LEFT JOIN usuarios ud  ON ud.id = m.usuario_destino_id
-        LEFT JOIN insumos  i   ON i.id  = m.insumo_id
-        WHERE m.tipo = 'salida'
-          AND m.id_entrada = ?
-        ORDER BY m.fecha DESC";
+$sql = "SELECT
+  m.id,  m.id_entrada,  m.id_qr,  m.tipo,  m.fecha,  m.usuario_id,  u.nombre 
+  AS usuario_nombre,  m.usuario_destino_id,  ud.nombre AS usuario_destino_nombre,  
+  m.insumo_id,  i.nombre AS insumo_nombre,  i.unidad AS unidad, i.unidad AS insumo_unidad,  
+  m.cantidad, m.observacion,  m.qr_token
+FROM movimientos_insumos m
+LEFT JOIN usuarios u  ON u.id  = m.usuario_id
+LEFT JOIN usuarios ud ON ud.id = m.usuario_destino_id
+LEFT JOIN insumos  i  ON i.id  = m.insumo_id
+WHERE m.tipo IN ('salida','traspaso','merma')
+  AND m.id_entrada = ?
+ORDER BY m.fecha DESC, m.id DESC;
+";
 
 $stmt = $conn->prepare($sql);
 if (!$stmt) {

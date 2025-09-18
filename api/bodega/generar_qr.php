@@ -97,33 +97,72 @@ try {
         $despacho_id = null;
     }
 
-    $upd = $conn->prepare('UPDATE insumos SET existencia = existencia - ? WHERE id = ?');
-    $mov = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, cantidad, observacion, fecha, qr_token) VALUES ('traspaso', ?, ?, ?, 'Enviado por QR a sucursal', NOW(), ?)");
+    $updExist = $conn->prepare('UPDATE insumos SET existencia = existencia - ? WHERE id = ?');
+    // Insert de movimiento por lote consumido (FIFO) manteniendo compatibilidad con qr_token y agregando id_qr e id_entrada
+    $movLote = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, usuario_destino_id, insumo_id, id_entrada, cantidad, observacion, fecha, qr_token, id_qr) VALUES ('traspaso', ?, NULL, ?, ?, ?, 'Enviado por QR a sucursal', NOW(), ?, ?)");
     $det = null;
     if ($despacho_id) {
         $det = $conn->prepare('INSERT INTO despachos_detalle (despacho_id, insumo_id, cantidad, unidad, precio_unitario) VALUES (?, ?, ?, ?, 0)');
     }
 
     foreach ($seleccionados as $s) {
-        $upd->bind_param('di', $s['cantidad'], $s['id']);
-        if (!$upd->execute()) throw new Exception($upd->error);
+        // FIFO: seleccionar lotes disponibles para el insumo y bloquearlos
+        $restante = (float)$s['cantidad'];
+        $selLotes = $conn->prepare('SELECT id, cantidad_actual FROM entradas_insumos WHERE insumo_id = ? AND cantidad_actual > 0 ORDER BY fecha ASC, id ASC FOR UPDATE');
+        if (!$selLotes) throw new Exception($conn->error);
+        $selLotes->bind_param('i', $s['id']);
+        if (!$selLotes->execute()) throw new Exception($selLotes->error);
+        $resLotes = $selLotes->get_result();
 
-        $neg = -$s['cantidad'];
-        $mov->bind_param('iids', $usuario_id, $s['id'], $neg, $token);
-        if (!$mov->execute()) throw new Exception($mov->error);
+        // Preparar update de lote
+        $updLote = $conn->prepare('UPDATE entradas_insumos SET cantidad_actual = cantidad_actual - ? WHERE id = ?');
+        if (!$updLote) throw new Exception($conn->error);
+
+        while ($restante > 0 && ($l = $resLotes->fetch_assoc())) {
+            $idEntrada = (int)$l['id'];
+            $disp = (float)$l['cantidad_actual'];
+            if ($disp <= 0) continue;
+            $consumo = $restante < $disp ? $restante : $disp;
+
+            // Descontar del lote
+            $updLote->bind_param('di', $consumo, $idEntrada);
+            if (!$updLote->execute()) throw new Exception($updLote->error);
+
+            // Registrar movimiento por lote (cantidad con signo de salida)
+            $consumoNeg = -$consumo;
+            $movLote->bind_param('iiidsi', $usuario_id, $s['id'], $idEntrada, $consumoNeg, $token, $idqr);
+            // Tipos: i=usuario_id, i=insumo_id, i=id_entrada, d=cantidad, s=qr_token, i=id_qr
+            if (!$movLote->execute()) throw new Exception($movLote->error);
+
+            $restante -= $consumo;
+        }
+        $updLote->close();
+        $selLotes->close();
+
+        if ($restante > 0.000001) {
+            throw new Exception('stock insuficiente por lotes');
+        }
+
+        // Ajustar existencia global una sola vez por insumo
+        $updExist->bind_param('di', $s['cantidad'], $s['id']);
+        if (!$updExist->execute()) throw new Exception($updExist->error);
 
         if ($det) {
             $det->bind_param('iids', $despacho_id, $s['id'], $s['cantidad'], $s['unidad']);
             if (!$det->execute()) throw new Exception($det->error);
         }
     }
-    $upd->close();
-    $mov->close();
+    $updExist->close();
+    $movLote->close();
     if ($det) $det->close();
 
     $conn->commit();
 } catch (Exception $e) {
     $conn->rollback();
+    $msg = (string)$e->getMessage();
+    if (stripos($msg, 'stock insuficiente por lotes') !== false) {
+        error($msg);
+    }
     error('Error al guardar');
 }
 
