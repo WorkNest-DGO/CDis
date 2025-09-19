@@ -193,7 +193,81 @@ foreach ($seleccionados as $s) {
     $lineas[] = $s['nombre'] . ' - ' . $s['cantidad'] . ' ' . $s['unidad'];
 }
 
-generar_pdf_con_imagen($pdf_path, 'Salida de insumos', $lineas, $public_qr_path, 150, 10, 40, 40);
+// Encabezado del PDF (para layout)
+$headerLines = [
+    'Fecha: ' . date('Y-m-d H:i'),
+    'Entregado por: ' . $usuario_nombre,
+];
+
+// Consultar lotes por insumo ligados a este QR
+$insumosMov = [];
+$sqlMov = $conn->prepare(
+    "SELECT m.insumo_id, i.nombre AS insumo_nombre, i.unidad AS unidad, m.id_entrada AS lote_id, ei.fecha AS lote_fecha, ABS(m.cantidad) AS cantidad_lote, m.tipo
+     FROM movimientos_insumos m
+     JOIN insumos i ON i.id = m.insumo_id
+     LEFT JOIN entradas_insumos ei ON ei.id = m.id_entrada
+     WHERE m.id_qr = ? AND m.tipo IN ('salida','traspaso','merma')
+     ORDER BY m.insumo_id, ei.fecha, m.id_entrada, m.id"
+);
+if ($sqlMov) {
+    $sqlMov->bind_param('i', $idqr);
+    if ($sqlMov->execute()) {
+        $rs = $sqlMov->get_result();
+        while ($row = $rs->fetch_assoc()) {
+            $k = (int)$row['insumo_id'];
+            if (!isset($insumosMov[$k])) {
+                $insumosMov[$k] = [
+                    'nombre' => $row['insumo_nombre'],
+                    'unidad' => $row['unidad'],
+                    'lotes' => [],
+                    'total_por_qr' => 0.0,
+                ];
+            }
+            $insumosMov[$k]['lotes'][] = [
+                'lote_id' => isset($row['lote_id']) ? (int)$row['lote_id'] : 0,
+                'fecha'   => $row['lote_fecha'],
+                'cantidad'=> (float)$row['cantidad_lote'],
+                'tipo'    => $row['tipo'],
+            ];
+            $insumosMov[$k]['total_por_qr'] += (float)$row['cantidad_lote'];
+        }
+    }
+    $sqlMov->close();
+}
+
+// Construir items para PDF (respetar orden del JSON)
+$items = [];
+foreach ($seleccionados as $s) {
+    $iid = (int)$s['id'];
+    $solicitada = (float)$s['cantidad'];
+    $unidad = $s['unidad'];
+    $nombre = $s['nombre'];
+    $aplicado = isset($insumosMov[$iid]) ? (float)$insumosMov[$iid]['total_por_qr'] : 0.0;
+
+    $left = $nombre . ' - ' . rtrim(rtrim(number_format($solicitada, 2, '.', ''), '0'), '.') . ' ' . $unidad;
+    if (abs($aplicado - $solicitada) > 0.00001) {
+        $left .= ' (aplicado ' . rtrim(rtrim(number_format($aplicado, 2, '.', ''), '0'), '.') . ' de ' . rtrim(rtrim(number_format($solicitada, 2, '.', ''), '0'), '.') . ')';
+    }
+
+    $right = [];
+    $right[] = 'Lotes de salida:';
+    $right[] = 'ID | Fecha | Cant.';
+    if (isset($insumosMov[$iid]) && count($insumosMov[$iid]['lotes']) > 0) {
+        foreach ($insumosMov[$iid]['lotes'] as $l) {
+            $idTxt = '#' . (int)$l['lote_id'];
+            $fTxt  = $l['fecha'] ? date('Y-m-d H:i', strtotime($l['fecha'])) : '-';
+            $cTxt  = rtrim(rtrim(number_format((float)$l['cantidad'], 2, '.', ''), '0'), '.');
+            $right[] = $idTxt . ' | ' . $fTxt . ' | ' . $cTxt;
+        }
+    } else {
+        $right[] = '— pendiente de surtir —';
+    }
+
+    $items[] = [ 'left' => $left, 'right' => $right ];
+}
+
+// Generar PDF detallado (QR bajo el título + dos columnas)
+generar_pdf_envio_qr_detallado($pdf_path, 'Salida de insumos', $headerLines, $public_qr_path, $items);
 if (!file_exists($pdf_path)) {
     error('No se pudo generar el PDF');
 }

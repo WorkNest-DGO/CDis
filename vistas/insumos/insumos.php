@@ -237,10 +237,10 @@ ob_start();
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Entradas registradas</h5>
+                <h5 style="color:black" class="modal-title">Entradas registradas</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
             </div>
-            <div class="modal-body">
+            <div style="color:black" class="modal-body">
                 <p id="resumenEntradaMensaje" class="text-muted mb-3">Se generaron las siguientes entradas y códigos QR.</p>
                 <div id="resumenEntradasLista" class="row gy-3"></div>
             </div>
