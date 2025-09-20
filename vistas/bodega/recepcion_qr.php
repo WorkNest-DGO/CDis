@@ -153,7 +153,26 @@ ob_start();
             <?php if ($pdf_recepcion): ?>
                 <a class="btn custom-btn" href="../../<?= $pdf_recepcion ?>" target="_blank">Ver PDF</a>
             <?php endif; ?>
-        </form>
+            </form>
+    <?php endif; ?>
+
+    <?php if ($qr && !$mensaje): ?>
+      <div class="mt-3">
+        <h4 class="text-white">Devoluciones</h4>
+        <div class="table-responsive">
+          <table class="styled-table" id="tblResumen">
+            <thead>
+              <tr><th>Insumo</th><th>Unidad</th><th>Enviado</th><th>Devuelto</th><th>Pendiente</th><th>Devolver</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="my-2 d-flex gap-2">
+          <button class="btn custom-btn" id="btnDevTodo">Devolver todo</button>
+          <button class="btn custom-btn" id="btnDevParcial">Confirmar devolución parcial</button>
+          <button class="btn custom-btn" id="btnPDFRecep">Reimprimir recibo</button>
+        </div>
+      </div>
     <?php endif; ?>
 </div>
 
@@ -164,4 +183,59 @@ ob_start();
 $content = ob_get_clean();
 include __DIR__ . '/../nav.php';
 ?>
+<?php if ($qr && !$mensaje): ?>
+<script>
+const token = <?= json_encode($token) ?>;
+async function cargarResumen(){
+  const resp = await fetch('../../api/bodega/qr_resumen.php?token='+encodeURIComponent(token));
+  const json = await resp.json();
+  if(!json.success){ alert(json.mensaje||'Error'); return; }
+  const tbody = document.querySelector('#tblResumen tbody');
+  tbody.innerHTML = '';
+  (json.resultado.items||[]).forEach(it=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${it.nombre}</td><td>${it.unidad||''}</td>
+      <td class="text-end">${Number(it.enviado||0).toFixed(2)}</td>
+      <td class="text-end">${Number(it.devuelto||0).toFixed(2)}</td>
+      <td class="text-end">${Number(it.pendiente||0).toFixed(2)}</td>
+      <td><input type=\"number\" min=\"0\" step=\"0.01\" data-insumo=\"${it.insumo_id}\" class=\"form-control form-control-sm inpDev\" placeholder=\"0.00\"></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+document.getElementById('btnDevTodo')?.addEventListener('click', async ()=>{
+  const obs = prompt('Observación (opcional):','');
+  const resp = await fetch('../../api/bodega/qr_devoluciones.php?token='+encodeURIComponent(token),{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ modo:'total', observacion: obs||'' })
+  });
+  const json = await resp.json();
+  if(!json.success){ alert(json.mensaje||'Error'); return; }
+  alert('Devolución total registrada.');
+  cargarResumen();
+});
+
+document.getElementById('btnDevParcial')?.addEventListener('click', async ()=>{
+  const items = Array.from(document.querySelectorAll('.inpDev'))
+    .map(inp=>({ insumo_id: parseInt(inp.dataset.insumo), cantidad: parseFloat(inp.value||'0') }))
+    .filter(x=>x.insumo_id>0 && x.cantidad>0);
+  if(items.length===0){ alert('Ingresa cantidades a devolver'); return; }
+  const obs = prompt('Observación (opcional):','');
+  const resp = await fetch('../../api/bodega/qr_devoluciones.php?token='+encodeURIComponent(token),{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ modo:'parcial', items, observacion: obs||'' })
+  });
+  const json = await resp.json();
+  if(!json.success){ alert(json.mensaje||'Error'); return; }
+  alert('Devolución parcial registrada.');
+  cargarResumen();
+});
+
+document.getElementById('btnPDFRecep')?.addEventListener('click', ()=>{
+  window.open('../../api/bodega/qr_pdf_recepcion.php?token='+encodeURIComponent(token),'_blank');
+});
+
+cargarResumen();
+</script>
+<?php endif; ?>
 

@@ -86,8 +86,8 @@ FROM movimientos_insumos m
 LEFT JOIN usuarios u  ON u.id  = m.usuario_id
 LEFT JOIN usuarios ud ON ud.id = m.usuario_destino_id
 LEFT JOIN insumos  i  ON i.id  = m.insumo_id
-WHERE m.tipo IN ('salida','traspaso','merma')
-  AND m.id_entrada = ?
+WHERE /*m.tipo IN ('salida','traspaso','merma','devolucion')
+  AND*/ m.id_entrada = ?
 ORDER BY m.fecha DESC, m.id DESC;
 ";
 
