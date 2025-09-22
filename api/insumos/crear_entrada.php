@@ -85,6 +85,8 @@ if (!is_array($productos) || count($productos) === 0) {
 $descripcionGlobal = trim($_POST['descripcion'] ?? '');
 $referenciaGlobal = trim($_POST['referencia_doc'] ?? '');
 $folioGlobal = trim($_POST['folio_fiscal'] ?? '');
+$credito = isset($_POST['credito']) ? (int) $_POST['credito'] : 0;
+$credito = ($credito === 1) ? 1 : 0;
 
 try {
     $verProveedor = $conn->prepare('SELECT id FROM proveedores WHERE id = ?');
@@ -105,7 +107,7 @@ try {
     }
 
     $selInsumo = $conn->prepare('SELECT existencia FROM insumos WHERE id = ?');
-    $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual, credito) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     $updInsumo = $conn->prepare('UPDATE insumos SET existencia = existencia + ? WHERE id = ?');
     $updQr = $conn->prepare('UPDATE entradas_insumos SET qr = ? WHERE id = ?');
     $selEntradaInfo = $conn->prepare('SELECT fecha FROM entradas_insumos WHERE id = ?');
@@ -143,7 +145,7 @@ try {
         $qrPlaceholder = 'pendiente';
 
         $insEntrada->bind_param(
-            'iiisdsdsssd',
+            'iiisdsdsssdi',
             $insumoId,
             $proveedorId,
             $usuarioId,
@@ -154,7 +156,8 @@ try {
             $referencia,
             $folio,
             $qrPlaceholder,
-            $cantidadActual
+            $cantidadActual,
+            $credito
         );
         $insEntrada->execute();
         $entradaId = $insEntrada->insert_id;

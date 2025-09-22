@@ -117,6 +117,18 @@ ob_start();
             <button type="button" id="btnNuevoProveedor" class="btn custom-btn mt-2">Nuevo proveedor</button>
         </div>
 
+        <div class="form-group">
+            <label class="text-white d-block">Tipo de pago:</label>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="credito" id="pagoEfectivo" value="0" checked>
+                <label class="form-check-label text-white" for="pagoEfectivo">Efectivo</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="credito" id="pagoCredito" value="1">
+                <label class="form-check-label text-white" for="pagoCredito">Crédito</label>
+            </div>
+        </div>
+
         <div class="table-responsive">
             <table id="tablaProductos" class="styled-table">
                 <thead>
@@ -201,26 +213,90 @@ ob_start();
                     <h5 class="modal-title">Nuevo Proveedor</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                 </div>
-                <div class="modal-body">
+                <div style="color:black" class="modal-body">
                     <div class="drag-container">
-                        <ul class="drag-list">
-                            <li class="drag-column">
-                                <div class="drag-column-header">Datos del proveedor</div>
-                                <ul class="drag-inner-list">
-                                    <li class="drag-item">
-                                        <label class="drag-options-label" for="provNombre">Nombre:
-                                            <input type="text" id="provNombre" class="form-control">
-                                        </label>
-                                        <label class="drag-options-label" for="provTelefono">TelÇ¸fono:
-                                            <input type="text" id="provTelefono" class="form-control">
-                                        </label>
-                                        <label class="drag-options-label" for="provDireccion">Direcciï¿½ï¿½n:
-                                            <input type="text" id="provDireccion" class="form-control">
-                                        </label>
-                                    </li>
-                                </ul>
-                            </li>
-                        </ul>
+                        <div class="drag-column-header mb-2">Datos del proveedor</div>
+                        <div class="container-fluid px-0">
+                            <div class="row g-2">
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="provNombre">Nombre</label>
+                                    <input type="text" id="provNombre" class="form-control">
+                                </div>
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="provTelefono">Teléfono</label>
+                                    <input type="text" id="provTelefono" class="form-control">
+                                </div>
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="provTelefono2">Teléfono 2</label>
+                                    <input type="text" id="provTelefono2" class="form-control">
+                                </div>
+
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="provCorreo">Correo</label>
+                                    <input type="email" id="provCorreo" class="form-control">
+                                </div>
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="provRFC">RFC</label>
+                                    <input type="text" id="provRFC" class="form-control">
+                                </div>
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="provRazonSocial">Razón social</label>
+                                    <input type="text" id="provRazonSocial" class="form-control">
+                                </div>
+
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="provRegimenFiscal">Régimen fiscal (SAT)</label>
+                                    <input type="text" id="provRegimenFiscal" class="form-control" placeholder="601, 603, ...">
+                                </div>
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="provCorreoFact">Correo facturación</label>
+                                    <input type="email" id="provCorreoFact" class="form-control">
+                                </div>
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="provDiasCredito">Días de crédito</label>
+                                    <input type="number" id="provDiasCredito" class="form-control" value="0" min="0">
+                                </div>
+
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="provLimiteCredito">Límite de crédito</label>
+                                    <input type="number" id="provLimiteCredito" class="form-control" value="0.00" step="0.01" min="0">
+                                </div>
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="provBanco">Banco</label>
+                                    <input type="text" id="provBanco" class="form-control">
+                                </div>
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="provClabe">CLABE</label>
+                                    <input type="text" id="provClabe" class="form-control" maxlength="18">
+                                </div>
+
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="provCuenta">Cuenta bancaria</label>
+                                    <input type="text" id="provCuenta" class="form-control">
+                                </div>
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="provSitioWeb">Sitio web</label>
+                                    <input type="text" id="provSitioWeb" class="form-control">
+                                </div>
+                                <div class="col-12 col-md-8">
+                                    <label for="provDireccion">Dirección</label>
+                                    <input type="text" id="provDireccion" class="form-control">
+                                </div>
+
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="provContactoNombre">Contacto - Nombre</label>
+                                    <input type="text" id="provContactoNombre" class="form-control">
+                                </div>
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="provContactoPuesto">Contacto - Puesto</label>
+                                    <input type="text" id="provContactoPuesto" class="form-control">
+                                </div>
+                                <div class="col-12">
+                                    <label for="provObservacion">Observación</label>
+                                    <textarea id="provObservacion" class="form-control" rows="2"></textarea>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -279,5 +355,3 @@ ob_start();
 $content = ob_get_clean();
 include __DIR__ . '/../nav.php';
 ?>
-
-

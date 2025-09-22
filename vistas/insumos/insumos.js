@@ -409,6 +409,21 @@ async function guardarProveedor(ev) {
     const nombre = document.getElementById('provNombre').value.trim();
     const telefono = document.getElementById('provTelefono').value.trim();
     const direccion = document.getElementById('provDireccion').value.trim();
+    const telefono2 = (document.getElementById('provTelefono2')?.value || '').trim();
+    const correo = (document.getElementById('provCorreo')?.value || '').trim();
+    const rfc = (document.getElementById('provRFC')?.value || '').trim();
+    const razon_social = (document.getElementById('provRazonSocial')?.value || '').trim();
+    const regimen_fiscal = (document.getElementById('provRegimenFiscal')?.value || '').trim();
+    const correo_facturacion = (document.getElementById('provCorreoFact')?.value || '').trim();
+    const contacto_nombre = (document.getElementById('provContactoNombre')?.value || '').trim();
+    const contacto_puesto = (document.getElementById('provContactoPuesto')?.value || '').trim();
+    const dias_credito = parseInt((document.getElementById('provDiasCredito')?.value || '0'), 10) || 0;
+    const limite_credito = parseFloat((document.getElementById('provLimiteCredito')?.value || '0').replace(',', '.')) || 0;
+    const banco = (document.getElementById('provBanco')?.value || '').trim();
+    const clabe = (document.getElementById('provClabe')?.value || '').trim();
+    const cuenta_bancaria = (document.getElementById('provCuenta')?.value || '').trim();
+    const sitio_web = (document.getElementById('provSitioWeb')?.value || '').trim();
+    const observacion = (document.getElementById('provObservacion')?.value || '').trim();
     if (!nombre) {
         alert('Nombre requerido');
         return;
@@ -417,7 +432,27 @@ async function guardarProveedor(ev) {
         const resp = await fetch('../../api/insumos/agregar_proveedor.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre, telefono, direccion })
+            body: JSON.stringify({
+                nombre,
+                telefono,
+                telefono2,
+                correo,
+                direccion,
+                rfc,
+                razon_social,
+                regimen_fiscal,
+                correo_facturacion,
+                contacto_nombre,
+                contacto_puesto,
+                dias_credito,
+                limite_credito,
+                banco,
+                clabe,
+                cuenta_bancaria,
+                sitio_web,
+                observacion,
+                activo: 1
+            })
         });
         const data = await resp.json();
         if (data.success) {
@@ -523,6 +558,8 @@ async function registrarEntrada(e) {
     const proveedorField = qs(form, '[name="proveedor_id"]');
     if (!proveedorField || !String(proveedorField.value).trim()) {
         markError(proveedorField, 'Selecciona un proveedor');
+        // Mostrar en modal flotante como el resto de mensajes
+        alert('Selecciona un proveedor');
         return;
     }
     clearError(proveedorField);
@@ -616,6 +653,8 @@ async function registrarEntrada(e) {
         const formData = new FormData();
         formData.append('proveedor_id', proveedorField.value);
         formData.append('usuario_id', String(usuarioId));
+        const tipoPago = qs(form, '[name="credito"]:checked');
+        formData.append('credito', tipoPago ? String(tipoPago.value) : '0');
         const descripcionGeneral = qs(form, '[name="descripcion"]');
         const referenciaGeneral = qs(form, '[name="referencia_doc"]');
         const folioGeneral = qs(form, '[name="folio_fiscal"]');
