@@ -70,7 +70,7 @@ ob_start();
                 <th>Cheque</th>
                 <th>Fondo</th>
                 <th>Observaciones</th>
-                <th>Detalle</th>
+                <th>Desglose</th>
             </tr>
         </thead>
         <tbody>
@@ -78,6 +78,38 @@ ob_start();
         </tbody>
     </table>
 
+</div>
+<div class="container mt-5 mb-5">
+    <h2 class="section-header">Consulta de Vistas y Tablas</h2>
+
+    <div class="filtros-container">
+        <label for="selectFuente">Fuente:</label>
+        <select id="selectFuente" class="form-control-sm"></select>
+
+        <label for="buscarFuente">Buscar:</label>
+        <input type="text" id="buscarFuente" class="form-control-sm" placeholder="Buscar...">
+
+        <label for="tamPagina">Filas por página:</label>
+        <select id="tamPagina" class="form-control-sm">
+            <option value="15">15</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+        </select>
+        <button id="btnExportCSV" class="btn custom-btn-sm" style="margin-left:8px;">Exportar CSV</button>
+    </div>
+
+    <div id="reportesLoader" style="display:none;">Cargando...</div>
+
+    <table id="tablaReportes" class="styled-table mt-3">
+        <thead></thead>
+        <tbody></tbody>
+    </table>
+
+    <div id="paginacionReportes" class="mt-3">
+        <button id="prevReportes" class="btn custom-btn-sm">Anterior</button>
+        <span id="infoReportes" class="mx-2"></span>
+        <button id="nextReportes" class="btn custom-btn-sm">Siguiente</button>
+    </div>
 </div>
 <?php require_once __DIR__ . '/../footer.php'; ?>
 <script src="reportes.js"></script>

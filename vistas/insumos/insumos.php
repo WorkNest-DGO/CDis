@@ -1,6 +1,6 @@
 ﻿<?php
 require_once __DIR__ . '/../../utils/cargar_permisos.php';
-// Base app dinÇ­mica y ruta relativa para validaciï¿½ï¿½n
+// Base app dinámica y ruta relativa para validación
 $__sn = isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '';
 $__pos = strpos($__sn, '/vistas/');
 $__app_base = $__pos !== false ? substr($__sn, 0, $__pos) : rtrim(dirname($__sn), '/');

@@ -479,7 +479,7 @@ function editarInsumo(id) {
 }
 
 async function eliminarInsumo(id) {
-    if (!confirm('Â¿Eliminar insumo?')) return;
+    if (!confirm('¿Eliminar insumo?')) return;
     try {
         const resp = await fetch('../../api/insumos/eliminar_insumo.php', {
             method: 'POST',
