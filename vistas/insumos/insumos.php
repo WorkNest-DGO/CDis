@@ -13,6 +13,7 @@ if (!in_array($path_actual, $_SESSION['rutas_permitidas'])) {
 $title = 'Insumos';
 ob_start();
 ?>
+<div id="corte-info" data-corte-id="<?= isset($__corte_id_abierto) ? (int)$__corte_id_abierto : 0; ?>" hidden></div>
 <?php
 // Validar corte abierto para mostrar la seccin de Registro de entradas
 $__corte_id_abierto = 0;
@@ -129,8 +130,7 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
 <!-- Blog End -->
 
 <!-- insumo -->
-<?php if ($__mostrar_registro_entrada): ?>
-<div class="container mt-5">
+<div id="sec-reg-entrada" class="container mt-5" style="<?= $__mostrar_registro_entrada ? '' : 'display:none'; ?>">
     <h2 class="text-white">Registrar entrada de productos</h2>
     <form id="form-entrada" class="bg-dark p-4 rounded" name="form-entrada">
         <div class="form-group">
@@ -183,13 +183,11 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
     </form>
     </div>
 </div>
-<?php else: ?>
-<div class="container mt-5">
+<div id="alert-sin-corte" class="container mt-5" style="<?= $__mostrar_registro_entrada ? 'display:none' : '';?>">
   <div class="alert alert-warning" role="alert">
     No hay un corte de almacn abierto. Abra un corte para habilitar "Registrar entrada de productos".
   </div>
 </div>
-<?php endif; ?>
 <!-- insumo End -->
 
 <!-- alerta stock-->

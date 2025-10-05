@@ -62,6 +62,7 @@ ob_start();
 ?>
 <div id="user-info" data-rol="<?= htmlspecialchars($rol_usuario, ENT_QUOTES); ?>" hidden></div>
 <div id="corte-info" data-corte-id="<?= (int)$__corte_id_abierto; ?>" hidden></div>
+<div id="corte-info" data-corte-id="<?= (int)$__corte_id_abierto; ?>" hidden></div>
 <div class="page-header mb-0">
   <div class="container">
     <div class="row"><div class="col-12"><h2>Módulo de Cocina (Kanban)</h2></div></div>
@@ -118,8 +119,7 @@ ob_start();
 .board-entregado .kanban-item { border-left-color:#7f8c8d; opacity:.85; }
 </style>
 
-<?php if ($__mostrar_toolbar): ?>
-<div class="container my-3">
+<div id="sec-crear-lote" class="container my-3" style="<?= ($__puede_toolbar && $__corte_id_abierto>0) ? '' : 'display:none'; ?>">
   <div class="procesado-toolbar">
     <label for="selInsumoOrigen">Origen</label>
     <select id="selInsumoOrigen" class="form-control"></select>
@@ -136,14 +136,11 @@ ob_start();
     <button id="btnCrearLote" class="btn custom-btn" style="grid-column: 1 / -1;">Crear lote</button>
   </div>
 </div>
-<?php endif; ?>
-<?php if ($__corte_id_abierto <= 0): ?>
-<div class="container my-3">
+<div id="alert-sin-corte-lote" class="container my-3" style="<?= ($__corte_id_abierto <= 0) ? '' : 'display:none'; ?>">
   <div class="alert alert-warning" role="alert">
     No hay un corte de almacén abierto. Abra un corte para habilitar "Crear lote".
   </div>
 </div>
-<?php endif; ?>
 
 <div id="kanban" class="kanban-container">
   <div class="kanban-board board-pendiente" data-status="pendiente">

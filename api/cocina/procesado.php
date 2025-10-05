@@ -77,6 +77,18 @@ function generarTokenMovimiento($conn)
     return $token;
 }
 
+// Idempotencia por observación de salida origen (cuando no existan campos específicos)
+function descuentoYaAplicado(mysqli $conn, int $tarjetaId): bool {
+    $sql = "SELECT 1 FROM movimientos_insumos WHERE tipo='salida' AND observacion LIKE CONCAT('Salida lote_origen proceso id ', ?, '%') LIMIT 1";
+    if (!$stmt = $conn->prepare($sql)) { return false; }
+    $stmt->bind_param('i', $tarjetaId);
+    $stmt->execute();
+    $stmt->store_result();
+    $ap = $stmt->num_rows > 0;
+    $stmt->close();
+    return $ap;
+}
+
 function ensureSchema($conn) {
     // Crear tabla de procesos si no existe
     $conn->query(
@@ -181,7 +193,7 @@ switch ($action) {
         $existOrigen = (float)$info[$origenId]['existencia'];
         if ($existOrigen < $cantidad) { json_fail('Stock insuficiente del insumo de origen'); }
 
-        // Validaci3n adicional: disponibilidad por lotes (entradas_insumos)
+        // Validación adicional: disponibilidad por lotes (entradas_insumos)
         try {
             $stmtLot = $conn->prepare('SELECT COALESCE(SUM(cantidad_actual),0) AS disp FROM entradas_insumos WHERE insumo_id = ? AND cantidad_actual > 0');
             if ($stmtLot) {
@@ -221,6 +233,60 @@ switch ($action) {
         $pid = $ins->insert_id;
         $ins->close();
 
+        // Descuento de ORIGEN (salida FIFO) al CREAR la tarjeta (pendiente)
+        $aplicado = false;
+        if (!descuentoYaAplicado($conn, (int)$pid)) {
+            $conn->begin_transaction();
+            try {
+                // Detectar columna corte_id en movimientos
+                $hasCorteCol = false; $corteId = 0;
+                try { $rsCol = $conn->query("SHOW COLUMNS FROM movimientos_insumos LIKE 'corte_id'"); if ($rsCol && $rsCol->num_rows > 0) { $hasCorteCol = true; } } catch (Throwable $e) { $hasCorteCol = false; }
+                if ($hasCorteCol) {
+                    try { $rsC = $conn->query("SELECT id FROM cortes_almacen WHERE fecha_fin IS NULL ORDER BY id DESC LIMIT 1"); if ($rsC && ($rC = $rsC->fetch_assoc())) { $corteId = (int)$rC['id']; } } catch (Throwable $e) { $corteId = 0; }
+                }
+                $restante = $cantidad;
+                $sel = $conn->prepare('SELECT id, cantidad_actual FROM entradas_insumos WHERE insumo_id = ? AND cantidad_actual > 0 ORDER BY fecha ASC, id ASC FOR UPDATE');
+                $sel->bind_param('i', $origenId);
+                $sel->execute();
+                $rs = $sel->get_result();
+                $lotes = [];
+                while ($rowL = $rs->fetch_assoc()) { $lotes[] = $rowL; }
+                $sel->close();
+                foreach ($lotes as $l) {
+                    if ($restante <= 0) break;
+                    $entradaLoteId = (int)$l['id'];
+                    $disp = (float)$l['cantidad_actual'];
+                    if ($disp <= 0) continue;
+                    $usar = min($restante, $disp);
+                    $upd = $conn->prepare('UPDATE entradas_insumos SET cantidad_actual = cantidad_actual - ? WHERE id = ?');
+                    $upd->bind_param('di', $usar, $entradaLoteId);
+                    $upd->execute();
+                    $upd->close();
+                    // Movimiento por lote de salida (trazable)
+                    $obs = 'Salida lote_origen proceso id ' . (int)$pid;
+                    if ($hasCorteCol && $corteId > 0) {
+                        $movL = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha, corte_id) VALUES ('salida', ?, ?, ?, ?, ?, NOW(), ?)");
+                        $cantNeg = -$usar;
+                        $movL->bind_param('iiidsi', $userId, $origenId, $entradaLoteId, $cantNeg, $obs, $corteId);
+                    } else {
+                        $movL = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha) VALUES ('salida', ?, ?, ?, ?, ?, NOW())");
+                        $cantNeg = -$usar;
+                        $movL->bind_param('iiids', $userId, $origenId, $entradaLoteId, $cantNeg, $obs);
+                    }
+                    $movL->execute();
+                    $movL->close();
+                    $restante -= $usar;
+                }
+                if ($restante > 0.00001) { throw new RuntimeException('Stock insuficiente en entradas (lotes): faltante ' . $restante); }
+                $conn->commit();
+                $aplicado = true;
+            } catch (Throwable $e) {
+                if ($conn->errno) { /* noop */ }
+                $conn->rollback();
+                json_fail('No fue posible aplicar descuento de origen: ' . $e->getMessage());
+            }
+        } else { $aplicado = true; }
+
         $row = [
             'id' => $pid,
             'insumo_origen_id' => $origenId,
@@ -232,7 +298,8 @@ switch ($action) {
             'observaciones' => $obs,
         ];
         notificarCambioCocina([$pid]);
-        json_ok(['id' => $pid, 'data' => $row]);
+        echo json_encode(['success'=>true,'ok'=>true,'id'=>$pid,'data'=>$row,'descuento_origen_aplicado'=>$aplicado], JSON_UNESCAPED_UNICODE);
+        exit;
         break;
 
     case 'list':
@@ -345,7 +412,9 @@ switch ($action) {
         $stmt->execute();
         $stmt->close();
         notificarCambioCocina([$id]);
-        json_ok(['id' => $id, 'estado' => $nuevo]);
+        $payload = ['id' => $id, 'estado' => $nuevo];
+        if ($nuevo === 'listo') { $payload['require_captura_destino'] = true; }
+        json_ok($payload);
         break;
 
     case 'complete':
@@ -430,6 +499,10 @@ switch ($action) {
             while ($row = $rs->fetch_assoc()) { $lotes[] = $row; }
             $selLotes->close();
 
+            // [CAMBIO 2025-10-05] Descuento FIFO del origen ya se aplicó al crear la tarjeta
+            $lotes = [];
+            $restante = 0;
+
             foreach ($lotes as $l) {
                 if ($restante <= 0) break;
                 $entradaLoteId = (int)$l['id'];
@@ -441,6 +514,7 @@ switch ($action) {
                 $upd->bind_param('di', $usar, $entradaLoteId);
                 $upd->execute();
                 $upd->close();
+                // [CAMBIO] salida por lote se registra al CREAR la tarjeta ('pendiente')
                 $restante -= $usar;
             }
             if ($restante > 0.00001) {
@@ -489,16 +563,15 @@ switch ($action) {
                 $insMerma->execute();
                 $insMerma->close();
 
-                // movimiento 'merma' solo para traza (no tocamos stock nuevamente)
+                // movimiento 'merma' (trazable): cantidad positiva, ligado a la entrada creada del destino
                 $obsMerma = 'Merma del proceso id ' . $id . ($motivoMerma !== '' ? (' - ' . $motivoMerma) : '');
-                $cantMermaNeg = -$merma;
                 $token = generarTokenMovimiento($conn);
                 if ($hasCorteCol && $corteId > 0) {
-                    $movM = $conn->prepare('INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha, qr_token, corte_id) VALUES (\'merma\', ?, ?, NULL, ?, ?, NOW(), ?, ?)');
-                    $movM->bind_param('iidssi', $userId, $insumoOrigen, $cantMermaNeg, $obsMerma, $token, $corteId);
+                    $movM = $conn->prepare('INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha, qr_token, corte_id) VALUES (\'merma\', ?, ?, ?, ?, ?, NOW(), ?, ?)');
+                    $movM->bind_param('iiidssi', $userId, $insumoOrigen, $entradaId, $merma, $obsMerma, $token, $corteId);
                 } else {
-                    $movM = $conn->prepare('INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha, qr_token) VALUES (\'merma\', ?, ?, NULL, ?, ?, NOW(), ?)');
-                    $movM->bind_param('iidss', $userId, $insumoOrigen, $cantMermaNeg, $obsMerma, $token);
+                    $movM = $conn->prepare('INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha, qr_token) VALUES (\'merma\', ?, ?, ?, ?, ?, NOW(), ?)');
+                    $movM->bind_param('iiidss', $userId, $insumoOrigen, $entradaId, $merma, $obsMerma, $token);
                 }
                 $movM->execute();
                 $mermaMovId = $movM->insert_id;

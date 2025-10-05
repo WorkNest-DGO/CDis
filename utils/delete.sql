@@ -50,4 +50,7 @@ ALTER TABLE productos AUTO_INCREMENT = 1;
 DELETE FROM cortes_almacen;
 ALTER TABLE cortes_almacen AUTO_INCREMENT = 1;
 
+-- Para no buggear los registros en salidas sin lotes
+UPDATE insumos  SET existencia = 0;
+
 SET FOREIGN_KEY_CHECKS = 1;

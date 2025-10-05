@@ -118,31 +118,39 @@ if ($resI) {
     }
 }
 
-// Entradas de compra
+// Entradas de compra (excluye proveedor_id = 1)
 $E_COMPRA = fetch_keyed_sum(
     $conn,
-    'SELECT insumo_id, SUM(cantidad) qty FROM entradas_insumos WHERE fecha >= ? AND fecha < ? GROUP BY insumo_id',
+    'SELECT insumo_id, SUM(cantidad) qty FROM entradas_insumos WHERE fecha >= ? AND fecha < ? AND (proveedor_id IS NULL OR proveedor_id <> 1) GROUP BY insumo_id',
     'ss', [$from, $toExclusive]
 );
 $E_COMPRA_ACUM = fetch_keyed_sum(
     $conn,
-    'SELECT insumo_id, SUM(cantidad) qty FROM entradas_insumos WHERE fecha < ? GROUP BY insumo_id',
+    'SELECT insumo_id, SUM(cantidad) qty FROM entradas_insumos WHERE fecha < ? AND (proveedor_id IS NULL OR proveedor_id <> 1) GROUP BY insumo_id',
     's', [$from]
 );
 
-// Movimientos periodo
-$MOVI_OTRAS = fetch_keyed_sum($conn,
-    "SELECT insumo_id, SUM(cantidad) qty FROM movimientos_insumos WHERE tipo='entrada' AND fecha >= ? AND fecha < ? GROUP BY insumo_id",
+// Otras entradas (proveedor_id = 1) desde entradas_insumos
+$E_OTRAS = fetch_keyed_sum(
+    $conn,
+    'SELECT insumo_id, SUM(cantidad) qty FROM entradas_insumos WHERE fecha >= ? AND fecha < ? AND proveedor_id = 1 GROUP BY insumo_id',
     'ss', [$from, $toExclusive]
 );
 $MOVI_DEV = fetch_keyed_sum($conn,
-    "SELECT insumo_id, SUM(cantidad) qty FROM movimientos_insumos WHERE tipo='devolucion' AND fecha >= ? AND fecha < ? GROUP BY insumo_id",
+    "SELECT insumo_id, SUM(ABS(cantidad)) qty FROM movimientos_insumos WHERE tipo='devolucion' AND fecha >= ? AND fecha < ? GROUP BY insumo_id",
     'ss', [$from, $toExclusive]
 );
-$MOVI_SAL = fetch_keyed_sum($conn,
+// Salidas: incluir explcitas (tipo='salida') y por proceso (tipo NULL o vacao) con cantidad negativa
+$MOVI_SAL_EXP = fetch_keyed_sum($conn,
     "SELECT insumo_id, SUM(-cantidad) qty FROM movimientos_insumos WHERE tipo='salida' AND cantidad<0 AND fecha >= ? AND fecha < ? GROUP BY insumo_id",
     'ss', [$from, $toExclusive]
 );
+$MOVI_SAL_PROC = fetch_keyed_sum($conn,
+    "SELECT insumo_id, SUM(-cantidad) qty FROM movimientos_insumos WHERE (tipo IS NULL OR tipo='') AND cantidad<0 AND fecha >= ? AND fecha < ? GROUP BY insumo_id",
+    'ss', [$from, $toExclusive]
+);
+$MOVI_SAL = $MOVI_SAL_EXP;
+foreach ($MOVI_SAL_PROC as $k => $v) { $MOVI_SAL[$k] = ($MOVI_SAL[$k] ?? 0) + $v; }
 $MOVI_TRASP = fetch_keyed_sum($conn,
     "SELECT insumo_id, SUM(-cantidad) qty FROM movimientos_insumos WHERE tipo='traspaso' AND cantidad<0 AND fecha >= ? AND fecha < ? GROUP BY insumo_id",
     'ss', [$from, $toExclusive]
@@ -163,18 +171,27 @@ if ($stmtAj) {
 }
 
 // Movimientos acumulados antes de from
-$ACUM_OTRAS = fetch_keyed_sum($conn,
-    "SELECT insumo_id, SUM(cantidad) qty FROM movimientos_insumos WHERE tipo='entrada' AND fecha < ? GROUP BY insumo_id",
+// Otras entradas acumuladas (proveedor_id = 1)
+$E_OTRAS_ACUM = fetch_keyed_sum(
+    $conn,
+    'SELECT insumo_id, SUM(cantidad) qty FROM entradas_insumos WHERE fecha < ? AND proveedor_id = 1 GROUP BY insumo_id',
     's', [$from]
 );
 $ACUM_DEV = fetch_keyed_sum($conn,
-    "SELECT insumo_id, SUM(cantidad) qty FROM movimientos_insumos WHERE tipo='devolucion' AND fecha < ? GROUP BY insumo_id",
+    "SELECT insumo_id, SUM(ABS(cantidad)) qty FROM movimientos_insumos WHERE tipo='devolucion' AND fecha < ? GROUP BY insumo_id",
     's', [$from]
 );
-$ACUM_SAL = fetch_keyed_sum($conn,
+// Acumulados previos de salidas (explcitas + proceso)
+$ACUM_SAL_EXP = fetch_keyed_sum($conn,
     "SELECT insumo_id, SUM(-cantidad) qty FROM movimientos_insumos WHERE tipo='salida' AND cantidad<0 AND fecha < ? GROUP BY insumo_id",
     's', [$from]
 );
+$ACUM_SAL_PROC = fetch_keyed_sum($conn,
+    "SELECT insumo_id, SUM(-cantidad) qty FROM movimientos_insumos WHERE (tipo IS NULL OR tipo='') AND cantidad<0 AND fecha < ? GROUP BY insumo_id",
+    's', [$from]
+);
+$ACUM_SAL = $ACUM_SAL_EXP;
+foreach ($ACUM_SAL_PROC as $k => $v) { $ACUM_SAL[$k] = ($ACUM_SAL[$k] ?? 0) + $v; }
 $ACUM_TRASP = fetch_keyed_sum($conn,
     "SELECT insumo_id, SUM(-cantidad) qty FROM movimientos_insumos WHERE tipo='traspaso' AND cantidad<0 AND fecha < ? GROUP BY insumo_id",
     's', [$from]
@@ -220,19 +237,36 @@ $tot = [
     'final' => 0.0,
 ];
 
+// Si mode=corte, usar existencia_inicial del corte para 'inicial'; caso contrario, calcular acumulado previo a 'from'.
+$initMap = [];
+if ($mode === 'corte') {
+    $stmtInit = $conn->prepare('SELECT insumo_id, existencia_inicial FROM cortes_almacen_detalle WHERE corte_id = ?');
+    if ($stmtInit) {
+        $stmtInit->bind_param('i', $corte_id);
+        $stmtInit->execute();
+        $resInit = $stmtInit->get_result();
+        while ($rowI = $resInit->fetch_assoc()) { $initMap[(int)$rowI['insumo_id']] = (float)$rowI['existencia_inicial']; }
+        $stmtInit->close();
+    }
+}
+
 foreach ($insumos as $id => $info) {
-    $inicial =
-        ($E_COMPRA_ACUM[$id] ?? 0) +
-        ($ACUM_OTRAS[$id] ?? 0) +
-        ($ACUM_DEV[$id] ?? 0) -
-        ($ACUM_SAL[$id] ?? 0) -
-        ($ACUM_TRASP[$id] ?? 0) -
-        ($ACUM_MERMA[$id] ?? 0) +
-        ($ACUM_AJUSTE[$id] ?? 0);
+    if ($mode === 'corte') {
+        $inicial = $initMap[$id] ?? 0.0; // criterio: usamos snapshot del corte
+    } else {
+        $inicial =
+            ($E_COMPRA_ACUM[$id] ?? 0) +
+            ($E_OTRAS_ACUM[$id] ?? 0) +
+            ($ACUM_DEV[$id] ?? 0) -
+            ($ACUM_SAL[$id] ?? 0) -
+            ($ACUM_TRASP[$id] ?? 0) -
+            ($ACUM_MERMA[$id] ?? 0) +
+            ($ACUM_AJUSTE[$id] ?? 0);
+    }
 
     $entradas_compra = $E_COMPRA[$id] ?? 0;
     $devoluciones = $MOVI_DEV[$id] ?? 0;
-    $otras_entradas = $MOVI_OTRAS[$id] ?? 0;
+    $otras_entradas = $E_OTRAS[$id] ?? 0;
     $salidas = $MOVI_SAL[$id] ?? 0;
     $traspasos_salida = $MOVI_TRASP[$id] ?? 0;
     $mermas = $MOVI_MERMA[$id] ?? 0;
@@ -294,4 +328,3 @@ if ($format === 'csv') {
 }
 
 ?>
-

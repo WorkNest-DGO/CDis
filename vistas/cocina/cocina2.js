@@ -246,6 +246,26 @@ window.alert = showAppMsg;
   if (btnCrear) btnCrear.addEventListener('click', crearLote);
   // Iniciar long-poll sin depender del rol ni de cargas previas
   try { waitCambiosLoop(); } catch(e) { /* noop */ }
+  // Watch de corte abierto: recarga si cambia
+  async function watchCorte(){
+    try{
+      const r = await fetch('../../api/insumos/cortes_almacen.php?accion=listar', { cache:'no-store' });
+      const j = await r.json();
+      let abierto = false;
+      if (j && j.success && Array.isArray(j.resultado)){
+        abierto = j.resultado.some(c => c && (c.fecha_fin === null || String(c.fecha_fin).trim() === ''));
+      }
+      // Alternar dinámicamente: mostrar toolbar solo si rol permite y hay corte; alerta solo si no hay corte
+      const rol = (document.getElementById('user-info')?.dataset.rol || '').toLowerCase();
+      const puede = (rol === 'admin' || rol === 'supervisor');
+      const sec = document.getElementById('sec-crear-lote');
+      const al  = document.getElementById('alert-sin-corte-lote');
+      if (sec) sec.style.display = (puede && abierto) ? '' : 'none';
+      if (al)  al.style.display  = (!abierto) ? '' : 'none';
+    }catch(e){ /* noop */ }
+    setTimeout(watchCorte, 8000);
+  }
+  try { watchCorte(); } catch(e) {}
   // Cargas iniciales de datos (no bloquean el long-poll)
   loadInsumos().then(cargarProcesos).catch(()=>{});
 

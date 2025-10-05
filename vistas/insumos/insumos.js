@@ -107,6 +107,24 @@ let historialData = [];
 let histFiltro = '';
 let histPagina = 1;
 let histPageSize = 15;
+
+// Watch corte abierto (long poll-lite): recarga si cambia el estado
+async function watchCorteLoop(){
+  try{
+    const r = await fetch('../../api/insumos/cortes_almacen.php?accion=listar', { cache:'no-store' });
+    const j = await r.json();
+    let abierto = false;
+    if (j && j.success && Array.isArray(j.resultado)){
+      abierto = j.resultado.some(c => c && (c.fecha_fin === null || String(c.fecha_fin).trim() === ''));
+    }
+    // Alternar dinámicamente secciones sin recargar
+    const sec = document.getElementById('sec-reg-entrada');
+    const al  = document.getElementById('alert-sin-corte');
+    if (sec) sec.style.display = abierto ? '' : 'none';
+    if (al)  al.style.display  = abierto ? 'none' : '';
+  }catch(e){ /* noop */ }
+  setTimeout(watchCorteLoop, 8000);
+}
 const usuarioId = 1; // En entorno real se obtendrí­a de la sesión
 const itemsPorPagina = 12;
 let paginaActual = 1;
@@ -954,6 +972,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     calcularTotal();
+    // Iniciar watcher de corte abierto
+    try { watchCorteLoop(); } catch(e) {}
 });
 
 // Modal de resumen: renderiza tarjetas con QR, nombre (id - nombre) y cantidad
