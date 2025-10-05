@@ -28,6 +28,7 @@ window.alert = showAppMsg;
   const btnCrear = qs('#btnCrearLote');
 
   let cache = [];
+  let procesoActual = null; // para completar
 
   const allowedNext = {
     pendiente: 'en_preparacion',
@@ -49,14 +50,19 @@ window.alert = showAppMsg;
       card.draggable = true;
       card.dataset.id = p.id;
       card.dataset.estado = p.estado;
+      const merma = (p.cantidad_resultante != null)
+        ? Math.max(0, Number(p.cantidad_origen || 0) - Number(p.cantidad_resultante || 0))
+        : 0;
       card.innerHTML = `
         <div class="title">${escapeHtml(p.insumo_origen)} → ${escapeHtml(p.insumo_destino)}</div>
         <div class="meta"><span>${escapeHtml(p.cantidad_origen)} ${escapeHtml(p.unidad_origen || '')}</span> <span>#${p.id}</span></div>
         <div class="badges">
           ${p.entrada_insumo_id ? `<span>Entrada #${p.entrada_insumo_id}</span>` : ''}
           ${p.mov_salida_id ? `<span>Salida #${p.mov_salida_id}</span>` : ''}
+          ${merma > 0 ? `<span class="badge badge-warning">Merma: ${merma.toFixed(2)} ${escapeHtml(p.unidad_origen || '')}</span>` : ''}
         </div>
         ${p.qr_path ? `<button class="btn-qr" data-src="${escapeHtml(p.qr_path)}">QR</button>` : ''}
+        ${p.estado === 'listo' && !p.entrada_insumo_id ? `<button class="btn-completar " data-id="${p.id}">Completar proceso</button>` : ''}
       `;
       bindDrag(card);
       const col = cols[p.estado] || cols.pendiente;
@@ -66,6 +72,13 @@ window.alert = showAppMsg;
         btnQr.addEventListener('click', () => {
           const src = btnQr.getAttribute('data-src');
           if (src) window.open('../../' + src.replace(/^\/+/, ''), '_blank');
+        });
+      }
+      const btnCompletar = card.querySelector('.btn-completar');
+      if (btnCompletar){
+        btnCompletar.addEventListener('click', () => {
+          procesoActual = p;
+          ensureCompletarModal(p);
         });
       }
     });
@@ -99,28 +112,11 @@ window.alert = showAppMsg;
       if (nuevoEstado === 'listo'){
         const okMove = await apiMove(id, 'listo');
         if (!okMove) return;
-        const cantidad = window.prompt('Cantidad resultante del destino:', '');
-        if (cantidad && !isNaN(Number(cantidad)) && Number(cantidad) > 0){
-          const comp = await apiComplete(id, Number(cantidad));
-          if (!comp) return;
-          // actualizar card con info
-          const idx = cache.findIndex(x => x.id === id);
-          if (idx >= 0){
-            cache[idx].estado = 'listo';
-            cache[idx].entrada_insumo_id = comp.entrada_insumo_id;
-            cache[idx].mov_salida_id = comp.mov_salida_id;
-            cache[idx].qr_path = comp.qr_path;
-          }
-          card.dataset.estado = 'listo';
-          zone.appendChild(card);
-          render(cache); // re-render para mostrar badges/QR
-        } else {
-          // Solo mover a listo sin completar
-          const idx = cache.findIndex(x => x.id === id);
-          if (idx >= 0) cache[idx].estado = 'listo';
-          card.dataset.estado = 'listo';
-          zone.appendChild(card);
-        }
+        // Preparar modal estándar para completar
+        procesoActual = cache.find(x => x.id === id) || {
+          id, insumo_origen: '', insumo_destino: '', cantidad_origen: 0, unidad_origen: ''
+        };
+        ensureCompletarModal(procesoActual);
         return;
       }
 
@@ -173,6 +169,8 @@ window.alert = showAppMsg;
       const fd = new FormData();
       fd.append('id', String(id));
       fd.append('cantidad_resultante', String(cantidad_resultante));
+      const motivo = (qs('#cmpMotivo')?.value || '').trim();
+      if (motivo) fd.append('motivo_merma', motivo);
       const r = await fetch('../../api/cocina/procesado.php?action=complete', { method: 'POST', body: fd });
       const j = await r.json();
       if (!r.ok || j.success === false){
@@ -227,4 +225,107 @@ window.alert = showAppMsg;
   try { waitCambiosLoop(); } catch(e) { /* noop */ }
   // Cargas iniciales de datos (no bloquean el long-poll)
   loadInsumos().then(cargarProcesos).catch(()=>{});
+
+  // Modal completar proceso (Bootstrap-like)
+  function ensureCompletarModal(p){
+    let modal = qs('#modalCompletarProc');
+    if (!modal){
+      // crear estructura si no existe (coincide con estilos bootstrap)
+      const html = `
+      <div class="modal fade" id="modalCompletarProc" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Completar proceso</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>Origen → Destino</label>
+                <div id="cmpResumen"></div>
+              </div>
+              <div class="form-group">
+                <label for="cmpCantidadRes">Cantidad resultante</label>
+                <input id="cmpCantidadRes" type="number" step="0.01" min="0.01" class="form-control" placeholder="0.00">
+              </div>
+              <div class="form-group">
+                <div id="cmpMermaBox" style="display:none">
+                  <strong>Merma:</strong> <span id="cmpMermaQty">0</span>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="cmpMotivo">Motivo de merma (opcional)</label>
+                <input id="cmpMotivo" type="text" class="form-control" placeholder="Describa el motivo">
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+              <button type="button" class="btn custom-btn" id="cmpBtnConfirm">Confirmar</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+      const wrap = document.createElement('div');
+      wrap.innerHTML = html;
+      document.body.appendChild(wrap.firstElementChild);
+      modal = qs('#modalCompletarProc');
+      // Cerrar por botón X
+      modal.querySelector('.close')?.addEventListener('click', ()=> hideModal(modal));
+      modal.querySelector('.btn-secondary')?.addEventListener('click', ()=> hideModal(modal));
+    }
+    // Poblar
+    const resumen = qs('#cmpResumen');
+    const inp = qs('#cmpCantidadRes');
+    const mermaBox = qs('#cmpMermaBox');
+    const mermaQty = qs('#cmpMermaQty');
+    if (resumen) resumen.textContent = `${p.insumo_origen} (${p.cantidad_origen} ${p.unidad_origen||''}) → ${p.insumo_destino}`;
+    if (inp){
+      inp.value = '';
+      inp.oninput = () => {
+        const val = parseFloat(inp.value || '0') || 0;
+        const m = Math.max(0, (parseFloat(p.cantidad_origen)||0) - val);
+        if (m > 0){ mermaBox.style.display = ''; mermaQty.textContent = m.toFixed(2) + ' ' + (p.unidad_origen||''); }
+        else { mermaBox.style.display = 'none'; mermaQty.textContent = '0'; }
+      };
+    }
+    const btn = qs('#cmpBtnConfirm');
+    if (btn){
+      btn.onclick = async ()=>{
+        const val = parseFloat(inp.value || '0');
+        if (!(val > 0)) { alert('Capture una cantidad válida'); return; }
+        const comp = await apiComplete(p.id, val);
+        if (!comp) return;
+        hideModal(modal);
+        // Actualizar cache y re-render
+        const idx = cache.findIndex(x => x.id === p.id);
+        if (idx >= 0){
+          cache[idx].estado = 'listo';
+          cache[idx].entrada_insumo_id = comp.entrada_insumo_id;
+          cache[idx].mov_salida_id = comp.mov_salida_id;
+          cache[idx].qr_path = comp.qr_path;
+          cache[idx].cantidad_resultante = val;
+        }
+        render(cache);
+      };
+    }
+    showModal(modal);
+  }
+
+  // Helpers para mostrar/ocultar modal con o sin Bootstrap
+  function showModal(selOrEl){
+    const el = typeof selOrEl === 'string' ? qs(selOrEl) : selOrEl;
+    if (!el) return;
+    if (window.$ && $.fn && $.fn.modal) { $(el).modal('show'); return; }
+    el.classList.add('show');
+    el.style.display = 'block';
+    el.removeAttribute('aria-hidden');
+  }
+  function hideModal(selOrEl){
+    const el = typeof selOrEl === 'string' ? qs(selOrEl) : selOrEl;
+    if (!el) return;
+    if (window.$ && $.fn && $.fn.modal) { $(el).modal('hide'); return; }
+    el.classList.remove('show');
+    el.style.display = 'none';
+    el.setAttribute('aria-hidden', 'true');
+  }
 })();

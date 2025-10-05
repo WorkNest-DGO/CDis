@@ -39,5 +39,7 @@ ALTER TABLE productos AUTO_INCREMENT = 1;
 -- 4) Misceláneo
 DELETE FROM logs_accion;
 ALTER TABLE logs_accion AUTO_INCREMENT = 1;
+DELETE FROM procesos_insumos;
+ALTER TABLE procesos_insumos AUTO_INCREMENT = 1;
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -49,6 +49,34 @@ function construirUrlConsultaEntrada($entradaId)
     return rtrim(obtenerBaseUrl(), '/') . $relativePath . '?id=' . $entradaId;
 }
 
+function construirUrlConsultaMovimiento($token)
+{
+    $token = trim((string)$token);
+    if ($token === '') { throw new InvalidArgumentException('Token inválido'); }
+    $scriptName = isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '/CDI/api/cocina/procesado.php';
+    $scriptDir = str_replace('\\', '/', dirname($scriptName));
+    if ($scriptDir === '.' || $scriptDir === '/' || $scriptDir === '\\') { $scriptDir = ''; }
+    $basePath = preg_replace('#/api/cocina/?$#', '', $scriptDir);
+    $relativePath = rtrim($basePath, '/') . '/vistas/insumos/consulta_movimiento.php';
+    $relativePath = '/' . ltrim($relativePath, '/');
+    return rtrim(obtenerBaseUrl(), '/') . $relativePath . '?token=' . urlencode($token);
+}
+
+function generarTokenMovimiento($conn)
+{
+    do {
+        $token = bin2hex(random_bytes(16));
+        $stmt = $conn->prepare('SELECT 1 FROM movimientos_insumos WHERE qr_token = ? LIMIT 1');
+        if (!$stmt) { break; }
+        $stmt->bind_param('s', $token);
+        $stmt->execute();
+        $stmt->store_result();
+        $existe = $stmt->num_rows > 0;
+        $stmt->close();
+    } while ($existe);
+    return $token;
+}
+
 function ensureSchema($conn) {
     // Crear tabla de procesos si no existe
     $conn->query(
@@ -231,6 +259,7 @@ switch ($action) {
         if ($method !== 'POST') { json_fail('Método no permitido', 405); }
         $id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
         $cantRes = isset($_POST['cantidad_resultante']) ? (float)$_POST['cantidad_resultante'] : 0.0;
+        $motivoMerma = isset($_POST['motivo_merma']) ? trim((string)$_POST['motivo_merma']) : '';
         if ($id <= 0 || $cantRes <= 0) { json_fail('Parámetros inválidos'); }
         $userId = isset($_SESSION['usuario_id']) ? (int)$_SESSION['usuario_id'] : 0;
         if ($userId <= 0) { json_fail('Usuario no autenticado', 401); }
@@ -325,6 +354,38 @@ switch ($action) {
             $u2->execute();
             $u2->close();
 
+            // 4.1) Merma (si resultado < origen) -> registrar en mermas_insumo y movimiento 'merma' con QR
+            $merma = $cantOrigen - $cantRes;
+            $merma = $merma > 0 ? $merma : 0;
+            $mermaMovId = null;
+            $mermaQrPath = null;
+            if ($merma > 0.00001) {
+                // mermas_insumo
+                $insMerma = $conn->prepare('INSERT INTO mermas_insumo (insumo_id, cantidad, motivo, usuario_id) VALUES (?, ?, ?, ?)');
+                $insMerma->bind_param('idsi', $insumoOrigen, $merma, $motivoMerma, $userId);
+                $insMerma->execute();
+                $insMerma->close();
+
+                // movimiento 'merma' solo para traza (no tocamos stock nuevamente)
+                $obsMerma = 'Merma del proceso id ' . $id . ($motivoMerma !== '' ? (' - ' . $motivoMerma) : '');
+                $cantMermaNeg = -$merma;
+                $token = generarTokenMovimiento($conn);
+                $movM = $conn->prepare('INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha, qr_token) VALUES (\'merma\', ?, ?, NULL, ?, ?, NOW(), ?)');
+                $movM->bind_param('iidss', $userId, $insumoOrigen, $cantMermaNeg, $obsMerma, $token);
+                $movM->execute();
+                $mermaMovId = $movM->insert_id;
+                $movM->close();
+
+                // QR imagen para la merma
+                $qrMermaFile = 'merma_insumo_' . $mermaMovId . '_' . $token . '.png';
+                $qrMermaRel = 'archivos/qr/' . $qrMermaFile;
+                $qrMermaAbs = $qrDir . DIRECTORY_SEPARATOR . $qrMermaFile;
+                $urlMov = construirUrlConsultaMovimiento($token);
+                QRcode::png($urlMov, $qrMermaAbs, QR_ECLEVEL_Q, 8, 2);
+                // no hay campo de imagen en movimientos; devolvemos por respuesta
+                $mermaQrPath = $qrMermaRel;
+            }
+
             // 5) Actualizar proceso (mantener en 'listo' por UI)
             $up = $conn->prepare('UPDATE procesos_insumos SET cantidad_resultante = ?, entrada_insumo_id = ?, mov_salida_id = ?, qr_path = ?, actualizado_en = NOW() WHERE id = ?');
             $up->bind_param('diisi', $cantRes, $entradaId, $movId, $qrRelativePath, $id);
@@ -339,7 +400,10 @@ switch ($action) {
                 'id' => $id,
                 'entrada_insumo_id' => $entradaId,
                 'mov_salida_id' => $movId,
-                'qr_path' => $qrRelativePath
+                'qr_path' => $qrRelativePath,
+                'merma' => $merma,
+                'merma_movimiento_id' => $mermaMovId,
+                'merma_qr' => $mermaQrPath
             ], JSON_UNESCAPED_UNICODE);
             exit;
         } catch (Throwable $e) {

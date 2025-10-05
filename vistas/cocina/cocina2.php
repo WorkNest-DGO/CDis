@@ -1,6 +1,6 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../../utils/cargar_permisos.php';
-// Constante de producto de enví­o (para UI si se requiere)
+// Constante de producto de envío (para UI si se requiere)
 if (!defined('ENVIO_CASA_PRODUCT_ID')) define('ENVIO_CASA_PRODUCT_ID', 9001);
 // Producto de cargo por plataforma (ocultar y auto-entregar)
 if (!defined('CARGO_PLATAFORMA_PRODUCT_ID')) define('CARGO_PLATAFORMA_PRODUCT_ID', 9000);
@@ -46,7 +46,6 @@ ob_start();
   </div>
 </div>
 
-<?php if ($__puede_toolbar): ?>
 <div class="container my-3">
   <div class="d-flex gap-2 align-items-center flex-wrap">
     <input id="txtFiltro" type="text" class="form-control" placeholder="Filtrar por producto/destino" style="max-width:280px">
@@ -59,7 +58,6 @@ ob_start();
     <button id="btnRefrescar" class="btn custom-btn">Refrescar</button>
   </div>
  </div>
-<?php endif; ?>
 
 
 <style>
