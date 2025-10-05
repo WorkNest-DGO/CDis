@@ -107,7 +107,24 @@ try {
     }
 
     $selInsumo = $conn->prepare('SELECT existencia FROM insumos WHERE id = ?');
-    $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual, credito) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    // Detectar columna corte_id y obtener corte abierto
+    $hasCorteCol = false; $corteId = 0;
+    try {
+        $rsCol = $conn->query("SHOW COLUMNS FROM entradas_insumos LIKE 'corte_id'");
+        if ($rsCol && $rsCol->num_rows > 0) { $hasCorteCol = true; }
+    } catch (Throwable $e) { $hasCorteCol = false; }
+    if ($hasCorteCol) {
+        try {
+            $rsC = $conn->query("SELECT id FROM cortes_almacen WHERE fecha_fin IS NULL ORDER BY id DESC LIMIT 1");
+            if ($rsC && ($rC = $rsC->fetch_assoc())) { $corteId = (int)$rC['id']; }
+        } catch (Throwable $e) { $corteId = 0; }
+    }
+    // Preparar sentencia de insercin segn disponibilidad de corte_id
+    if ($hasCorteCol && $corteId > 0) {
+        $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual, credito, corte_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    } else {
+        $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual, credito) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    }
     $updInsumo = $conn->prepare('UPDATE insumos SET existencia = existencia + ? WHERE id = ?');
     $updQr = $conn->prepare('UPDATE entradas_insumos SET qr = ? WHERE id = ?');
     $selEntradaInfo = $conn->prepare('SELECT fecha FROM entradas_insumos WHERE id = ?');
@@ -144,21 +161,40 @@ try {
         $cantidadActual = $cantidad;
         $qrPlaceholder = 'pendiente';
 
-        $insEntrada->bind_param(
-            'iiisdsdsssdi',
-            $insumoId,
-            $proveedorId,
-            $usuarioId,
-            $descripcion,
-            $cantidad,
-            $unidad,
-            $costoTotal,
-            $referencia,
-            $folio,
-            $qrPlaceholder,
-            $cantidadActual,
-            $credito
-        );
+        if ($hasCorteCol && $corteId > 0) {
+            $insEntrada->bind_param(
+                'iiisdsdsssdii',
+                $insumoId,
+                $proveedorId,
+                $usuarioId,
+                $descripcion,
+                $cantidad,
+                $unidad,
+                $costoTotal,
+                $referencia,
+                $folio,
+                $qrPlaceholder,
+                $cantidadActual,
+                $credito,
+                $corteId
+            );
+        } else {
+            $insEntrada->bind_param(
+                'iiisdsdsssdi',
+                $insumoId,
+                $proveedorId,
+                $usuarioId,
+                $descripcion,
+                $cantidad,
+                $unidad,
+                $costoTotal,
+                $referencia,
+                $folio,
+                $qrPlaceholder,
+                $cantidadActual,
+                $credito
+            );
+        }
         $insEntrada->execute();
         $entradaId = $insEntrada->insert_id;
         if ($entradaId <= 0) {

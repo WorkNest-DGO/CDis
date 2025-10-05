@@ -59,6 +59,9 @@ ob_start();
                 <option value="50">50</option>
             </select>
         </div>
+        <div class="col-md-3">
+            <button class="btn custom-btn w-100" id="btnActualizarCorte">Actualizar</button>
+        </div>
     </div>
     <div class="table-responsive">
         <table id="tablaResumen" class="styled-table">

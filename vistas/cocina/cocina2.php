@@ -34,12 +34,34 @@ if ($rol_usuario === '' || $rol_usuario === null) {
         }
     }
 }
-// Visibilidad de toolbar por rol
+// Visibilidad de toolbar: solo admin y supervisor
 $__rol_lower = strtolower((string)$rol_usuario);
 $__puede_toolbar = in_array($__rol_lower, ['admin','supervisor'], true);
+
+// Validar corte de almacén abierto para mostrar la sección "Crear lote"
+$__corte_id_abierto = 0;
+try {
+    if (isset($conn) && $conn) {
+        $stmtC = $conn->prepare("SELECT id FROM cortes_almacen WHERE fecha_fin IS NULL ORDER BY id DESC LIMIT 1");
+        if ($stmtC) {
+            if ($stmtC->execute()) {
+                $resC = $stmtC->get_result();
+                if ($resC && ($rowC = $resC->fetch_assoc())) {
+                    $__corte_id_abierto = (int)$rowC['id'];
+                }
+            }
+            $stmtC->close();
+        }
+    }
+} catch (Throwable $e) {
+    // Si falla la consulta, tratar como si no hubiera corte abierto
+    $__corte_id_abierto = 0;
+}
+$__mostrar_toolbar = $__puede_toolbar && ($__corte_id_abierto > 0);
 ob_start();
 ?>
 <div id="user-info" data-rol="<?= htmlspecialchars($rol_usuario, ENT_QUOTES); ?>" hidden></div>
+<div id="corte-info" data-corte-id="<?= (int)$__corte_id_abierto; ?>" hidden></div>
 <div class="page-header mb-0">
   <div class="container">
     <div class="row"><div class="col-12"><h2>Módulo de Cocina (Kanban)</h2></div></div>
@@ -96,7 +118,7 @@ ob_start();
 .board-entregado .kanban-item { border-left-color:#7f8c8d; opacity:.85; }
 </style>
 
-<?php if ($__puede_toolbar): ?>
+<?php if ($__mostrar_toolbar): ?>
 <div class="container my-3">
   <div class="procesado-toolbar">
     <label for="selInsumoOrigen">Origen</label>
@@ -112,6 +134,13 @@ ob_start();
     <input id="inpObsProc" type="text" class="form-control" placeholder="Observaciones (opcional)">
 
     <button id="btnCrearLote" class="btn custom-btn" style="grid-column: 1 / -1;">Crear lote</button>
+  </div>
+</div>
+<?php endif; ?>
+<?php if ($__corte_id_abierto <= 0): ?>
+<div class="container my-3">
+  <div class="alert alert-warning" role="alert">
+    No hay un corte de almacén abierto. Abra un corte para habilitar "Crear lote".
   </div>
 </div>
 <?php endif; ?>
@@ -156,4 +185,3 @@ ob_start();
 <?php
 $content = ob_get_clean();
 include __DIR__ . '/../nav.php';
-

@@ -97,6 +97,16 @@ window.alert = showAppMsg;
 
 let catalogo = [];
 let filtrado = [];
+// Bajo stock: datos y estado de paginación/filtro
+let bajoStockData = [];
+let bajoStockFiltro = '';
+let bsPagina = 1;
+let bsPageSize = 15;
+// Historial entradas: datos y estado de paginación/filtro
+let historialData = [];
+let histFiltro = '';
+let histPagina = 1;
+let histPageSize = 15;
 const usuarioId = 1; // En entorno real se obtendrí­a de la sesión
 const itemsPorPagina = 12;
 let paginaActual = 1;
@@ -376,7 +386,9 @@ async function cargarBajoStock() {
         const resp = await fetch('../../api/insumos/listar_bajo_stock.php');
         const data = await resp.json();
         if (data.success) {
-            mostrarBajoStock(data.resultado);
+            bajoStockData = Array.isArray(data.resultado) ? data.resultado : [];
+            bsPagina = 1;
+            renderBajoStock();
         }
     } catch (err) {
         console.error(err);
@@ -384,11 +396,34 @@ async function cargarBajoStock() {
     }
 }
 
-function mostrarBajoStock(lista) {
+function renderBajoStock(){
+    const input = document.getElementById('buscarBajoStock');
+    bajoStockFiltro = (input && input.value ? String(input.value).toLowerCase() : '');
+    const sizeSel = document.getElementById('bsPageSize');
+    if (sizeSel) bsPageSize = parseInt(sizeSel.value, 10) || 15;
     const tbody = document.querySelector('#bajoStock tbody');
     if (!tbody) return;
+    // filtrar
+    const lista = (bajoStockData || []).filter(i => {
+        if (!bajoStockFiltro) return true;
+        const hay = (
+            String(i.id).includes(bajoStockFiltro) ||
+            (i.nombre || '').toLowerCase().includes(bajoStockFiltro) ||
+            (i.unidad || '').toLowerCase().includes(bajoStockFiltro) ||
+            String(i.existencia || '').toLowerCase().includes(bajoStockFiltro)
+        );
+        return !!hay;
+    });
+    // paginar
+    const total = lista.length;
+    const totalPag = Math.max(1, Math.ceil(total / bsPageSize));
+    if (bsPagina > totalPag) bsPagina = totalPag;
+    const ini = (bsPagina - 1) * bsPageSize;
+    const fin = ini + bsPageSize;
+    const pageItems = lista.slice(ini, fin);
+    // pintar filas
     tbody.innerHTML = '';
-    lista.forEach(i => {
+    pageItems.forEach(i => {
         const tr = document.createElement('tr');
         if (parseFloat(i.existencia) < 20) {
             tr.style.backgroundColor = '#f8d7da';
@@ -396,6 +431,31 @@ function mostrarBajoStock(lista) {
         tr.innerHTML = `<td>${i.id}</td><td>${i.nombre}</td><td>${i.unidad}</td><td>${i.existencia}</td>`;
         tbody.appendChild(tr);
     });
+    // paginador
+    const pag = document.getElementById('bsPaginador');
+    if (pag) {
+        pag.innerHTML = '';
+        const makeLi = (txt, disabled, onClick) => {
+            const li = document.createElement('li');
+            li.className = 'page-item' + (disabled ? ' disabled' : '');
+            const a = document.createElement('a');
+            a.className = 'page-link';
+            a.href = '#';
+            a.textContent = txt;
+            if (!disabled) a.addEventListener('click', (e)=>{ e.preventDefault(); onClick(); });
+            li.appendChild(a);
+            return li;
+        };
+        pag.appendChild(makeLi('Anterior', bsPagina<=1, ()=>{ bsPagina=Math.max(1, bsPagina-1); renderBajoStock(); }));
+        for (let p=1; p<= totalPag; p++){
+            const li = document.createElement('li');
+            li.className = 'page-item' + (p===bsPagina ? ' active' : '');
+            const a = document.createElement('a'); a.className='page-link'; a.href='#'; a.textContent=String(p);
+            a.addEventListener('click', (e)=>{ e.preventDefault(); bsPagina=p; renderBajoStock(); });
+            li.appendChild(a); pag.appendChild(li);
+        }
+        pag.appendChild(makeLi('Siguiente', bsPagina>=totalPag, ()=>{ bsPagina=Math.min(totalPag, bsPagina+1); renderBajoStock(); }));
+    }
 }
 
 async function nuevoProveedor() {
@@ -719,34 +779,88 @@ async function cargarHistorial() {
         const resp = await fetch('../../api/insumos/listar_entradas.php');
         const data = await resp.json();
         if (data.success) {
-            const tbody = document.querySelector('#historial tbody');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-            data.resultado.forEach(e => {
-                const tr = document.createElement('tr');
-                const proveedor = e.proveedor ?? '';
-                const fecha = e.fecha ?? '';
-                const costoTotal = formatMoneda(e.costo_total ?? e.total ?? '');
-                const cantidadActual = e.cantidad_actual ?? '';
-                const unidad = e.unidad ? (' ' + e.unidad) : '';
-                const total = formatMoneda(e.total ?? e.costo_total ?? '');
-                const producto = e.producto ?? '';
-                tr.innerHTML = `
-                    <td>${proveedor}</td>
-                    <td>${fecha}</td>
-                    <td>${costoTotal}</td>
-                    <td>${cantidadActual}${unidad}</td>
-                    <td>${total}</td>
-                    <td>${producto}</td>
-                `;
-                tbody.appendChild(tr);
-            });
+            historialData = Array.isArray(data.resultado) ? data.resultado : [];
+            histPagina = 1;
+            renderHistorial();
         } else {
             alert(data.mensaje);
         }
     } catch (err) {
         console.error(err);
         alert('Error al cargar historial');
+    }
+}
+
+function renderHistorial(){
+    const input = document.getElementById('buscarHistorial');
+    histFiltro = (input && input.value ? String(input.value).toLowerCase() : '');
+    const sizeSel = document.getElementById('histPageSize');
+    if (sizeSel) histPageSize = parseInt(sizeSel.value, 10) || 15;
+    const tbody = document.querySelector('#historial tbody');
+    if (!tbody) return;
+    // filtrar
+    const lista = (historialData || []).filter(e => {
+        if (!histFiltro) return true;
+        const proveedor = (e.proveedor || '').toLowerCase();
+        const fecha = (e.fecha || '').toLowerCase();
+        const producto = (e.producto || '').toLowerCase();
+        const total = String(e.total ?? e.costo_total ?? '').toLowerCase();
+        const cant = String(e.cantidad_actual ?? '').toLowerCase();
+        const uni = (e.unidad || '').toLowerCase();
+        return proveedor.includes(histFiltro) || fecha.includes(histFiltro) || producto.includes(histFiltro) || total.includes(histFiltro) || cant.includes(histFiltro) || uni.includes(histFiltro);
+    });
+    // paginar
+    const total = lista.length;
+    const totalPag = Math.max(1, Math.ceil(total / histPageSize));
+    if (histPagina > totalPag) histPagina = totalPag;
+    const ini = (histPagina - 1) * histPageSize;
+    const fin = ini + histPageSize;
+    const pageItems = lista.slice(ini, fin);
+    // pintar filas
+    tbody.innerHTML = '';
+    pageItems.forEach(e => {
+        const tr = document.createElement('tr');
+        const proveedor = e.proveedor ?? '';
+        const fecha = e.fecha ?? '';
+        const costoTotal = formatMoneda(e.costo_total ?? e.total ?? '');
+        const cantidadActual = e.cantidad_actual ?? '';
+        const unidad = e.unidad ? (' ' + e.unidad) : '';
+        const totalTxt = formatMoneda(e.total ?? e.costo_total ?? '');
+        const producto = e.producto ?? '';
+        tr.innerHTML = `
+            <td>${proveedor}</td>
+            <td>${fecha}</td>
+            <td>${costoTotal}</td>
+            <td>${cantidadActual}${unidad}</td>
+            <td>${totalTxt}</td>
+            <td>${producto}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+    // paginador
+    const pag = document.getElementById('histPaginador');
+    if (pag) {
+        pag.innerHTML = '';
+        const makeLi = (txt, disabled, onClick) => {
+            const li = document.createElement('li');
+            li.className = 'page-item' + (disabled ? ' disabled' : '');
+            const a = document.createElement('a');
+            a.className = 'page-link';
+            a.href = '#';
+            a.textContent = txt;
+            if (!disabled) a.addEventListener('click', (e)=>{ e.preventDefault(); onClick(); });
+            li.appendChild(a);
+            return li;
+        };
+        pag.appendChild(makeLi('Anterior', histPagina<=1, ()=>{ histPagina=Math.max(1, histPagina-1); renderHistorial(); }));
+        for (let p=1; p<= totalPag; p++){
+            const li = document.createElement('li');
+            li.className = 'page-item' + (p===histPagina ? ' active' : '');
+            const a = document.createElement('a'); a.className='page-link'; a.href='#'; a.textContent=String(p);
+            a.addEventListener('click', (e)=>{ e.preventDefault(); histPagina=p; renderHistorial(); });
+            li.appendChild(a); pag.appendChild(li);
+        }
+        pag.appendChild(makeLi('Siguiente', histPagina>=totalPag, ()=>{ histPagina=Math.min(totalPag, histPagina+1); renderHistorial(); }));
     }
 }
 
@@ -757,6 +871,16 @@ document.addEventListener('DOMContentLoaded', () => {
     cargarInsumos();
     cargarBajoStock();
     cargarHistorial();
+    // Buscadores y selects de paginado
+    const bsSearch = document.getElementById('buscarBajoStock');
+    if (bsSearch) bsSearch.addEventListener('input', ()=>{ bsPagina=1; renderBajoStock(); });
+    const bsSize = document.getElementById('bsPageSize');
+    if (bsSize) bsSize.addEventListener('change', ()=>{ bsPagina=1; renderBajoStock(); });
+
+    const histSearch = document.getElementById('buscarHistorial');
+    if (histSearch) histSearch.addEventListener('input', ()=>{ histPagina=1; renderHistorial(); });
+    const histSize = document.getElementById('histPageSize');
+    if (histSize) histSize.addEventListener('change', ()=>{ histPagina=1; renderHistorial(); });
 
     const btnAgregar = document.getElementById('agregarFila');
     if (btnAgregar) {

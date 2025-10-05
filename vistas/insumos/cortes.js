@@ -79,17 +79,31 @@ async function buscarCortes() {
 async function cargarDetalle(id) {
     if (!id) return;
     try {
-        const resp = await fetch(`../../api/insumos/cortes_almacen.php?accion=detalle&corte_id=${id}`);
+        // Cálculo en tiempo real por corte (sin requerir cierre)
+        const resp = await fetch(`../../api/insumos/listar_cortes_almacen_detalle.php?corte_id=${encodeURIComponent(id)}`);
         const data = await resp.json();
-        if (data.success) {
+        if (data && data.success) {
             corteActual = id;
-            detalles = data.resultado;
+            const rows = Array.isArray(data.resultado) ? data.resultado : (data.items || []);
+            detalles = Array.isArray(rows) ? rows : [];
+            pagina = 1;
+            renderTabla();
+        } else if (Array.isArray(data)) {
+            corteActual = id;
+            detalles = data;
             pagina = 1;
             renderTabla();
         }
     } catch (err) {
         console.error(err);
     }
+}
+
+function actualizarTablaCorte(){
+    const sel = document.getElementById('listaCortes');
+    const id = sel && sel.value ? sel.value : (corteActual || '');
+    if (!id) { alert('Seleccione un corte'); return; }
+    cargarDetalle(id);
 }
 
 function renderTabla() {
@@ -166,6 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('listaCortes')?.addEventListener('change', e => cargarDetalle(e.target.value));
     document.getElementById('filtroInsumo')?.addEventListener('input', () => { pagina = 1; renderTabla(); });
     document.getElementById('registrosPagina')?.addEventListener('change', () => { pagina = 1; renderTabla(); });
+    document.getElementById('btnActualizarCorte')?.addEventListener('click', actualizarTablaCorte);
     document.getElementById('btnExportarExcel')?.addEventListener('click', exportarExcel);
     document.getElementById('btnExportarPdf')?.addEventListener('click', exportarPdf);
     document.getElementById('prevPagina')?.addEventListener('click', () => cambiarPagina(-1));
@@ -181,7 +196,36 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicializar modo y cortes
     try { onChangeModoReporte(); } catch (e) {}
     try { cargarListaCortesParaReporte(); } catch (e) {}
+
+    // Inicializar fecha al día actual si está vacía
+    try {
+        const df = document.getElementById('buscarFecha');
+        if (df && !df.value) {
+            const d = new Date();
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth()+1).padStart(2,'0');
+            const dd = String(d.getDate()).padStart(2,'0');
+            df.value = `${yyyy}-${mm}-${dd}`;
+        }
+    } catch(e) {}
+
+    // Validar corte abierto global para habilitar/deshabilitar botón Abrir
+    validarBotonAbrirCorte();
 });
+
+async function validarBotonAbrirCorte(){
+    const btn = document.getElementById('btnAbrirCorte');
+    if (!btn) return;
+    try{
+        const resp = await fetch('../../api/insumos/cortes_almacen.php?accion=listar');
+        const data = await resp.json();
+        let hayAbierto = false;
+        if (data && data.success && Array.isArray(data.resultado)){
+            hayAbierto = data.resultado.some(c => c && (c.fecha_fin === null || String(c.fecha_fin).trim() === ''));
+        }
+        btn.disabled = !!hayAbierto;
+    }catch(e){ /* si falla, no bloquear */ }
+}
 
 // ==========================
 // Reporte Entradas/Salidas

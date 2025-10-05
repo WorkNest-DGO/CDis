@@ -13,6 +13,27 @@ if (!in_array($path_actual, $_SESSION['rutas_permitidas'])) {
 $title = 'Insumos';
 ob_start();
 ?>
+<?php
+// Validar corte abierto para mostrar la seccin de Registro de entradas
+$__corte_id_abierto = 0;
+try {
+    if (isset($conn) && $conn) {
+        $stmtC = $conn->prepare("SELECT id FROM cortes_almacen WHERE fecha_fin IS NULL ORDER BY id DESC LIMIT 1");
+        if ($stmtC) {
+            if ($stmtC->execute()) {
+                $resC = $stmtC->get_result();
+                if ($resC && ($rowC = $resC->fetch_assoc())) {
+                    $__corte_id_abierto = (int)$rowC['id'];
+                }
+            }
+            $stmtC->close();
+        }
+    }
+} catch (Throwable $e) {
+    $__corte_id_abierto = 0;
+}
+$__mostrar_registro_entrada = ($__corte_id_abierto > 0);
+?>
 <style>
     .is-invalid { outline: 2px solid #e74c3c; }
 </style>
@@ -108,6 +129,7 @@ ob_start();
 <!-- Blog End -->
 
 <!-- insumo -->
+<?php if ($__mostrar_registro_entrada): ?>
 <div class="container mt-5">
     <h2 class="text-white">Registrar entrada de productos</h2>
     <form id="form-entrada" class="bg-dark p-4 rounded" name="form-entrada">
@@ -159,12 +181,30 @@ ob_start();
             <button type="submit" id="btn-registrar" class="btn custom-btn" data-action="registrar-entrada">Registrar entrada</button>
         </div>
     </form>
+    </div>
 </div>
+<?php else: ?>
+<div class="container mt-5">
+  <div class="alert alert-warning" role="alert">
+    No hay un corte de almacn abierto. Abra un corte para habilitar "Registrar entrada de productos".
+  </div>
+</div>
+<?php endif; ?>
 <!-- insumo End -->
 
 <!-- alerta stock-->
 <div class="container mt-5">
     <h2 class="text-white">Insumos con bajo stock</h2>
+    <div class="d-flex align-items-center gap-2 mb-2" style="gap:.5rem;">
+        <input type="text" id="buscarBajoStock" class="form-control" placeholder="Buscar en bajo stock" style="max-width:260px">
+        <label for="bsPageSize" class="mb-0 ms-2 me-1 text-white">Ver</label>
+        <select id="bsPageSize" class="form-control" style="max-width:100px">
+            <option value="15">15</option>
+            <option value="30">30</option>
+            <option value="50">50</option>
+        </select>
+        <span class="text-white ms-1">registros</span>
+    </div>
     <div class="table-responsive">
         <table id="bajoStock" class="styled-table">
             <thead>
@@ -178,11 +218,22 @@ ob_start();
             <tbody></tbody>
         </table>
     </div>
+    <ul id="bsPaginador" class="pagination justify-content-center mt-2"></ul>
 </div>
 <!-- alerta stock end -->
 
 <div class="container mt-5">
     <h2 class="text-white">Historial de Entradas por Proveedor</h2>
+    <div class="d-flex align-items-center gap-2 mb-2" style="gap:.5rem;">
+        <input type="text" id="buscarHistorial" class="form-control" placeholder="Buscar en historial" style="max-width:260px">
+        <label for="histPageSize" class="mb-0 ms-2 me-1 text-white">Ver</label>
+        <select id="histPageSize" class="form-control" style="max-width:100px">
+            <option value="15">15</option>
+            <option value="30">30</option>
+            <option value="50">50</option>
+        </select>
+        <span class="text-white ms-1">registros</span>
+    </div>
     <div class="table-responsive">
                 <table id="historial" class="styled-table">
             <thead>
@@ -198,6 +249,7 @@ ob_start();
             <tbody></tbody>
         </table>
     </div>
+    <ul id="histPaginador" class="pagination justify-content-center mt-2"></ul>
 </div>
 
 
@@ -331,9 +383,9 @@ ob_start();
 <!-- Modal global de mensajes -->
 <div class="modal fade" id="appMsgModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
-        <div class="modal-content">
+        <div style="color:black" class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Mensaje</h5>
+                <h5 style="color:black" class="modal-title">Mensaje</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
             </div>
             <div class="modal-body"></div>

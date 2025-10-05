@@ -1,11 +1,26 @@
+// Preservar alert nativo para evitar recursividad
+const __nativeAlert = typeof window !== 'undefined' && window.alert ? window.alert.bind(window) : null;
 function showAppMsg(msg) {
   const body = document.querySelector('#appMsgModal .modal-body');
   if (body) body.textContent = String(msg);
-  if (typeof showModal === 'function') {
-    showModal('#appMsgModal');
-  } else {
-    alert(String(msg));
+  // Intentar abrir modal con jQuery si existe
+  try {
+    if (window.$ && $.fn && $.fn.modal) {
+      $('#appMsgModal').modal('show');
+      return;
+    }
+  } catch(e) {}
+  // Fallback manual si el modal existe
+  const modal = document.getElementById('appMsgModal');
+  if (modal) {
+    modal.classList.add('show');
+    modal.style.display = 'block';
+    modal.removeAttribute('aria-hidden');
+    return;
   }
+  // Último recurso: usar alert nativo preservado (sin recursión)
+  if (__nativeAlert) { __nativeAlert(String(msg)); }
+  else { try { console.error(String(msg)); } catch(e) {} }
 }
 window.alert = showAppMsg;
 
@@ -63,6 +78,7 @@ window.alert = showAppMsg;
         </div>
         ${p.qr_path ? `<button class="btn-qr" data-src="${escapeHtml(p.qr_path)}">QR</button>` : ''}
         ${p.estado === 'listo' && !p.entrada_insumo_id ? `<button class="btn-completar " data-id="${p.id}">Completar proceso</button>` : ''}
+        ${p.estado === 'entregado' && p.merma_qr ? `<button class="btn-qr-merma" data-src="${escapeHtml(p.merma_qr)}">QR Merma</button>` : ''}
       `;
       bindDrag(card);
       const col = cols[p.estado] || cols.pendiente;
@@ -71,6 +87,13 @@ window.alert = showAppMsg;
       if (btnQr){
         btnQr.addEventListener('click', () => {
           const src = btnQr.getAttribute('data-src');
+          if (src) window.open('../../' + src.replace(/^\/+/, ''), '_blank');
+        });
+      }
+      const btnQrMerma = card.querySelector('.btn-qr-merma');
+      if (btnQrMerma){
+        btnQrMerma.addEventListener('click', () => {
+          const src = btnQrMerma.getAttribute('data-src');
           if (src) window.open('../../' + src.replace(/^\/+/, ''), '_blank');
         });
       }
@@ -234,9 +257,9 @@ window.alert = showAppMsg;
       const html = `
       <div class="modal fade" id="modalCompletarProc" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog" role="document">
-          <div class="modal-content">
+          <div style="color:black" class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title">Completar proceso</h5>
+              <h5 style="color:black" class="modal-title">Completar proceso</h5>
               <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
             </div>
             <div class="modal-body">
@@ -304,6 +327,8 @@ window.alert = showAppMsg;
           cache[idx].mov_salida_id = comp.mov_salida_id;
           cache[idx].qr_path = comp.qr_path;
           cache[idx].cantidad_resultante = val;
+          if (typeof comp.merma !== 'undefined') cache[idx].merma = comp.merma;
+          if (comp.merma_qr) cache[idx].merma_qr = comp.merma_qr;
         }
         render(cache);
       };

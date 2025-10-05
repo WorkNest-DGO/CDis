@@ -5,8 +5,16 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 
 if (!isset($_SESSION['usuario_id'])) {
-    http_response_code(401);
-    exit('No autenticado');
+    // Redirigir a login en lugar de imprimir mensaje
+    $sn = isset($_SERVER['SCRIPT_NAME']) ? (string)$_SERVER['SCRIPT_NAME'] : '/';
+    $snLower = strtolower($sn);
+    $pos = strpos($snLower, '/cdi/');
+    $basePath = ($pos !== false) ? substr($sn, 0, $pos + 4) : '/CDI';
+    $loginPath = rtrim($basePath, '/') . '/login.html';
+    if (!headers_sent()) {
+        header('Location: ' . $loginPath);
+    }
+    exit;
 }
 
 if (!isset($_SESSION['rutas_permitidas'])) {

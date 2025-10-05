@@ -181,8 +181,42 @@ switch ($action) {
         $existOrigen = (float)$info[$origenId]['existencia'];
         if ($existOrigen < $cantidad) { json_fail('Stock insuficiente del insumo de origen'); }
 
-        $ins = $conn->prepare('INSERT INTO procesos_insumos (insumo_origen_id, insumo_destino_id, cantidad_origen, unidad_origen, unidad_destino, estado, observaciones, creado_por) VALUES (?, ?, ?, ?, ?, \'pendiente\', ?, ?)');
-        $ins->bind_param('iidsssi', $origenId, $destinoId, $cantidad, $unidadOrigen, $unidadDestino, $obs, $userId);
+        // Validaci3n adicional: disponibilidad por lotes (entradas_insumos)
+        try {
+            $stmtLot = $conn->prepare('SELECT COALESCE(SUM(cantidad_actual),0) AS disp FROM entradas_insumos WHERE insumo_id = ? AND cantidad_actual > 0');
+            if ($stmtLot) {
+                $stmtLot->bind_param('i', $origenId);
+                $stmtLot->execute();
+                $rsLot = $stmtLot->get_result();
+                $disp = 0.0;
+                if ($rsLot && ($rowLot = $rsLot->fetch_assoc())) { $disp = (float)$rowLot['disp']; }
+                $stmtLot->close();
+                if ($disp < $cantidad) {
+                    json_fail('Stock insuficiente en entradas (lotes): disponible ' . $disp . ', requerido ' . $cantidad);
+                }
+            }
+        } catch (Throwable $e) { /* si falla, no bloquear el flujo, pero registrar en mensaje si se desea */ }
+
+        // Insertar proceso con corte_id si la columna existe y hay corte abierto
+        $hasCorteProc = false; $corteProcId = 0;
+        try {
+            $rsColP = $conn->query("SHOW COLUMNS FROM procesos_insumos LIKE 'corte_id'");
+            if ($rsColP && $rsColP->num_rows > 0) { $hasCorteProc = true; }
+        } catch (Throwable $e) { $hasCorteProc = false; }
+        if ($hasCorteProc) {
+            try {
+                $rsCP = $conn->query("SELECT id FROM cortes_almacen WHERE fecha_fin IS NULL ORDER BY id DESC LIMIT 1");
+                if ($rsCP && ($rCP = $rsCP->fetch_assoc())) { $corteProcId = (int)$rCP['id']; }
+            } catch (Throwable $e) { $corteProcId = 0; }
+        }
+
+        if ($hasCorteProc && $corteProcId > 0) {
+            $ins = $conn->prepare("INSERT INTO procesos_insumos (insumo_origen_id, insumo_destino_id, cantidad_origen, unidad_origen, unidad_destino, estado, observaciones, creado_por, corte_id) VALUES (?, ?, ?, ?, ?, 'pendiente', ?, ?, ?)");
+            $ins->bind_param('iidsssii', $origenId, $destinoId, $cantidad, $unidadOrigen, $unidadDestino, $obs, $userId, $corteProcId);
+        } else {
+            $ins = $conn->prepare('INSERT INTO procesos_insumos (insumo_origen_id, insumo_destino_id, cantidad_origen, unidad_origen, unidad_destino, estado, observaciones, creado_por) VALUES (?, ?, ?, ?, ?, \'pendiente\', ?, ?)');
+            $ins->bind_param('iidsssi', $origenId, $destinoId, $cantidad, $unidadOrigen, $unidadDestino, $obs, $userId);
+        }
         $ins->execute();
         $pid = $ins->insert_id;
         $ins->close();
@@ -206,12 +240,23 @@ switch ($action) {
         $estado = isset($_REQUEST['estado']) ? strtolower(trim($_REQUEST['estado'])) : '';
         $allowedEstados = ['pendiente','en_preparacion','listo','entregado','todos',''];
         if (!in_array($estado, $allowedEstados, true)) { $estado = ''; }
-        // Intentar usar la vista; si falla, usar JOIN directo
-        $where = '';
+        // Filtrar por corte abierto: si no hay, devolver vaca
+        $corte = null;
+        try {
+            $qC = $conn->query("SELECT id, fecha_inicio FROM cortes_almacen WHERE fecha_fin IS NULL ORDER BY id DESC LIMIT 1");
+            if ($qC && ($rowC = $qC->fetch_assoc())) { $corte = $rowC; }
+        } catch (Throwable $e) { /* noop */ }
+        if (!$corte) {
+            echo json_encode(['success' => true, 'ok' => true, 'items' => []], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $fechaInicio = $conn->real_escape_string((string)$corte['fecha_inicio']);
+
+        $where = "WHERE p.creado_en >= '" . $fechaInicio . "'";
         if ($estado && $estado !== 'todos') {
-            $where = "WHERE p.estado = '" . $conn->real_escape_string($estado) . "'";
-        } elseif ($estado === 'todos' || $estado === '') {
-            $where = "WHERE p.estado IN ('pendiente','en_preparacion','listo','entregado')";
+            $where .= " AND p.estado = '" . $conn->real_escape_string($estado) . "'";
+        } else {
+            $where .= " AND p.estado IN ('pendiente','en_preparacion','listo','entregado')";
         }
         $sql = "SELECT p.id, p.estado,
                        io.id AS insumo_origen_id, io.nombre AS insumo_origen, p.cantidad_origen, p.unidad_origen,
@@ -225,6 +270,54 @@ switch ($action) {
         $rs = $conn->query($sql);
         $items = [];
         while ($r = $rs->fetch_assoc()) { $items[] = $r; }
+        // Enriquecer con QR de merma (si existe) desde movimientos_insumos
+        foreach ($items as &$it) {
+            $pid = isset($it['id']) ? (int)$it['id'] : 0;
+            if ($pid <= 0) continue;
+            $qrPath = null;
+            try {
+                $q = "SELECT id, qr_token, IFNULL(`qr`,'') AS qr
+                      FROM movimientos_insumos
+                      WHERE tipo='merma' AND observacion LIKE CONCAT('Merma del proceso id ', ?, '%')
+                      ORDER BY id DESC LIMIT 1";
+                $mm = $conn->prepare($q);
+                $hasQrCol = true;
+            } catch (Throwable $e) {
+                $mm = $conn->prepare("SELECT id, qr_token FROM movimientos_insumos WHERE tipo='merma' AND observacion LIKE CONCAT('Merma del proceso id ', ?, '%') ORDER BY id DESC LIMIT 1");
+                $hasQrCol = false;
+            }
+            if ($mm) {
+                $mm->bind_param('i', $pid);
+                if ($mm->execute()) {
+                    $r2 = $mm->get_result();
+                    if ($r2 && ($m = $r2->fetch_assoc())) {
+                        if ($hasQrCol && !empty($m['qr'])) {
+                            $qrPath = 'archivos/qr/' . $m['qr'];
+                        } else {
+                            $token = isset($m['qr_token']) ? (string)$m['qr_token'] : '';
+                            if ($token !== '') {
+                                $qrDir = realpath(__DIR__ . '/../../archivos/qr');
+                                $baseDir = realpath(__DIR__ . '/../../');
+                                if ($qrDir && $baseDir) {
+                                    $matches = glob($qrDir . DIRECTORY_SEPARATOR . '*' . $token . '*.png');
+                                    if ($matches && isset($matches[0])) {
+                                        $abs = str_replace('\\', '/', $matches[0]);
+                                        $baseDir = str_replace('\\', '/', $baseDir);
+                                        if (strpos($abs, $baseDir) === 0) {
+                                            $rel = ltrim(substr($abs, strlen($baseDir)), '/');
+                                            $qrPath = $rel;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                $mm->close();
+            }
+            if ($qrPath) { $it['merma_qr'] = $qrPath; }
+        }
+        unset($it);
         echo json_encode(['success' => true, 'ok' => true, 'items' => $items], JSON_UNESCAPED_UNICODE);
         exit;
 
@@ -265,6 +358,7 @@ switch ($action) {
         if ($userId <= 0) { json_fail('Usuario no autenticado', 401); }
 
         $conn->begin_transaction();
+        $txnStarted = true;
         try {
             // 1) Bloquear proceso
             $stmt = $conn->prepare('SELECT * FROM procesos_insumos WHERE id = ? FOR UPDATE');
@@ -287,10 +381,28 @@ switch ($action) {
             // 2) Insert ENTRADA para destino
             $qrDir = __DIR__ . '/../../archivos/qr';
             if (!is_dir($qrDir)) { @mkdir($qrDir, 0777, true); }
-            $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual, credito) VALUES (?, NULL, ?, ?, ?, ?, 0, "", "", "pendiente", ?, NULL)');
+            // Preparar INSERT de entrada con proveedor fijo (1) y corte_id si existe corte abierto
             $desc = 'Procesado desde insumo ' . $insumoOrigen . ' lote ' . $id;
             $cantidadActual = $cantRes;
-            $insEntrada->bind_param('iisdsd', $insumoDestino, $userId, $desc, $cantRes, $unidadDestino, $cantidadActual);
+            $proveedorFijo = 1;
+            $hasCorteEntrada = false; $corteEntradaId = 0;
+            try {
+                $rsColEnt = $conn->query("SHOW COLUMNS FROM entradas_insumos LIKE 'corte_id'");
+                if ($rsColEnt && $rsColEnt->num_rows > 0) { $hasCorteEntrada = true; }
+            } catch (Throwable $e) { $hasCorteEntrada = false; }
+            if ($hasCorteEntrada) {
+                try {
+                    $rsCE = $conn->query("SELECT id FROM cortes_almacen WHERE fecha_fin IS NULL ORDER BY id DESC LIMIT 1");
+                    if ($rsCE && ($rCE = $rsCE->fetch_assoc())) { $corteEntradaId = (int)$rCE['id']; }
+                } catch (Throwable $e) { $corteEntradaId = 0; }
+            }
+            if ($hasCorteEntrada && $corteEntradaId > 0) {
+                $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual, credito, corte_id) VALUES (?, ?, ?, ?, ?, ?, 0, "", "", "pendiente", ?, NULL, ?)');
+                $insEntrada->bind_param('iiisdsdi', $insumoDestino, $proveedorFijo, $userId, $desc, $cantRes, $unidadDestino, $cantidadActual, $corteEntradaId);
+            } else {
+                $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual, credito) VALUES (?, ?, ?, ?, ?, ?, 0, "", "", "pendiente", ?, NULL)');
+                $insEntrada->bind_param('iiisdsd', $insumoDestino, $proveedorFijo, $userId, $desc, $cantRes, $unidadDestino, $cantidadActual);
+            }
             $insEntrada->execute();
             $entradaId = $insEntrada->insert_id;
             $insEntrada->close();
@@ -337,9 +449,20 @@ switch ($action) {
 
             // Registrar movimiento global de producción (sin id_entrada específico)
             $obs = 'Usado en proceso id ' . $id . ' hacia insumo destino ' . $insumoDestino;
-            $mov = $conn->prepare('INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha) VALUES (\'produccion\', ?, ?, NULL, ?, ?, NOW())');
+            // Detectar columna corte_id y obtener corte abierto
+            $corteId = 0; $hasCorteCol = false;
+            try { $rsCol = $conn->query("SHOW COLUMNS FROM movimientos_insumos LIKE 'corte_id'"); if ($rsCol && $rsCol->num_rows > 0) { $hasCorteCol = true; } } catch (Throwable $e) { $hasCorteCol = false; }
+            if ($hasCorteCol) {
+                try { $rsC = $conn->query("SELECT id FROM cortes_almacen WHERE fecha_fin IS NULL ORDER BY id DESC LIMIT 1"); if ($rsC && ($rC = $rsC->fetch_assoc())) { $corteId = (int)$rC['id']; } } catch (Throwable $e) { $corteId = 0; }
+            }
             $cantNeg = -$cantOrigen;
-            $mov->bind_param('iids', $userId, $insumoOrigen, $cantNeg, $obs);
+            if ($hasCorteCol && $corteId > 0) {
+                $mov = $conn->prepare('INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha, corte_id) VALUES (\'produccion\', ?, ?, NULL, ?, ?, NOW(), ?)');
+                $mov->bind_param('iidsi', $userId, $insumoOrigen, $cantNeg, $obs, $corteId);
+            } else {
+                $mov = $conn->prepare('INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha) VALUES (\'produccion\', ?, ?, NULL, ?, ?, NOW())');
+                $mov->bind_param('iids', $userId, $insumoOrigen, $cantNeg, $obs);
+            }
             $mov->execute();
             $movId = $mov->insert_id;
             $mov->close();
@@ -370,8 +493,13 @@ switch ($action) {
                 $obsMerma = 'Merma del proceso id ' . $id . ($motivoMerma !== '' ? (' - ' . $motivoMerma) : '');
                 $cantMermaNeg = -$merma;
                 $token = generarTokenMovimiento($conn);
-                $movM = $conn->prepare('INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha, qr_token) VALUES (\'merma\', ?, ?, NULL, ?, ?, NOW(), ?)');
-                $movM->bind_param('iidss', $userId, $insumoOrigen, $cantMermaNeg, $obsMerma, $token);
+                if ($hasCorteCol && $corteId > 0) {
+                    $movM = $conn->prepare('INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha, qr_token, corte_id) VALUES (\'merma\', ?, ?, NULL, ?, ?, NOW(), ?, ?)');
+                    $movM->bind_param('iidssi', $userId, $insumoOrigen, $cantMermaNeg, $obsMerma, $token, $corteId);
+                } else {
+                    $movM = $conn->prepare('INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha, qr_token) VALUES (\'merma\', ?, ?, NULL, ?, ?, NOW(), ?)');
+                    $movM->bind_param('iidss', $userId, $insumoOrigen, $cantMermaNeg, $obsMerma, $token);
+                }
                 $movM->execute();
                 $mermaMovId = $movM->insert_id;
                 $movM->close();
@@ -382,7 +510,18 @@ switch ($action) {
                 $qrMermaAbs = $qrDir . DIRECTORY_SEPARATOR . $qrMermaFile;
                 $urlMov = construirUrlConsultaMovimiento($token);
                 QRcode::png($urlMov, $qrMermaAbs, QR_ECLEVEL_Q, 8, 2);
-                // no hay campo de imagen en movimientos; devolvemos por respuesta
+                // Guardar nombre de archivo en la tabla (columna `qr` si existe)
+                try {
+                    $updQr = $conn->prepare('UPDATE movimientos_insumos SET `qr` = ? WHERE id = ?');
+                    if ($updQr) {
+                        $updQr->bind_param('si', $qrMermaFile, $mermaMovId);
+                        $updQr->execute();
+                        $updQr->close();
+                    }
+                } catch (Throwable $e) {
+                    // columna `qr` puede no existir en algunos despliegues; ignorar fallo
+                }
+                // Devolver ruta relativa a /CDI/archivos/qr/
                 $mermaQrPath = $qrMermaRel;
             }
 
@@ -407,7 +546,7 @@ switch ($action) {
             ], JSON_UNESCAPED_UNICODE);
             exit;
         } catch (Throwable $e) {
-            if ($conn->in_transaction) { $conn->rollback(); }
+            try { if (!isset($txnStarted) || !$txnStarted) { /* noop */ } else { $conn->rollback(); } } catch (Throwable $e2) { /* ignore */ }
             json_fail('Error al completar: ' . $e->getMessage(), 400);
         }
         break;

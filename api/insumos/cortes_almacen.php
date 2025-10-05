@@ -13,12 +13,11 @@ function abrirCorte($usuarioId) {
         error('Usuario requerido');
     }
 
-    // validar si existe un corte abierto para este usuario
-    $check = $conn->prepare('SELECT id FROM cortes_almacen WHERE usuario_abre_id = ? AND fecha_fin IS NULL LIMIT 1');
+    // validar si existe un corte abierto globalmente (independiente del usuario)
+    $check = $conn->prepare('SELECT id FROM cortes_almacen WHERE fecha_fin IS NULL LIMIT 1');
     if (!$check) {
         error('Error al verificar corte: ' . $conn->error);
     }
-    $check->bind_param('i', $usuarioId);
     $check->execute();
     $res = $check->get_result();
     if ($res && $row = $res->fetch_assoc()) {
