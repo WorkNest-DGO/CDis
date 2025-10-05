@@ -97,7 +97,7 @@ window.alert = showAppMsg;
 
 let catalogo = [];
 let filtrado = [];
-const usuarioId = 1; // En entorno real se obtendrÃ­a de la sesiÃ³n
+const usuarioId = 1; // En entorno real se obtendrí­a de la sesión
 const itemsPorPagina = 12;
 let paginaActual = 1;
 let ultimaEntradaIds = [];
