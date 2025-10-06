@@ -71,7 +71,7 @@ window.alert = showAppMsg;
       card.innerHTML = `
         <div class="title">${escapeHtml(p.insumo_origen)} → ${escapeHtml(p.insumo_destino)}</div>
         <div class="meta"><span>${escapeHtml(p.cantidad_origen)} ${escapeHtml(p.unidad_origen || '')}</span> <span>#${p.id}</span></div>
-        <div class="badges">
+        <div style="color:black" class="badges">
           ${p.entrada_insumo_id ? `<span>Entrada #${p.entrada_insumo_id}</span>` : ''}
           ${p.mov_salida_id ? `<span>Salida #${p.mov_salida_id}</span>` : ''}
           ${merma > 0 ? `<span class="badge badge-warning">Merma: ${merma.toFixed(2)} ${escapeHtml(p.unidad_origen || '')}</span>` : ''}

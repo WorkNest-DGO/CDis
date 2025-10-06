@@ -77,6 +77,7 @@ ob_start();
             </thead>
             <tbody></tbody>
         </table>
+        <div id="totMermas" class="text-white mt-2"></div>
         <div class="d-flex justify-content-between mt-2">
             <button class="btn custom-btn-sm" id="prevPagina">&lt;</button>
             <button class="btn custom-btn-sm" id="nextPagina">&gt;</button>

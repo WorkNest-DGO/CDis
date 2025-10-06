@@ -208,9 +208,10 @@ try {
         throw new RuntimeException('No se pudo generar el código QR de salida');
     }
 
-    // Movimiento negativo por lote
+    // Movimiento por lote: en 'merma' la cantidad se registra positiva (trazabilidad),
+    // en 'salida'/'traspaso' se registra negativa
     $obs = ($observacion !== '') ? $observacion : ('Retiro de entrada #' . $entradaId . ' (' . $cantAbs . ' ' . $unidad . ')');
-    $cantMovimiento = -$cantAbs;
+    $cantMovimiento = ($tipo === 'merma') ? $cantAbs : -$cantAbs;
     $mov = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha, qr_token, id_qr) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
     if (!$mov) {
         throw new RuntimeException('No se pudo preparar el registro del movimiento');
@@ -261,4 +262,3 @@ success([
     'tipo' => $tipo,
     'id_entrada' => $entradaId
 ]);
-
