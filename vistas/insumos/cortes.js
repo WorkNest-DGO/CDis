@@ -111,7 +111,7 @@ function renderTabla() {
     const tbody = document.querySelector('#tablaResumen tbody');
     tbody.innerHTML = '';
     pageSize = parseInt(document.getElementById('registrosPagina').value, 10);
-    const filtrados = detalles.filter(d => d.insumo.toLowerCase().includes(filtro));
+    const filtrados = detalles.filter(d => String(d.insumo||'').toLowerCase().includes(filtro));
     const inicio = (pagina - 1) * pageSize;
     const paginados = filtrados.slice(inicio, inicio + pageSize);
     paginados.forEach(d => {
@@ -119,6 +119,12 @@ function renderTabla() {
         tr.innerHTML = `<td>${d.insumo}</td><td>${d.existencia_inicial}</td><td>${d.entradas}</td><td>${d.salidas}</td><td>${d.mermas}</td><td>${d.existencia_final}</td>`;
         tbody.appendChild(tr);
     });
+    // Total de mermas mostradas (paginado actual)
+    try{
+      const tot = paginados.reduce((acc, it)=> acc + (parseFloat(it.mermas)||0), 0);
+      const box = document.getElementById('totMermas');
+      if (box) box.textContent = 'Total mermas (página actual): ' + (Number.isFinite(tot)? tot.toFixed(2): '0.00');
+    }catch(e){}
 }
 
 async function exportarExcel() {
@@ -339,7 +345,8 @@ function renderReporte(data) {
             <td>${fmt(r.salidas)}</td>
             <td>${fmt(r.traspasos_salida)}</td>
             <td>${fmt(r.mermas)}</td>
-            <td>${fmt(r.ajustes)}</td>
+            <td>${fmt(r.ajustes_neg)}</td>
+            <td>${fmt(r.ajustes_pos)}</td>
             <td>${fmt(r.final)}</td>
         `;
         tbody.appendChild(tr);
@@ -353,7 +360,8 @@ function renderReporte(data) {
     setText('totSalidas', t.salidas);
     setText('totTrasp', t.traspasos_salida);
     setText('totMermas', t.mermas);
-    setText('totAjustes', t.ajustes);
+    setText('totAjustesNeg', t.ajustes_neg);
+    setText('totAjustesPos', t.ajustes_pos);
     setText('totFinal', t.final);
 
     // Click detalle

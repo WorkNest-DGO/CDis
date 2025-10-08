@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 05-10-2025 a las 20:33:47
+-- Tiempo de generación: 08-10-2025 a las 02:42:35
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -20,6 +20,8 @@ SET time_zone = "+00:00";
 --
 -- Base de datos: `restaurante_cdis`
 --
+CREATE DATABASE IF NOT EXISTS `restaurante_cdis` DEFAULT CHARACTER SET utf32 COLLATE utf32_bin;
+USE `restaurante_cdis`;
 
 DELIMITER $$
 --
@@ -286,7 +288,7 @@ CREATE TABLE `cortes_almacen` (
 --
 
 INSERT INTO `cortes_almacen` (`id`, `fecha_inicio`, `fecha_fin`, `usuario_abre_id`, `usuario_cierra_id`, `observaciones`) VALUES
-(1, '2025-10-05 12:04:27', NULL, 1, NULL, NULL);
+(1, '2025-10-07 16:27:26', NULL, 1, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -495,6 +497,14 @@ CREATE TABLE `despachos` (
   `qr_token` varchar(64) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf32 COLLATE=utf32_bin;
 
+--
+-- Volcado de datos para la tabla `despachos`
+--
+
+INSERT INTO `despachos` (`id`, `sucursal_id`, `usuario_id`, `fecha_envio`, `fecha_recepcion`, `estado`, `corte_id`, `qr_token`) VALUES
+(1, NULL, 2, '2025-10-07 16:32:57', NULL, 'pendiente', NULL, '111e9f8a9cd10c49a937577a1a53077a'),
+(2, NULL, 2, '2025-10-07 16:37:08', NULL, 'pendiente', NULL, 'ae2cd110f9478316dc9828c177f77dd3');
+
 -- --------------------------------------------------------
 
 --
@@ -511,6 +521,14 @@ CREATE TABLE `despachos_detalle` (
   `precio_unitario` decimal(10,2) DEFAULT NULL,
   `subtotal` decimal(10,2) GENERATED ALWAYS AS (`cantidad` * `precio_unitario`) STORED
 ) ENGINE=InnoDB DEFAULT CHARSET=utf32 COLLATE=utf32_bin;
+
+--
+-- Volcado de datos para la tabla `despachos_detalle`
+--
+
+INSERT INTO `despachos_detalle` (`id`, `despacho_id`, `corte_id`, `insumo_id`, `cantidad`, `unidad`, `precio_unitario`) VALUES
+(1, 1, NULL, 1, 2.00, 'Kilos', 0.00),
+(2, 2, NULL, 1, 2.00, 'Kilos', 0.00);
 
 -- --------------------------------------------------------
 
@@ -535,17 +553,21 @@ CREATE TABLE `entradas_insumos` (
   `qr` varchar(255) NOT NULL,
   `cantidad_actual` decimal(10,2) NOT NULL,
   `credito` tinyint(1) DEFAULT NULL,
-  `pagado` tinyint(1) DEFAULT NULL
+  `pagado` tinyint(1) DEFAULT NULL,
+  `nota` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf32 COLLATE=utf32_bin;
 
 --
 -- Volcado de datos para la tabla `entradas_insumos`
 --
 
-INSERT INTO `entradas_insumos` (`id`, `insumo_id`, `proveedor_id`, `usuario_id`, `fecha`, `corte_id`, `descripcion`, `cantidad`, `unidad`, `costo_total`, `referencia_doc`, `folio_fiscal`, `qr`, `cantidad_actual`, `credito`, `pagado`) VALUES
-(1, 1, 10, 1, '2025-10-05 12:11:40', 1, '', 100.00, 'Kilos', 1000.00, '', '', 'archivos/qr/entrada_insumo_1.png', 0.00, 1, NULL),
-(2, 1, 10, 1, '2025-10-05 08:12:30', 1, '', 50.00, 'Kilos', 480.00, '', '', 'archivos/qr/entrada_insumo_2.png', 0.00, 0, NULL),
-(3, 13, 1, 2, '2025-10-05 12:26:12', 1, 'Procesado desde insumo 1 lote 1', 62.00, 'Kilos', 0.00, '', '', 'archivos/qr/entrada_insumo_3.png', 62.00, NULL, NULL);
+INSERT INTO `entradas_insumos` (`id`, `insumo_id`, `proveedor_id`, `usuario_id`, `fecha`, `corte_id`, `descripcion`, `cantidad`, `unidad`, `costo_total`, `referencia_doc`, `folio_fiscal`, `qr`, `cantidad_actual`, `credito`, `pagado`, `nota`) VALUES
+(1, 1, 14, 1, '2025-10-07 16:32:29', 1, '', 8.00, 'Kilos', 40.00, '', '', 'archivos/qr/entrada_insumo_1.png', 4.00, 0, NULL, 1),
+(2, 13, 14, 1, '2025-10-07 18:05:11', 1, '', 1.00, 'Kilos', 10.00, '', '', 'archivos/qr/entrada_insumo_2.png', 0.00, 0, NULL, 2),
+(3, 1, 1, 2, '2025-10-07 18:05:33', 1, 'Procesado desde insumo 13 lote 1', 1.00, 'Kilos', 0.00, '', '', 'archivos/qr/entrada_insumo_3.png', 1.00, NULL, NULL, 0),
+(4, 1, 14, 1, '2025-10-07 18:26:01', 1, '', 1.00, 'Kilos', 1.00, '', '', 'archivos/qr/entrada_insumo_4.png', 1.00, 0, NULL, 3),
+(5, 1, 14, 1, '2025-10-07 18:26:01', 1, '', 1.00, 'Kilos', 1.00, '', '', 'archivos/qr/entrada_insumo_5.png', 1.00, 0, NULL, 3),
+(6, 51, 14, 1, '2025-10-07 18:26:01', 1, '', 1.00, 'Kilos', 1.00, '', '', 'archivos/qr/entrada_insumo_6.png', 1.00, 0, NULL, 3);
 
 --
 -- Disparadores `entradas_insumos`
@@ -598,7 +620,7 @@ CREATE TABLE `insumos` (
 --
 
 INSERT INTO `insumos` (`id`, `nombre`, `unidad`, `existencia`, `tipo_control`, `imagen`, `minimo_stock`) VALUES
-(1, 'Arroz', 'Kilos', 0.00, 'por_receta', 'ins_68717301313ad.jpg', 0.00),
+(1, 'Arroz', 'Kilos', 7.00, 'por_receta', 'ins_68717301313ad.jpg', 0.00),
 (2, 'Alga', 'piezas', 0.00, 'por_receta', 'ins_6871716a72681.jpg', 0.00),
 (3, 'Salmón fresco', 'Kilos', 0.00, 'por_receta', 'ins_6871777fa2c56.png', 0.00),
 (4, 'Refresco en lata', 'piezas', 0.00, 'unidad_completa', 'ins_6871731d075cb.webp', 0.00),
@@ -608,7 +630,7 @@ INSERT INTO `insumos` (`id`, `nombre`, `unidad`, `existencia`, `tipo_control`, `
 (10, 'Camarón', 'Kilos', 0.00, 'desempaquetado', 'ins_688a4f5c873c6.jpg', 0.00),
 (11, 'Queso Chihuahua', 'Kilos', 0.00, 'unidad_completa', 'ins_688a4feca9865.jpg', 0.00),
 (12, 'Philadelphia', 'Kilos', 0.00, 'uso_general', 'ins_688a504f9cb40.jpg', 0.00),
-(13, 'Arroz cocido', 'Kilos', 62.00, 'por_receta', 'ins_689f82d674c65.jpg', 0.00),
+(13, 'Arroz cocido', 'Kilos', 0.00, 'por_receta', 'ins_689f82d674c65.jpg', 0.00),
 (14, 'Carne', 'Kilos', 0.00, 'uso_general', 'ins_688a528d1261a.jpg', 0.00),
 (15, 'Queso Amarillo', 'piezas', 0.00, 'uso_general', 'ins_688a53246c1c2.jpg', 0.00),
 (16, 'Ajonjolí', 'gramos', 0.00, 'uso_general', 'ins_689f824a23343.jpg', 0.00),
@@ -646,7 +668,7 @@ INSERT INTO `insumos` (`id`, `nombre`, `unidad`, `existencia`, `tipo_control`, `
 (48, 'Cerdo', 'Kilos', 0.00, 'por_receta', 'ins_688a5f3915f5e.jpg', 0.00),
 (49, 'Masa para gyozas', 'gramos', 0.00, 'por_receta', 'ins_688a5fae2e7f1.jpg', 0.00),
 (50, 'Naruto', 'gramos', 0.00, 'por_receta', 'ins_688a5ff57f62d.jpg', 0.00),
-(51, 'Atún ahumado', 'Kilos', 0.00, 'por_receta', 'ins_68adcd62c5a19.jpg', 0.00),
+(51, 'Atún ahumado', 'Kilos', 1.00, 'por_receta', 'ins_68adcd62c5a19.jpg', 0.00),
 (52, 'Cacahuate con salsa (salado)', 'Kilos', 0.00, 'por_receta', 'ins_68adcf253bd1d.jpg', 0.00),
 (53, 'Calabaza', 'Kilos', 0.00, 'por_receta', 'ins_68add0ff781fb.jpg', 0.00),
 (54, 'Camarón gigante para pelar', 'Kilos', 0.00, 'por_receta', 'ins_68add3264c465.jpg', 0.00),
@@ -782,6 +804,15 @@ CREATE TABLE `logs_accion` (
   `corte_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf32 COLLATE=utf32_bin;
 
+--
+-- Volcado de datos para la tabla `logs_accion`
+--
+
+INSERT INTO `logs_accion` (`id`, `usuario_id`, `modulo`, `accion`, `fecha`, `referencia_id`, `corte_id`) VALUES
+(1, 2, 'bodega', 'Generacion QR', '2025-10-07 16:32:57', 1, NULL),
+(2, 2, 'bodega', 'Devolucion QR', '2025-10-07 16:33:56', 1, NULL),
+(3, 2, 'bodega', 'Generacion QR', '2025-10-07 16:37:08', 2, NULL);
+
 -- --------------------------------------------------------
 
 --
@@ -797,13 +828,6 @@ CREATE TABLE `mermas_insumo` (
   `fecha` datetime DEFAULT current_timestamp(),
   `corte_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf32 COLLATE=utf32_bin;
-
---
--- Volcado de datos para la tabla `mermas_insumo`
---
-
-INSERT INTO `mermas_insumo` (`id`, `insumo_id`, `cantidad`, `motivo`, `usuario_id`, `fecha`, `corte_id`) VALUES
-(1, 1, 3.00, 'cocido', 2, '2025-10-05 12:26:12', NULL);
 
 -- --------------------------------------------------------
 
@@ -831,9 +855,15 @@ CREATE TABLE `movimientos_insumos` (
 --
 
 INSERT INTO `movimientos_insumos` (`id`, `tipo`, `usuario_id`, `usuario_destino_id`, `insumo_id`, `id_entrada`, `cantidad`, `observacion`, `fecha`, `corte_id`, `qr_token`, `id_qr`) VALUES
-(1, '', 2, NULL, 1, NULL, -65.00, 'Usado en proceso id 1 hacia insumo destino 13', '2025-10-05 12:26:12', 1, NULL, NULL),
-(2, 'merma', 2, NULL, 1, NULL, -3.00, 'Merma del proceso id 1 - cocido', '2025-10-05 12:26:12', 1, 'c723859eef986f9af144de61604aa51b', NULL),
-(3, 'salida', 2, NULL, 1, 1, -85.00, 'Retiro de entrada #1 (85 Kilos)', '2025-10-05 20:33:35', NULL, '1d4d4b47542d96107682fb95117fed67', NULL);
+(1, 'traspaso', 2, NULL, 1, 1, -2.00, 'Enviado por QR a sucursal', '2025-10-07 16:32:57', NULL, '111e9f8a9cd10c49a937577a1a53077a', 1),
+(2, 'devolucion', 2, NULL, 1, 1, 1.00, 'no se ocupa', '2025-10-07 16:33:56', NULL, '111e9f8a9cd10c49a937577a1a53077a', 1),
+(3, 'traspaso', 2, NULL, 1, 1, -2.00, 'Enviado por QR a sucursal', '2025-10-07 16:37:08', NULL, 'ae2cd110f9478316dc9828c177f77dd3', 2),
+(4, 'merma', 2, NULL, 1, 1, 1.00, 'Retiro de entrada #1 (1 Kilos)', '2025-10-08 00:40:19', 1, '98ae2ea48a95c6d934339f36361388fa', NULL),
+(5, 'salida', 2, NULL, 1, 1, -1.00, 'Retiro de entrada #1 (1 Kilos)', '2025-10-08 00:40:25', 1, '567683db14fc1e9717940397c97cba4c', NULL),
+(6, 'ajuste', 2, NULL, 1, 1, -1.00, 'Ajuste manual de entrada #1 (-1.00 Kilos)', '2025-10-07 17:54:46', 1, NULL, NULL),
+(7, 'ajuste', 2, NULL, 1, 1, 2.00, 'Ajuste manual de entrada #1 (2.00 Kilos)', '2025-10-07 18:03:59', 1, NULL, NULL),
+(8, 'salida', 2, NULL, 13, 2, -1.00, 'Salida lote_origen proceso id 1', '2025-10-07 18:05:26', 1, NULL, NULL),
+(9, '', 2, NULL, 13, NULL, -1.00, 'Usado en proceso id 1 hacia insumo destino 1', '2025-10-07 18:05:33', 1, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -867,7 +897,7 @@ CREATE TABLE `procesos_insumos` (
 --
 
 INSERT INTO `procesos_insumos` (`id`, `insumo_origen_id`, `insumo_destino_id`, `cantidad_origen`, `unidad_origen`, `cantidad_resultante`, `unidad_destino`, `estado`, `observaciones`, `creado_por`, `preparado_por`, `listo_por`, `creado_en`, `actualizado_en`, `corte_id`, `entrada_insumo_id`, `mov_salida_id`, `qr_path`) VALUES
-(1, 1, 13, 65.00, 'Kilos', 62.00, 'Kilos', 'entregado', 'cocido', 2, 2, 2, '2025-10-05 12:24:26', '2025-10-05 12:26:13', 1, 3, 1, 'archivos/qr/entrada_insumo_3.png');
+(1, 13, 1, 1.00, 'Kilos', 1.00, 'Kilos', 'entregado', '', 2, 2, 2, '2025-10-07 18:05:26', '2025-10-07 18:05:38', 1, 3, 9, 'archivos/qr/entrada_insumo_3.png');
 
 -- --------------------------------------------------------
 
@@ -921,8 +951,8 @@ CREATE TABLE `proveedores` (
 --
 
 INSERT INTO `proveedores` (`id`, `nombre`, `rfc`, `razon_social`, `regimen_fiscal`, `correo_facturacion`, `telefono`, `telefono2`, `correo`, `direccion`, `contacto_nombre`, `contacto_puesto`, `dias_credito`, `limite_credito`, `banco`, `clabe`, `cuenta_bancaria`, `sitio_web`, `observacion`, `activo`, `fecha_alta`, `actualizado_en`) VALUES
-(1, 'CDIs', NULL, NULL, NULL, NULL, '555-123-4567', NULL, NULL, 'Calle Soya #123, CDMX', NULL, NULL, 0, 0.00, NULL, NULL, NULL, NULL, NULL, 1, '2025-09-22 08:36:48', '2025-10-05 00:21:31'),
-(2, 'Pescados del Pacífico', NULL, NULL, NULL, NULL, '618 453 5697', NULL, NULL, 'Calle Felipe Pescador 200-A, Zona Centro, 34000 Durango, Dgo.', NULL, NULL, 0, 0.00, NULL, NULL, NULL, NULL, NULL, 1, '2025-09-22 08:36:48', '2025-09-22 08:55:18'),
+(1, 'CDIs', NULL, NULL, NULL, NULL, '555-123-4567', NULL, NULL, 'Calle Soya #123, CDMX', NULL, NULL, 0, 0.00, NULL, NULL, NULL, NULL, 'los mejores ', 1, '2025-09-22 08:36:48', '2025-10-07 18:20:39'),
+(2, 'Pescados del Pacífico', NULL, NULL, NULL, NULL, '618 453 5697', NULL, NULL, 'Calle Felipe Pescador 200-A, Zona Centro, 34000 Durango, Dgo.', NULL, NULL, 0, 0.00, NULL, NULL, NULL, NULL, 'busca a final de la caja', 1, '2025-09-22 08:36:48', '2025-10-07 18:20:47'),
 (3, 'Abastos OXXO', NULL, NULL, NULL, NULL, '81-5555-0001', NULL, NULL, 'Parque Industrial, Monterrey, NL', NULL, NULL, 0, 0.00, NULL, NULL, NULL, NULL, NULL, 1, '2025-09-22 08:36:48', '2025-09-22 08:37:33'),
 (4, 'La patita', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Durango, Dgo.', NULL, NULL, 0, 0.00, NULL, NULL, NULL, NULL, NULL, 1, '2025-09-22 08:36:48', '2025-09-22 08:55:18'),
 (5, 'Sams', NULL, NULL, NULL, NULL, '800 999 7267', NULL, NULL, 'Blvd. Felipe Pescador 1401, Durango, Dgo., México', NULL, NULL, 0, 0.00, NULL, NULL, NULL, 'https://www.sams.com.mx', NULL, 1, '2025-09-22 08:36:48', '2025-09-22 08:55:18'),
@@ -957,6 +987,14 @@ CREATE TABLE `qrs_insumo` (
   `pdf_recepcion` varchar(255) DEFAULT NULL,
   `corte_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf32 COLLATE=utf32_bin;
+
+--
+-- Volcado de datos para la tabla `qrs_insumo`
+--
+
+INSERT INTO `qrs_insumo` (`id`, `token`, `json_data`, `estado`, `creado_por`, `creado_en`, `expiracion`, `pdf_envio`, `pdf_recepcion`, `corte_id`) VALUES
+(1, '111e9f8a9cd10c49a937577a1a53077a', '[{\"id\":1,\"nombre\":\"Arroz\",\"unidad\":\"Kilos\",\"cantidad\":2,\"precio_unitario\":0}]', 'pendiente', 2, '2025-10-07 16:32:57', NULL, 'archivos/bodega/pdfs/qr_111e9f8a9cd10c49a937577a1a53077a.pdf', 'archivos/bodega/pdfs/recepcion_111e9f8a9cd10c49a937577a1a53077a.pdf', NULL),
+(2, 'ae2cd110f9478316dc9828c177f77dd3', '[{\"id\":1,\"nombre\":\"Arroz\",\"unidad\":\"Kilos\",\"cantidad\":2,\"precio_unitario\":0}]', 'pendiente', 2, '2025-10-07 16:37:08', NULL, 'archivos/bodega/pdfs/qr_ae2cd110f9478316dc9828c177f77dd3.pdf', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -1006,6 +1044,13 @@ CREATE TABLE `recepciones_log` (
   `corte_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf32 COLLATE=utf32_bin;
 
+--
+-- Volcado de datos para la tabla `recepciones_log`
+--
+
+INSERT INTO `recepciones_log` (`id`, `sucursal_id`, `qr_token`, `fecha_recepcion`, `usuario_id`, `json_recibido`, `estado`, `corte_id`) VALUES
+(1, NULL, '111e9f8a9cd10c49a937577a1a53077a', '2025-10-07 16:33:56', 2, '{\"modo\":\"parcial\",\"items\":[{\"insumo_id\":1,\"cantidad\":1}],\"observacion\":\"no se ocupa\",\"devueltos\":{\"1\":1}}', '', NULL);
+
 -- --------------------------------------------------------
 
 --
@@ -1050,8 +1095,9 @@ INSERT INTO `rutas` (`id`, `nombre`, `path`, `tipo`, `grupo`, `orden`) VALUES
 (35, 'Proveedores', '/vistas/insumos/proveedores.php', 'dropdown-item', 'Más', 10),
 (36, 'Facturas', '/vistas/facturas/masiva.php', 'dropdown-item', 'Más', 12),
 (37, 'Sedes', '/vistas/dashboard/sedes.php', 'dropdown-item', 'Más', 16),
-(38, 'rastreo', '/vistas/insumos/entrada_insumo.php', 'link', NULL, 8),
-(39, 'Pagos', '/vistas/insumos/entradas_pagos.php', 'link', NULL, 9);
+(38, 'rastreo', '/vistas/insumos/entrada_insumo.php', 'link', '', 8),
+(39, 'Pagos', '/vistas/insumos/entradas_pagos.php', 'link', NULL, 9),
+(40, 'Ajustes', '/vistas/insumos/ajuste.php', 'dropdown-item', 'Productos', 17);
 
 -- --------------------------------------------------------
 
@@ -1140,36 +1186,6 @@ INSERT INTO `usuario_ruta` (`id`, `usuario_id`, `ruta_id`) VALUES
 (80, 1, 37),
 (81, 1, 38),
 (82, 1, 39),
-(83, 2, 1),
-(84, 2, 18),
-(85, 2, 14),
-(86, 2, 3),
-(87, 2, 4),
-(88, 2, 2),
-(89, 2, 24),
-(91, 2, 29),
-(92, 2, 19),
-(93, 2, 11),
-(94, 2, 25),
-(95, 2, 2),
-(96, 2, 24),
-(98, 2, 26),
-(99, 2, 15),
-(100, 2, 21),
-(101, 2, 35),
-(103, 2, 32),
-(104, 2, 6),
-(105, 2, 23),
-(106, 2, 33),
-(107, 2, 34),
-(108, 2, 38),
-(109, 2, 39),
-(110, 2, 21),
-(111, 2, 35),
-(113, 2, 36),
-(114, 2, 31),
-(115, 2, 27),
-(116, 2, 37),
 (117, 3, 3),
 (118, 4, 3),
 (119, 5, 3),
@@ -1201,7 +1217,46 @@ INSERT INTO `usuario_ruta` (`id`, `usuario_id`, `ruta_id`) VALUES
 (149, 5, 36),
 (150, 5, 31),
 (151, 5, 27),
-(152, 5, 37);
+(152, 5, 37),
+(153, 2, 1),
+(154, 2, 3),
+(155, 2, 18),
+(156, 2, 14),
+(157, 2, 2),
+(158, 2, 24),
+(160, 2, 19),
+(161, 2, 2),
+(162, 2, 24),
+(164, 2, 4),
+(165, 2, 29),
+(166, 2, 25),
+(167, 2, 2),
+(168, 2, 24),
+(170, 2, 11),
+(171, 2, 2),
+(172, 2, 24),
+(174, 2, 26),
+(175, 2, 15),
+(176, 2, 21),
+(177, 2, 35),
+(179, 2, 21),
+(180, 2, 35),
+(182, 2, 32),
+(183, 2, 6),
+(184, 2, 33),
+(185, 2, 23),
+(186, 2, 38),
+(187, 2, 34),
+(188, 2, 39),
+(189, 2, 21),
+(190, 2, 35),
+(192, 2, 21),
+(193, 2, 35),
+(195, 2, 36),
+(196, 2, 31),
+(197, 2, 27),
+(198, 2, 37),
+(199, 2, 40);
 
 -- --------------------------------------------------------
 
@@ -1449,13 +1504,13 @@ ALTER TABLE `despachos`
 -- AUTO_INCREMENT de la tabla `despachos_detalle`
 --
 ALTER TABLE `despachos_detalle`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de la tabla `entradas_insumos`
 --
 ALTER TABLE `entradas_insumos`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT de la tabla `insumos`
@@ -1467,19 +1522,19 @@ ALTER TABLE `insumos`
 -- AUTO_INCREMENT de la tabla `logs_accion`
 --
 ALTER TABLE `logs_accion`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `mermas_insumo`
 --
 ALTER TABLE `mermas_insumo`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT de la tabla `movimientos_insumos`
 --
 ALTER TABLE `movimientos_insumos`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT de la tabla `procesos_insumos`
@@ -1515,13 +1570,13 @@ ALTER TABLE `reabasto_alertas`
 -- AUTO_INCREMENT de la tabla `recepciones_log`
 --
 ALTER TABLE `recepciones_log`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `rutas`
 --
 ALTER TABLE `rutas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=40;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
 
 --
 -- AUTO_INCREMENT de la tabla `sucursales`
@@ -1533,7 +1588,7 @@ ALTER TABLE `sucursales`
 -- AUTO_INCREMENT de la tabla `usuario_ruta`
 --
 ALTER TABLE `usuario_ruta`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=153;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=200;
 
 --
 -- Restricciones para tablas volcadas

@@ -144,7 +144,8 @@ ob_start();
                     <th>Salidas</th>
                     <th>Traspasos (salida)</th>
                     <th>Mermas</th>
-                    <th>Ajustes ±</th>
+                    <th>Ajustes (-)</th>
+                    <th>Ajustes (+)</th>
                     <th>Final</th>
                 </tr>
             </thead>
@@ -160,7 +161,8 @@ ob_start();
                     <th id="totSalidas">0</th>
                     <th id="totTrasp">0</th>
                     <th id="totMermas">0</th>
-                    <th id="totAjustes">0</th>
+                    <th id="totAjustesNeg">0</th>
+                    <th id="totAjustesPos">0</th>
                     <th id="totFinal">0</th>
                 </tr>
             </tfoot>

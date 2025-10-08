@@ -79,10 +79,10 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
 
         <div class="modal fade" id="modalInsumo" tabindex="-1" role="dialog" aria-hidden="true">
             <div class="modal-dialog" role="document">
-                <div class="modal-content">
+                <div style="color:black" class="modal-content">
                     <form id="formInsumo">
                         <div class="modal-header">
-                            <h5 class="modal-title">Insumo</h5>
+                            <h5  style="color:black" class="modal-title">Insumo</h5>
                             <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                         </div>
                         <div class="modal-body">
@@ -132,7 +132,7 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
 <!-- insumo -->
 <div id="sec-reg-entrada" class="container mt-5" style="<?= $__mostrar_registro_entrada ? '' : 'display:none'; ?>">
     <h2 class="text-white">Registrar entrada de productos</h2>
-    <form id="form-entrada" class="bg-dark p-4 rounded" name="form-entrada">
+    <form  id="form-entrada" class="bg-dark p-4 rounded" name="form-entrada">
         <div class="form-group">
             <label for="proveedor" class="text-white">Proveedor:</label>
             <select id="proveedor" name="proveedor_id" class="form-control"></select>
@@ -193,7 +193,7 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
 <!-- alerta stock-->
 <div class="container mt-5">
     <h2 class="text-white">Insumos con bajo stock</h2>
-    <div class="d-flex align-items-center gap-2 mb-2" style="gap:.5rem;">
+    <div  class="d-flex align-items-center gap-2 mb-2" style="gap:.5rem;">
         <input type="text" id="buscarBajoStock" class="form-control" placeholder="Buscar en bajo stock" style="max-width:260px">
         <label for="bsPageSize" class="mb-0 ms-2 me-1 text-white">Ver</label>
         <select id="bsPageSize" class="form-control" style="max-width:100px">
@@ -204,7 +204,7 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
         <span class="text-white ms-1">registros</span>
     </div>
     <div class="table-responsive">
-        <table id="bajoStock" class="styled-table">
+        <table style="color:black" id="bajoStock" class="styled-table">
             <thead>
                 <tr>
                     <th>ID</th>
@@ -260,7 +260,7 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
         <div class="modal-content">
             <form id="formProveedor">
                 <div class="modal-header">
-                    <h5 class="modal-title">Nuevo Proveedor</h5>
+                    <h5 style="color:black" class="modal-title">Nuevo Proveedor</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                 </div>
                 <div style="color:black" class="modal-body">
@@ -393,6 +393,24 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
         </div>
     </div>
 </div>
+
+<!-- Modal Observación Proveedor -->
+<div class="modal fade" id="modalProvObs" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content" style="color:black">
+            <div class="modal-header">
+                <h5 style="color:black" class="modal-title">Observación del proveedor</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <div id="provObsBox" style="max-height:60vh; overflow:auto; white-space:pre-wrap; line-height:1.35;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+    </div>
 
 <?php require_once __DIR__ . '/../footer.php'; ?>
 

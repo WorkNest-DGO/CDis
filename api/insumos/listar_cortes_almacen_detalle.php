@@ -50,7 +50,7 @@ salidas AS (
   FROM movimientos_insumos mi
   WHERE
     mi.cantidad < 0
-    AND COALESCE(mi.tipo, '') IN ('', 'salida', 'traspaso', 'ajuste')
+    AND mi.tipo = 'salida'
     AND (
       mi.corte_id = (SELECT corte_id FROM rango)
       OR (mi.corte_id IS NULL AND mi.fecha >= (SELECT desde FROM rango) AND mi.fecha < (SELECT hasta FROM rango))
@@ -58,17 +58,26 @@ salidas AS (
   GROUP BY mi.insumo_id
 ),
 mermas AS (
-  SELECT mi.insumo_id,
-         ABS(COALESCE(SUM(mi.cantidad), 0)) AS mermas
-  FROM movimientos_insumos mi
-  WHERE
-    mi.cantidad < 0
-    AND mi.tipo = 'merma'
-    AND (
-      mi.corte_id = (SELECT corte_id FROM rango)
-      OR (mi.corte_id IS NULL AND mi.fecha >= (SELECT desde FROM rango) AND mi.fecha < (SELECT hasta FROM rango))
-    )
-  GROUP BY mi.insumo_id
+  -- Sumar mermas desde dos fuentes por CORTE: mermas_insumo (cantidad positiva) + movimientos_insumos.tipo='merma'
+  -- Modo CORTE (corte_id provisto): usar exclusivamente corte_id
+  SELECT bi.insumo_id,
+         (
+           COALESCE((
+             SELECT ROUND(SUM(m.cantidad), 2)
+               FROM mermas_insumo m
+              WHERE m.insumo_id = bi.insumo_id
+                AND m.corte_id = (SELECT corte_id FROM rango)
+           ), 0)
+           +
+           COALESCE((
+             SELECT ROUND(SUM(mi.cantidad), 2)
+               FROM movimientos_insumos mi
+              WHERE mi.insumo_id = bi.insumo_id
+                AND mi.tipo = 'merma'
+                AND mi.corte_id = (SELECT corte_id FROM rango)
+           ), 0)
+         ) AS mermas
+  FROM base_insumos bi
 )
 SELECT
   bi.insumo_id,
@@ -129,4 +138,3 @@ ORDER BY bi.insumo";
 }
 
 ?>
-

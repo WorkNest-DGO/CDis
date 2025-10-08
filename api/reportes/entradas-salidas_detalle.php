@@ -69,8 +69,22 @@ if ($stmtE) {
 // 2) Movimientos por lote y tipo dentro del periodo
 $partidas = [];
 $stmtM = $conn->prepare("SELECT id_entrada, tipo,
-        SUM(CASE WHEN tipo='salida' AND cantidad<0 THEN -cantidad WHEN tipo='traspaso' AND cantidad<0 THEN -cantidad WHEN tipo='merma' AND cantidad<0 THEN -cantidad ELSE 0 END) AS qty_out,
-        SUM(CASE WHEN tipo='ajuste' THEN cantidad WHEN tipo='entrada' THEN cantidad WHEN tipo='devolucion' THEN cantidad ELSE 0 END) AS qty_in
+        SUM(CASE
+              WHEN tipo='salida'   AND cantidad<0 THEN -cantidad
+              WHEN tipo='traspaso' AND cantidad<0 THEN -cantidad
+              ELSE 0
+            END) AS qty_out,
+        SUM(CASE
+              WHEN tipo='ajuste'     THEN cantidad
+              WHEN tipo='entrada'    THEN cantidad
+              WHEN tipo='devolucion' THEN cantidad
+              ELSE 0
+            END) AS qty_in,
+        SUM(CASE
+              WHEN tipo='merma' AND cantidad>0 THEN cantidad
+              WHEN tipo='merma' AND cantidad<0 THEN -cantidad
+              ELSE 0
+            END) AS qty_merma
     FROM movimientos_insumos
     WHERE insumo_id=? AND fecha>=? AND fecha<? AND id_entrada IS NOT NULL
     GROUP BY id_entrada, tipo");
@@ -82,12 +96,13 @@ if ($stmtM) {
         $lot = (int)$r['id_entrada'];
         if (!isset($partidas[$lot])) { $partidas[$lot] = ['entradas' => 0.0, 'salidas' => 0.0, 'mermas' => 0.0, 'ajustes' => 0.0]; }
         $tipo = $r['tipo'];
-        $in = (float)$r['qty_in'];
-        $out = (float)$r['qty_out'];
+        $in = (float)($r['qty_in'] ?? 0);
+        $out = (float)($r['qty_out'] ?? 0);
+        $mer = (float)($r['qty_merma'] ?? 0);
         if ($tipo === 'ajuste') { $partidas[$lot]['ajustes'] += $in; }
         elseif ($tipo === 'salida') { $partidas[$lot]['salidas'] += $out; }
         elseif ($tipo === 'traspaso') { $partidas[$lot]['salidas'] += $out; }
-        elseif ($tipo === 'merma') { $partidas[$lot]['mermas'] += $out; }
+        elseif ($tipo === 'merma') { $partidas[$lot]['mermas'] += $mer; }
         else { $partidas[$lot]['entradas'] += $in; }
     }
     $stmtM->close();
@@ -157,4 +172,3 @@ echo json_encode($resp, JSON_UNESCAPED_UNICODE);
 exit;
 
 ?>
-

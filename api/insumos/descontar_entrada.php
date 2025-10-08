@@ -212,11 +212,33 @@ try {
     // en 'salida'/'traspaso' se registra negativa
     $obs = ($observacion !== '') ? $observacion : ('Retiro de entrada #' . $entradaId . ' (' . $cantAbs . ' ' . $unidad . ')');
     $cantMovimiento = ($tipo === 'merma') ? $cantAbs : -$cantAbs;
-    $mov = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha, qr_token, id_qr) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    if (!$mov) {
-        throw new RuntimeException('No se pudo preparar el registro del movimiento');
+
+    // Buscar corte abierto para asociar el movimiento (si existe)
+    $corteIdAbierto = 0;
+    if ($qC = $conn->prepare("SELECT id FROM cortes_almacen WHERE fecha_fin IS NULL ORDER BY id DESC LIMIT 1")) {
+        $qC->execute();
+        $rC = $qC->get_result();
+        if ($rC && ($cR = $rC->fetch_assoc())) {
+            $corteIdAbierto = (int)$cR['id'];
+        }
+        $qC->close();
     }
-    $mov->bind_param('siiidsssi', $tipo, $usuarioId, $insumoId, $entradaId, $cantMovimiento, $obs, $fechaMovimiento, $qrToken, $idQrParam);
+
+    if ($corteIdAbierto > 0) {
+        $mov = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha, qr_token, id_qr, corte_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        if (!$mov) {
+            throw new RuntimeException('No se pudo preparar el registro del movimiento');
+        }
+        $mov->bind_param('siiidsssii', $tipo, $usuarioId, $insumoId, $entradaId, $cantMovimiento, $obs, $fechaMovimiento, $qrToken, $idQrParam, $corteIdAbierto);
+    } else {
+        // Sin corte abierto, insertar sin corte_id (NULL)
+        $mov = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, insumo_id, id_entrada, cantidad, observacion, fecha, qr_token, id_qr) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        if (!$mov) {
+            throw new RuntimeException('No se pudo preparar el registro del movimiento');
+        }
+        $mov->bind_param('siiidsssi', $tipo, $usuarioId, $insumoId, $entradaId, $cantMovimiento, $obs, $fechaMovimiento, $qrToken, $idQrParam);
+    }
+
     if (!$mov->execute()) {
         throw new RuntimeException('No se pudo registrar el movimiento de salida');
     }

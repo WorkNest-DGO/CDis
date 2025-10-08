@@ -66,10 +66,10 @@ ob_start();
         <div class="modal-content">
             <form id="formRuta">
                 <div class="modal-header">
-                    <h5 class="modal-title">Ruta</h5>
+                    <h5 style="color:black" class="modal-title">Ruta</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                 </div>
-                <div class="modal-body">
+                <div style="color:black" class="modal-body">
                     <input type="hidden" id="nombreOriginal">
                     <div class="form-group">
                         <label for="nombre">Nombre:</label>
@@ -108,9 +108,9 @@ ob_start();
 <!-- Modal global de mensajes -->
 <div class="modal fade" id="appMsgModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
-        <div class="modal-content">
+        <div style="color:black" class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Mensaje</h5>
+                <h5 style="color:black" class="modal-title">Mensaje</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
             </div>
             <div class="modal-body"></div>

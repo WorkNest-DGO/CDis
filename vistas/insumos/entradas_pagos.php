@@ -46,11 +46,27 @@ ob_start();
                     <option value="1">Pagado</option>
                 </select>
             </div>
-            <div class="col-sm-6 col-md-4">
+            <div class="col-sm-6 col-md-3">
                 <label class="text-white" for="busqueda">Buscar</label>
                 <input type="text" id="busqueda" class="form-control" placeholder="Proveedor, producto, referencia, folio...">
             </div>
-            <div class="col-sm-6 col-md-2 text-end">
+            <div class="col-sm-6 col-md-3">
+                <label class="text-white" for="dateFrom">Desde</label>
+                <input type="date" id="dateFrom" class="form-control">
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label class="text-white" for="dateTo">Hasta</label>
+                <input type="date" id="dateTo" class="form-control">
+            </div>
+            <div class="col-sm-6 col-md-2">
+                <label class="text-white" for="epPageSize">Ver</label>
+                <select id="epPageSize" class="form-control">
+                    <option value="15">15</option>
+                    <option value="30">30</option>
+                    <option value="50">50</option>
+                </select>
+            </div>
+            <div class="col-sm-6 col-md-1 text-end">
                 <button class="btn custom-btn w-100" id="btnBuscar">Filtrar</button>
             </div>
         </div>
@@ -83,6 +99,36 @@ ob_start();
             </thead>
             <tbody></tbody>
         </table>
+        <ul id="epPaginador" class="pagination justify-content-center mt-2"></ul>
+    </div>
+    <div class="mt-4">
+        <h4 class="text-white">Consulta de nota de compra</h4>
+        <div class="row g-2 align-items-end bg-dark p-3 rounded">
+            <div class="col-sm-6 col-md-3">
+                <label class="text-white" for="notaBuscar">Nota</label>
+                <input type="number" id="notaBuscar" class="form-control" min="1" placeholder="Número de nota">
+            </div>
+            <div class="col-sm-6 col-md-2">
+                <button class="btn custom-btn w-100" id="btnBuscarNota">Buscar nota</button>
+            </div>
+        </div>
+        <div class="table-responsive mt-2">
+            <table id="tablaNotaResultados" class="styled-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Fecha</th>
+                        <th>Proveedor</th>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Unidad</th>
+                        <th>Costo total</th>
+                        <th>Nota</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -108,4 +154,3 @@ ob_start();
 $content = ob_get_clean();
 include __DIR__ . '/../nav.php';
 ?>
-

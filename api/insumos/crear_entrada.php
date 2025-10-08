@@ -119,12 +119,31 @@ try {
             if ($rsC && ($rC = $rsC->fetch_assoc())) { $corteId = (int)$rC['id']; }
         } catch (Throwable $e) { $corteId = 0; }
     }
-    // Preparar sentencia de insercin segn disponibilidad de corte_id
-    if ($hasCorteCol && $corteId > 0) {
-        $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual, credito, corte_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-    } else {
-        $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual, credito) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    // Detectar columna 'nota' e inicializar consecutivo incremental por lote de compra
+    $hasNotaCol = false; $nota = null;
+    try {
+        $rsN = $conn->query("SHOW COLUMNS FROM entradas_insumos LIKE 'nota'");
+        if ($rsN && $rsN->num_rows > 0) { $hasNotaCol = true; }
+    } catch (Throwable $e) { $hasNotaCol = false; }
+    if ($hasNotaCol) {
+        try {
+            $rsUlt = $conn->query("SELECT COALESCE(MAX(nota), 0) AS ult FROM entradas_insumos");
+            if ($rsUlt) {
+                $rowUlt = $rsUlt->fetch_assoc();
+                $nota = (int)($rowUlt && isset($rowUlt['ult']) ? $rowUlt['ult'] : 0) + 1;
+            } else { $nota = 1; }
+        } catch (Throwable $e) { $nota = 1; }
     }
+
+    // Preparar sentencia de inserción dinámica según columnas disponibles
+    $cols = [
+        'insumo_id','proveedor_id','usuario_id','descripcion','cantidad','unidad','costo_total','referencia_doc','folio_fiscal','qr','cantidad_actual','credito'
+    ];
+    if ($hasNotaCol) { $cols[] = 'nota'; }
+    if ($hasCorteCol && $corteId > 0) { $cols[] = 'corte_id'; }
+    $ph = implode(', ', array_fill(0, count($cols), '?'));
+    $sqlIns = 'INSERT INTO entradas_insumos (' . implode(', ', $cols) . ') VALUES (' . $ph . ')';
+    $insEntrada = $conn->prepare($sqlIns);
     $updInsumo = $conn->prepare('UPDATE insumos SET existencia = existencia + ? WHERE id = ?');
     $updQr = $conn->prepare('UPDATE entradas_insumos SET qr = ? WHERE id = ?');
     $selEntradaInfo = $conn->prepare('SELECT fecha FROM entradas_insumos WHERE id = ?');
@@ -161,40 +180,26 @@ try {
         $cantidadActual = $cantidad;
         $qrPlaceholder = 'pendiente';
 
-        if ($hasCorteCol && $corteId > 0) {
-            $insEntrada->bind_param(
-                'iiisdsdsssdii',
-                $insumoId,
-                $proveedorId,
-                $usuarioId,
-                $descripcion,
-                $cantidad,
-                $unidad,
-                $costoTotal,
-                $referencia,
-                $folio,
-                $qrPlaceholder,
-                $cantidadActual,
-                $credito,
-                $corteId
-            );
-        } else {
-            $insEntrada->bind_param(
-                'iiisdsdsssdi',
-                $insumoId,
-                $proveedorId,
-                $usuarioId,
-                $descripcion,
-                $cantidad,
-                $unidad,
-                $costoTotal,
-                $referencia,
-                $folio,
-                $qrPlaceholder,
-                $cantidadActual,
-                $credito
-            );
-        }
+        // Bind dinámico respetando columnas opcionales (nota, corte_id)
+        $types = 'iiisdsdsssdi';
+        $bindValues = [
+            &$insumoId,
+            &$proveedorId,
+            &$usuarioId,
+            &$descripcion,
+            &$cantidad,
+            &$unidad,
+            &$costoTotal,
+            &$referencia,
+            &$folio,
+            &$qrPlaceholder,
+            &$cantidadActual,
+            &$credito
+        ];
+        if ($hasNotaCol) { $types .= 'i'; $bindValues[] = &$nota; }
+        if ($hasCorteCol && $corteId > 0) { $types .= 'i'; $bindValues[] = &$corteId; }
+        $params = array_merge([$types], $bindValues);
+        call_user_func_array([$insEntrada, 'bind_param'], $params);
         $insEntrada->execute();
         $entradaId = $insEntrada->insert_id;
         if ($entradaId <= 0) {

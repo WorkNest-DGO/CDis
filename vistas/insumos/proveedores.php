@@ -10,93 +10,140 @@ if (!in_array($path_actual, $_SESSION['rutas_permitidas'])) {
     echo 'Acceso no autorizado';
     exit;
 }
-$title = 'Entradas de Proveedor';
+$title = 'Proveedores';
 ob_start();
 ?>
 <div class="page-header">
     <div class="container">
         <div class="row">
             <div class="col-12">
-                <h2>Entradas de Insumos</h2>
+                <h2>Proveedores</h2>
             </div>
             <div class="col-12">
                 <a href="../../index.php">Inicio</a>
-                <a href="">Entradas de proveedor</a>
+                <a href="">Proveedores</a>
             </div>
-            <div class="col-12 mt-2">
+        </div>
+    </div>
+    </div>
+
+<div class="container mt-4">
+    <div class="bg-dark p-4 rounded">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-8">
+                <label class="text-white" for="selProveedor">Seleccionar proveedor</label>
+                <select id="selProveedor" class="form-control"></select>
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+                <button id="btnNuevo" class="btn custom-btn me-2" type="button">Nuevo</button>
                 <a class="btn btn-secondary" href="../../api/insumos/exportar_proveedores_excel.php">Exportar a Excel</a>
             </div>
         </div>
     </div>
 </div>
 
-<div class="container mt-5">
-    <h2 class="text-white">Registrar entrada</h2>
-    <form id="formEntrada" class="bg-dark p-4 rounded">
-        <div class="form-group mb-2">
-            <label class="text-white" for="proveedor_id">Proveedor:</label>
-            <select id="proveedor_id" class="form-control"></select>
+<div class="container mt-4">
+    <form id="formProveedor" class="bg-dark p-4 rounded">
+        <input type="hidden" id="proveedorId">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="text-white" for="nombre">Nombre</label>
+                <input type="text" id="nombre" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+                <label class="text-white" for="rfc">RFC</label>
+                <input type="text" id="rfc" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="text-white" for="regimen_fiscal">Régimen fiscal</label>
+                <input type="text" id="regimen_fiscal" class="form-control" placeholder="601, 603, ...">
+            </div>
+
+            <div class="col-md-6">
+                <label class="text-white" for="razon_social">Razón social</label>
+                <input type="text" id="razon_social" class="form-control">
+            </div>
+            <div class="col-md-6">
+                <label class="text-white" for="correo_facturacion">Correo facturación</label>
+                <input type="email" id="correo_facturacion" class="form-control">
+            </div>
+
+            <div class="col-md-3">
+                <label class="text-white" for="telefono">Teléfono</label>
+                <input type="text" id="telefono" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="text-white" for="telefono2">Teléfono 2</label>
+                <input type="text" id="telefono2" class="form-control">
+            </div>
+            <div class="col-md-6">
+                <label class="text-white" for="correo">Correo</label>
+                <input type="email" id="correo" class="form-control">
+            </div>
+
+            <div class="col-12">
+                <label class="text-white" for="direccion">Dirección</label>
+                <textarea id="direccion" class="form-control" rows="2"></textarea>
+            </div>
+
+            <div class="col-md-6">
+                <label class="text-white" for="contacto_nombre">Contacto nombre</label>
+                <input type="text" id="contacto_nombre" class="form-control">
+            </div>
+            <div class="col-md-6">
+                <label class="text-white" for="contacto_puesto">Contacto puesto</label>
+                <input type="text" id="contacto_puesto" class="form-control">
+            </div>
+
+            <div class="col-md-3">
+                <label class="text-white" for="dias_credito">Días crédito</label>
+                <input type="number" id="dias_credito" class="form-control" value="0" min="0">
+            </div>
+            <div class="col-md-3">
+                <label class="text-white" for="limite_credito">Límite crédito</label>
+                <input type="number" step="0.01" id="limite_credito" class="form-control" value="0.00">
+            </div>
+            <div class="col-md-3">
+                <label class="text-white" for="banco">Banco</label>
+                <input type="text" id="banco" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="text-white" for="clabe">CLABE</label>
+                <input type="text" id="clabe" class="form-control" maxlength="18">
+            </div>
+
+            <div class="col-md-6">
+                <label class="text-white" for="cuenta_bancaria">Cuenta bancaria</label>
+                <input type="text" id="cuenta_bancaria" class="form-control">
+            </div>
+            <div class="col-md-6">
+                <label class="text-white" for="sitio_web">Sitio web</label>
+                <input type="url" id="sitio_web" class="form-control" placeholder="https://...">
+            </div>
+
+            <div class="col-12">
+                <label class="text-white" for="observacion">Observación</label>
+                <textarea id="observacion" class="form-control" rows="2"></textarea>
+            </div>
+
+            <div class="col-md-3 form-check form-switch mt-2">
+                <input class="form-check-input" type="checkbox" id="activo" checked>
+                <label class="form-check-label text-white" for="activo">Activo</label>
+            </div>
         </div>
-        <div class="form-group mb-2">
-            <label class="text-white" for="insumo_id">Insumo:</label>
-            <select id="insumo_id" class="form-control"></select>
+        <div class="mt-4 d-flex gap-2">
+            <button id="btnGuardar" class="btn custom-btn me-2" type="submit">Guardar</button>
+            <button id="btnEliminar" class="btn btn-danger" type="button">Eliminar</button>
         </div>
-        <div class="form-group mb-2">
-            <label class="text-white" for="cantidad">Cantidad:</label>
-            <input type="number" step="0.01" id="cantidad" class="form-control">
-        </div>
-        <div class="form-group mb-2">
-            <label class="text-white" for="unidad">Unidad:</label>
-            <input type="text" id="unidad" class="form-control">
-        </div>
-        <div class="form-group mb-2">
-            <label class="text-white" for="costo_total">Costo total:</label>
-            <input type="number" step="0.01" id="costo_total" class="form-control">
-        </div>
-        <div class="form-group mb-2">
-            <label class="text-white" for="valor_unitario">Valor unitario:</label>
-            <input type="number" step="0.01" id="valor_unitario" class="form-control" readonly>
-        </div>
-        <div class="form-group mb-2">
-            <label class="text-white" for="descripcion">Descripción:</label>
-            <textarea id="descripcion" class="form-control"></textarea>
-        </div>
-        <div class="form-group mb-2">
-            <label class="text-white" for="referencia_doc">Referencia doc:</label>
-            <input type="text" id="referencia_doc" class="form-control">
-        </div>
-        <div class="form-group mb-3">
-            <label class="text-white" for="folio_fiscal">Folio fiscal:</label>
-            <input type="text" id="folio_fiscal" class="form-control">
-        </div>
-        <button type="submit" class="btn custom-btn">Guardar</button>
     </form>
 </div>
 
-<div class="container mt-5">
-    <h2 class="text-white">Historial de Entradas</h2>
-    <div class="table-responsive">
-        <table id="tablaHistorial" class="styled-table">
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Proveedor</th>
-                    <th>Insumo</th>
-                    <th>Cantidad</th>
-                    <th>Unidad</th>
-                    <th>Costo total</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</div>
-
 <?php require_once __DIR__ . '/../footer.php'; ?>
-<script src="entradas_proveedor.js"></script>
+<script src="proveedores.js"></script>
 </body>
 </html>
 <?php
 $content = ob_get_clean();
 include __DIR__ . '/../nav.php';
 ?>
+

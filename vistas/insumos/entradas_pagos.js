@@ -16,6 +16,38 @@ const qs = (r, s) => (r || document).querySelector(s);
 const qsa = (r, s) => Array.from((r || document).querySelectorAll(s));
 const fmt$ = n => { const v = parseFloat(String(n).replace(',', '.')); return Number.isFinite(v) ? v.toFixed(2) : ''; };
 
+// Paginación y filtros avanzados
+let epPagina = 1;
+let epPageSize = 15;
+let epTotal = 0;
+
+async function cargarEntradasPagosPaged(page = epPagina) {
+    epPagina = page;
+    const credito = qs(document, '#filtroCredito')?.value ?? '';
+    const pagado = qs(document, '#filtroPagado')?.value ?? '';
+    const q = qs(document, '#busqueda')?.value.trim() ?? '';
+    const df = qs(document, '#dateFrom')?.value ?? '';
+    const dt = qs(document, '#dateTo')?.value ?? '';
+    const psSel = qs(document, '#epPageSize');
+    epPageSize = psSel ? (parseInt(psSel.value, 10) || 15) : epPageSize;
+    const params = new URLSearchParams();
+    if (credito !== '') params.set('credito', credito);
+    if (pagado !== '') params.set('pagado', pagado);
+    if (q) params.set('q', q);
+    if (df && dt) { params.set('date_from', df); params.set('date_to', dt); }
+    params.set('page', String(epPagina));
+    params.set('page_size', String(epPageSize));
+    try {
+        const resp = await fetch(`../../api/insumos/listar_entradas_pagos.php?${params.toString()}`);
+        const data = await resp.json();
+        if (!data.success) { alert(data.mensaje || 'Error al cargar'); return; }
+        const rows = Array.isArray(data.resultado) ? data.resultado : (data.resultado?.rows || []);
+        epTotal = (data.resultado && Number.isFinite(data.resultado.total)) ? data.resultado.total : rows.length;
+        renderTabla(rows);
+        renderPaginador();
+    } catch (e) { console.error(e); alert('Error de comunicación'); }
+}
+
 async function cargarEntradasPagos() {
     const credito = qs(document, '#filtroCredito')?.value ?? '';
     const pagado = qs(document, '#filtroPagado')?.value ?? '';
@@ -56,6 +88,55 @@ function renderTabla(rows) {
     });
 }
 
+function renderPaginador() {
+    const pag = qs(document, '#epPaginador');
+    if (!pag) return;
+    pag.innerHTML = '';
+    const totalPag = Math.max(1, Math.ceil(epTotal / epPageSize));
+    const makeLi = (txt, disabled, onClick, active=false) => {
+        const li = document.createElement('li');
+        li.className = 'page-item' + (disabled ? ' disabled' : '') + (active ? ' active' : '');
+        const a = document.createElement('a'); a.className = 'page-link'; a.href = '#'; a.textContent = txt;
+        if (!disabled) a.addEventListener('click', (e)=>{ e.preventDefault(); onClick(); });
+        li.appendChild(a); return li;
+    };
+    pag.appendChild(makeLi('Anterior', epPagina<=1, ()=> cargarEntradasPagosPaged(epPagina-1)));
+    for (let p=1; p<= totalPag; p++) {
+        pag.appendChild(makeLi(String(p), false, ()=> cargarEntradasPagosPaged(p), p===epPagina));
+    }
+    pag.appendChild(makeLi('Siguiente', epPagina>=totalPag, ()=> cargarEntradasPagosPaged(epPagina+1)));
+}
+
+async function buscarNota() {
+    const notaEl = qs(document, '#notaBuscar');
+    const n = notaEl ? parseInt(notaEl.value, 10) : 0;
+    if (!Number.isFinite(n) || n <= 0) { alert('Ingresa un número de nota válido'); return; }
+    try {
+        const resp = await fetch(`../../api/insumos/consultar_nota_compra.php?nota=${n}`);
+        const data = await resp.json();
+        if (!data.success) { alert(data.mensaje || 'Sin resultados'); return; }
+        const rows = Array.isArray(data.resultado) ? data.resultado : [];
+        const tb = qs(document, '#tablaNotaResultados tbody');
+        if (tb) {
+            tb.innerHTML = '';
+            rows.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${r.id}</td>
+                    <td>${r.fecha ?? ''}</td>
+                    <td>${r.proveedor ?? ''}</td>
+                    <td>${r.producto ?? ''}</td>
+                    <td>${r.cantidad ?? ''}</td>
+                    <td>${r.unidad ?? ''}</td>
+                    <td>${fmt$(r.costo_total ?? '')}</td>
+                    <td>${r.nota ?? ''}</td>
+                `;
+                tb.appendChild(tr);
+            });
+        }
+    } catch (e) { console.error(e); alert('Error al consultar la nota'); }
+}
+
 function seleccionarTodo(v) {
     qsa(document, '.row-check').forEach(ch => ch.checked = v);
     const all = qs(document, '#checkAll'); if (all) all.checked = v;
@@ -71,19 +152,23 @@ async function marcarPagados() {
         const data = await resp.json();
         if (!data.success) { alert(data.mensaje || 'No se pudo actualizar'); return; }
         alert(`Actualizados: ${data.resultado.actualizados}`);
-        await cargarEntradasPagos();
+        await cargarEntradasPagosPaged();
     } catch (e) { console.error(e); alert('Error de comunicación'); }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    cargarEntradasPagos();
-    qs(document, '#btnBuscar')?.addEventListener('click', cargarEntradasPagos);
-    qs(document, '#filtroCredito')?.addEventListener('change', cargarEntradasPagos);
-    qs(document, '#filtroPagado')?.addEventListener('change', cargarEntradasPagos);
-    qs(document, '#busqueda')?.addEventListener('keydown', e => { if (e.key === 'Enter') cargarEntradasPagos(); });
+    const ps = qs(document, '#epPageSize'); if (ps) ps.value = '15';
+    cargarEntradasPagosPaged(1);
+    qs(document, '#btnBuscar')?.addEventListener('click', ()=> cargarEntradasPagosPaged(1));
+    qs(document, '#filtroCredito')?.addEventListener('change', ()=> cargarEntradasPagosPaged(1));
+    qs(document, '#filtroPagado')?.addEventListener('change', ()=> cargarEntradasPagosPaged(1));
+    qs(document, '#busqueda')?.addEventListener('keydown', e => { if (e.key === 'Enter') cargarEntradasPagosPaged(1); });
+    qs(document, '#dateFrom')?.addEventListener('change', ()=> cargarEntradasPagosPaged(1));
+    qs(document, '#dateTo')?.addEventListener('change', ()=> cargarEntradasPagosPaged(1));
+    qs(document, '#epPageSize')?.addEventListener('change', ()=> cargarEntradasPagosPaged(1));
     qs(document, '#btnMarcarPagado')?.addEventListener('click', marcarPagados);
     qs(document, '#seleccionarTodo')?.addEventListener('click', () => seleccionarTodo(true));
     qs(document, '#deseleccionarTodo')?.addEventListener('click', () => seleccionarTodo(false));
     qs(document, '#checkAll')?.addEventListener('change', e => seleccionarTodo(!!e.target.checked));
+    qs(document, '#btnBuscarNota')?.addEventListener('click', buscarNota);
 });
-

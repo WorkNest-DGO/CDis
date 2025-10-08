@@ -52,7 +52,8 @@ ob_start();
                         <dt class="col-sm-5">Cantidad actual</dt>
                         <dd class="col-sm-7 d-flex align-items-center gap-2">
                             <span id="entrada-cantidad-actual">-</span>
-                            <button type="button" id="btn-retirar" class="btn btn-sm btn-outline-danger ms-2">Retirar</button>
+                            <button type="button" id="btn-retirar" class="btn btn-sm btn-outline-danger ms-2" disabled aria-disabled="true" title="Requiere corte abierto">Retirar</button>
+                            <span id="corte-required-msg" class="small text-warning" style="display:none;">Requiere corte abierto</span>
                         </dd>
                         <dt class="col-sm-5">Costo total</dt>
                         <dd class="col-sm-7" id="entrada-costo-total">-</dd>
@@ -650,6 +651,8 @@ ob_start();
     // Acciones de retiro
     document.addEventListener('click', function(e){
         if (e.target && e.target.id === 'btn-retirar') {
+            // Evitar abrir si el botón está deshabilitado
+            if (e.target.hasAttribute('disabled')) return;
             abrirModalRetiro();
         }
     });
@@ -704,6 +707,45 @@ ob_start();
             }
         }).catch(function(err){ console.error(err); alert('Error de comunicación'); });
     }
+
+    // =============================
+    // Corte abierto: habilitar Retirar (pseudo long-poll)
+    // =============================
+    async function hayCorteAbierto(){
+        try{
+            const resp = await fetch('../../api/insumos/cortes_almacen.php?accion=listar', { cache: 'no-store' });
+            const data = await resp.json();
+            if (data && data.success && Array.isArray(data.resultado)){
+                return data.resultado.some(c => c && (c.fecha_fin === null || String(c.fecha_fin).trim() === ''));
+            }
+        }catch(_){ /* noop */ }
+        return false;
+    }
+
+    function setRetirarEnabled(enabled){
+        const btn = document.getElementById('btn-retirar');
+        const msg = document.getElementById('corte-required-msg');
+        if (!btn) return;
+        if (enabled){
+            btn.removeAttribute('disabled');
+            btn.removeAttribute('aria-disabled');
+            btn.title = '';
+            if (msg) msg.style.display = 'none';
+        } else {
+            btn.setAttribute('disabled','disabled');
+            btn.setAttribute('aria-disabled','true');
+            btn.title = 'Requiere corte abierto';
+            if (msg) msg.style.display = '';
+        }
+    }
+
+    (async function longPollCorte(){
+        while(true){
+            const abierto = await hayCorteAbierto();
+            setRetirarEnabled(abierto);
+            await new Promise(r => setTimeout(r, 12000));
+        }
+    })();
 })();
 </script>
 <!-- Modal Retiro -->

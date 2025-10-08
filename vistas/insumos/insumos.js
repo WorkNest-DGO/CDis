@@ -584,11 +584,21 @@ function abrirFormulario(id) {
         if (!ins) return;
         document.getElementById('nombre').value = ins.nombre;
         document.getElementById('unidad').value = ins.unidad;
-        document.getElementById('existencia').value = ins.existencia;
+        // Existencia es informativa al editar: no permitir cambios manuales
+        const exEl = document.getElementById('existencia');
+        if (exEl) {
+            exEl.value = ins.existencia;
+            exEl.readOnly = true;
+        }
         document.getElementById('tipo_control').value = ins.tipo_control;
     } else {
         form.reset();
-        document.getElementById('existencia').value = 0;
+        // Nuevo insumo: permitir edición del campo si se requiere en altas
+        const exEl = document.getElementById('existencia');
+        if (exEl) {
+            exEl.readOnly = false;
+            exEl.value = 0;
+        }
     }
     showModal('#modalInsumo');
 }
@@ -923,6 +933,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnNuevoInsumo = document.getElementById('btnNuevoInsumo');
     if (btnNuevoInsumo) {
         btnNuevoInsumo.addEventListener('click', nuevoInsumo);
+    }
+
+    // Al seleccionar proveedor, mostrar observación informativa en modal
+    const selProv = document.getElementById('proveedor');
+    if (selProv) {
+        selProv.addEventListener('change', async (e) => {
+            try {
+                const val = e && e.target ? e.target.value : '';
+                const id = parseInt(val, 10);
+                if (!Number.isFinite(id) || id <= 0) return;
+                const resp = await fetch(`../../api/insumos/obtener_proveedor.php?id=${id}`, { cache: 'no-store' });
+                const data = await resp.json();
+                const obs = (data && data.success && data.resultado && data.resultado.observacion) ? String(data.resultado.observacion).trim() : '';
+                if (obs) {
+                    const box = document.getElementById('provObsBox');
+                    if (box) box.textContent = obs;
+                    showModal('#modalProvObs');
+                }
+            } catch (err) {
+                console.error('No se pudo cargar la observación del proveedor', err);
+            }
+        });
     }
 
     document.addEventListener('change', e => {
