@@ -40,6 +40,7 @@ $sql = "SELECT p.id, p.pedido, p.estado,
 $rs = $conn->query($sql);
 
 $map = [];
+$procPedidoMap = [];
 while ($row = $rs->fetch_assoc()) {
     $pedido = (int)$row['pedido'];
     if ($pedido <= 0) { continue; }
@@ -61,14 +62,94 @@ while ($row = $rs->fetch_assoc()) {
     if (isset($prior[$est]) && isset($prior[$map[$pedido]['estado']]) && $prior[$est] < $prior[$map[$pedido]['estado']]) {
         $map[$pedido]['estado'] = $est;
     }
+    $procId = (int)$row['id'];
     $map[$pedido]['procesos'][] = [
-        'id' => (int)$row['id'],
+        'id' => $procId,
         'insumo_origen_id' => (int)$row['insumo_origen_id'],
         'insumo_origen' => (string)$row['insumo_origen'],
         'cantidad_origen' => (float)$row['cantidad_origen'],
-        'unidad_origen' => (string)$row['unidad_origen']
+        'unidad_origen' => (string)$row['unidad_origen'],
+        'merma_qrs' => []
     ];
+    $procPedidoMap[$procId] = $pedido;
 }
+
+$hasQrCol = null;
+$stmtMerma = null;
+$stmtMermaFallback = null;
+if ($procPedidoMap) {
+    $qrDirAbs = @realpath(__DIR__ . '/../../archivos/qr');
+    $baseDirAbs = @realpath(__DIR__ . '/../../');
+    if ($qrDirAbs) { $qrDirAbs = str_replace('\\', '/', $qrDirAbs); }
+    if ($baseDirAbs) { $baseDirAbs = str_replace('\\', '/', $baseDirAbs); }
+
+    foreach ($procPedidoMap as $procId => $pedidoRef) {
+        if ($hasQrCol === null) {
+            try {
+                $stmtMerma = $conn->prepare("SELECT id, insumo_id, qr_token, IFNULL(`qr`, '') AS qr FROM movimientos_insumos WHERE tipo='merma' AND observacion LIKE CONCAT('%Merma del proceso id ', ?, '%') ORDER BY id DESC");
+                $hasQrCol = true;
+            } catch (Throwable $e) {
+                $stmtMermaFallback = $conn->prepare("SELECT id, insumo_id, qr_token FROM movimientos_insumos WHERE tipo='merma' AND observacion LIKE CONCAT('%Merma del proceso id ', ?, '%') ORDER BY id DESC");
+                $hasQrCol = false;
+            }
+        }
+        $stmtUse = $hasQrCol ? $stmtMerma : $stmtMermaFallback;
+        if (!$stmtUse) { continue; }
+        $stmtUse->bind_param('i', $procId);
+        if (!$stmtUse->execute()) { continue; }
+        $resMerma = $stmtUse->get_result();
+        if (!$resMerma) { continue; }
+        while ($rowM = $resMerma->fetch_assoc()) {
+            $qrPath = '';
+            if ($hasQrCol && isset($rowM['qr'])) {
+                $qrVal = trim((string)$rowM['qr']);
+                if ($qrVal !== '') {
+                    if (stripos($qrVal, 'archivos/') === 0) {
+                        $qrPath = str_replace('\\', '/', $qrVal);
+                    } else {
+                        $qrPath = 'archivos/qr/' . ltrim(str_replace('\\', '/', $qrVal), '/');
+                    }
+                }
+            }
+            if ($qrPath === '') {
+                $token = isset($rowM['qr_token']) ? trim((string)$rowM['qr_token']) : '';
+                if ($token !== '' && $qrDirAbs && $baseDirAbs) {
+                    $pattern = rtrim($qrDirAbs, '/');
+                    $pattern .= '/*' . $token . '*.png';
+                    $matches = glob($pattern);
+                    if ($matches && isset($matches[0])) {
+                        $abs = str_replace('\\', '/', $matches[0]);
+                        if (strpos($abs, $baseDirAbs) === 0) {
+                            $rel = ltrim(substr($abs, strlen($baseDirAbs)), '/');
+                            $qrPath = $rel;
+                        }
+                    }
+                }
+            }
+            if ($qrPath === '') { continue; }
+            $grupo = &$map[$pedidoRef];
+            foreach ($grupo['procesos'] as &$proc) {
+                if ((int)$proc['id'] === $procId) {
+                    if (!isset($proc['merma_qrs']) || !is_array($proc['merma_qrs'])) {
+                        $proc['merma_qrs'] = [];
+                    }
+                    $proc['merma_qrs'][] = [
+                        'movimiento_id' => (int)$rowM['id'],
+                        'insumo_id' => isset($rowM['insumo_id']) ? (int)$rowM['insumo_id'] : null,
+                        'qr' => $qrPath
+                    ];
+                    break;
+                }
+            }
+            unset($proc);
+        }
+        $resMerma->free();
+    }
+    if ($stmtMerma) { $stmtMerma->close(); }
+    if ($stmtMermaFallback) { $stmtMermaFallback->close(); }
+}
+unset($grupo);
+unset($proc);
 
 $grupos = array_values($map);
 json_ok(['grupos' => $grupos]);

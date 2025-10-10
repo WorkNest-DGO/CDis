@@ -44,6 +44,7 @@ window.alert = showAppMsg;
       card.dataset.pedido = g.pedido;
       card.dataset.estado = g.estado;
       const origenesHtml = (g.procesos||[]).map(o => `${escapeHtml(o.insumo_origen)} (${escapeHtml(o.cantidad_origen)} ${escapeHtml(o.unidad_origen||'')})`).join(', ');
+      const mermaTotal = (g.procesos||[]).reduce((acc, p) => acc + ((p.merma_qrs || []).length), 0);
       card.innerHTML = `
         <div class="title">#${g.pedido} → ${escapeHtml(g.destino)}</div>
         <div class="meta"><span>${escapeHtml(origenesHtml)}</span></div>
@@ -51,6 +52,7 @@ window.alert = showAppMsg;
           ${g.entrada_insumo_id ? `<span>Entrada #${g.entrada_insumo_id}</span>` : ''}
         </div>
         ${g.qr_path ? `<button class="btn-qr" data-src="${escapeHtml(g.qr_path)}">QR</button>` : ''}
+        ${(g.estado === 'entregado' && mermaTotal > 0) ? `<button class="btn-merma" data-pedido="${g.pedido}">Mermas</button>` : ''}
         ${g.estado === 'listo' && !g.entrada_insumo_id ? `<button class="btn-completar-grupo" data-pedido="${g.pedido}">Completar</button>` : ''}
       `;
       bindDragGroup(card);
@@ -58,6 +60,7 @@ window.alert = showAppMsg;
       card.querySelector('.btn-qr')?.addEventListener('click', ()=>{
         const src = card.querySelector('.btn-qr')?.getAttribute('data-src'); if (src) window.open('../../' + src.replace(/^\/+/, ''), '_blank');
       });
+      card.querySelector('.btn-merma')?.addEventListener('click', ()=>{ mostrarMermaQrModal(g); });
       card.querySelector('.btn-completar-grupo')?.addEventListener('click', ()=>{ grupoActual = g; ensureCompletarGrupoModal(g); });
     });
   }
@@ -232,6 +235,72 @@ window.alert = showAppMsg;
         const motivo = (qs('#cmpMotivo')?.value || '').trim();
         const comp = await apiCompleteGrupo(g.pedido, val, mermas, motivo); if (!comp) return; hideModal(modal); await cargarProcesos();
       };
+    }
+    showModal(modal);
+  }
+
+  function mostrarMermaQrModal(grupo){
+    if (!grupo) return;
+    let modal = qs('#modalMermaQr');
+    if (!modal){
+      const html = `
+      <div class="modal fade" id="modalMermaQr" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+          <div style="color:black" class="modal-content">
+            <div class="modal-header">
+              <h5 style="color:black" class="modal-title">Mermas del pedido</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body"></div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+      const wrap = document.createElement('div'); wrap.innerHTML = html; document.body.appendChild(wrap.firstElementChild); modal = qs('#modalMermaQr');
+      modal.querySelector('.close')?.addEventListener('click', ()=> hideModal(modal));
+      modal.querySelector('.btn-secondary')?.addEventListener('click', ()=> hideModal(modal));
+    }
+    const title = modal.querySelector('.modal-title');
+    if (title) title.textContent = `Mermas del pedido #${grupo.pedido}`;
+    const body = modal.querySelector('.modal-body');
+    if (body){
+      body.innerHTML = '';
+      const total = (grupo.procesos||[]).reduce((acc, p) => acc + ((p.merma_qrs || []).length), 0);
+      if (!total){
+        body.innerHTML = '<p>No hay mermas registradas para este grupo.</p>';
+      } else {
+        (grupo.procesos||[]).forEach(p => {
+          const qrs = (p.merma_qrs||[]).filter(q => q && q.qr);
+          if (!qrs.length) return;
+          const section = document.createElement('div');
+          section.className = 'merma-section mb-3';
+          const header = document.createElement('h6');
+          header.textContent = `${p.insumo_origen} (${p.cantidad_origen} ${p.unidad_origen || ''})`;
+          section.appendChild(header);
+          const grid = document.createElement('div');
+          grid.className = 'merma-qr-grid';
+          qrs.forEach((qrObj, idx) => {
+            const rel = String(qrObj.qr || '');
+            if (!rel) return;
+            const path = '../../' + rel.replace(/^\/+/, '');
+            const link = document.createElement('a');
+            link.href = path;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.title = 'Abrir QR en una nueva pestaña';
+            const img = document.createElement('img');
+            img.src = path;
+            img.alt = `QR merma ${p.insumo_origen}`;
+            img.loading = 'lazy';
+            link.appendChild(img);
+            grid.appendChild(link);
+          });
+          section.appendChild(grid);
+          body.appendChild(section);
+        });
+      }
     }
     showModal(modal);
   }
