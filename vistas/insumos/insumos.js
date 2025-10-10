@@ -715,16 +715,21 @@ async function registrarEntrada(e) {
         });
 
 
-        productos.push({
+        const prod = {
             insumo_id: insumoId,
             cantidad,
             unidad: unidadVal,
-            costo_total: costoTotal,
-            descripcion: descripcionFila ? descripcionFila.value.trim() : '',
-            referencia_doc: referenciaFila ? referenciaFila.value.trim() : '',
-            folio_fiscal: folioFila ? folioFila.value.trim() : '',
-            qr: qrFila ? qrFila.value.trim() : ''
-        });
+            costo_total: costoTotal
+        };
+        const descVal = descripcionFila ? descripcionFila.value.trim() : '';
+        const refVal  = referenciaFila ? referenciaFila.value.trim() : '';
+        const folVal  = folioFila ? folioFila.value.trim() : '';
+        const qrVal   = qrFila ? qrFila.value.trim() : '';
+        if (descVal) prod.descripcion = descVal;
+        if (refVal)  prod.referencia_doc = refVal;
+        if (folVal)  prod.folio_fiscal = folVal;
+        if (qrVal)   prod.qr = qrVal;
+        productos.push(prod);
     });
 
     if (filasInvalidas > 0) {
@@ -835,7 +840,9 @@ function renderHistorial(){
         const total = String(e.total ?? e.costo_total ?? '').toLowerCase();
         const cant = String(e.cantidad_actual ?? '').toLowerCase();
         const uni = (e.unidad || '').toLowerCase();
-        return proveedor.includes(histFiltro) || fecha.includes(histFiltro) || producto.includes(histFiltro) || total.includes(histFiltro) || cant.includes(histFiltro) || uni.includes(histFiltro);
+        const ref = (e.referencia_doc || '').toLowerCase();
+        const fol = (e.folio_fiscal || '').toLowerCase();
+        return proveedor.includes(histFiltro) || fecha.includes(histFiltro) || producto.includes(histFiltro) || total.includes(histFiltro) || cant.includes(histFiltro) || uni.includes(histFiltro) || ref.includes(histFiltro) || fol.includes(histFiltro);
     });
     // paginar
     const total = lista.length;
@@ -855,6 +862,8 @@ function renderHistorial(){
         const unidad = e.unidad ? (' ' + e.unidad) : '';
         const totalTxt = formatMoneda(e.total ?? e.costo_total ?? '');
         const producto = e.producto ?? '';
+        const referencia = e.referencia_doc ?? '';
+        const folio = e.folio_fiscal ?? '';
         tr.innerHTML = `
             <td>${proveedor}</td>
             <td>${fecha}</td>
@@ -862,6 +871,8 @@ function renderHistorial(){
             <td>${cantidadActual}${unidad}</td>
             <td>${totalTxt}</td>
             <td>${producto}</td>
+            <td>${referencia}</td>
+            <td>${folio}</td>
         `;
         tbody.appendChild(tr);
     });

@@ -151,6 +151,17 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
             </div>
         </div>
 
+        <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+                <label for="notaFisica" class="text-white">Nota física</label>
+                <input type="text" id="notaFisica" name="referencia_doc" class="form-control" placeholder="Ej. Ticket/Nota del proveedor">
+            </div>
+            <div class="col-sm-6">
+                <label for="folioFiscal" class="text-white">Folio fiscal</label>
+                <input type="text" id="folioFiscal" name="folio_fiscal" class="form-control" placeholder="UUID de la factura (si aplica)">
+            </div>
+        </div>
+
         <div class="table-responsive">
             <table id="tablaProductos" class="styled-table">
                 <thead>
@@ -242,6 +253,8 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
                     <th>Cantidad actual</th>
                     <th>Total</th>
                     <th>Producto</th>
+                    <th>Nota física</th>
+                    <th>Folio fiscal</th>
                 </tr>
             </thead>
             <tbody></tbody>
