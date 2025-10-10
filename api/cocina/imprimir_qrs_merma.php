@@ -32,11 +32,19 @@ if (!$ids) {
 $inPlaceholders = implode(',', array_fill(0, count($ids), '?'));
 $types = str_repeat('i', count($ids));
 
-$sql = "SELECT mi.id, mi.fecha, mi.qr_token, IFNULL(mi.qr, '') AS qr_rel,
-               mi.insumo_id, i.nombre AS insumo_nombre
+$sql = "SELECT
+            mi.id,
+            mi.fecha,
+            mi.insumo_id,
+            i.nombre AS insumo_nombre,
+            COALESCE(qi.token, mi.qr_token) AS qr_token,
+            ei.qr AS qr_path
         FROM movimientos_insumos mi
         LEFT JOIN insumos i ON i.id = mi.insumo_id
-        WHERE mi.id IN ($inPlaceholders) AND mi.tipo = 'merma'";
+        LEFT JOIN entradas_insumos ei ON ei.id = mi.id_entrada
+        LEFT JOIN qrs_insumo qi ON qi.id = mi.id_qr
+        WHERE mi.id IN ($inPlaceholders) AND mi.tipo = 'merma'
+        ORDER BY mi.id DESC";
 
 $stmt = $conn->prepare($sql);
 if (!$stmt) {
@@ -94,7 +102,7 @@ try {
 
     foreach ($ordered as $item) {
         $qrPath = '';
-        $qrRel = trim((string)($item['qr_rel'] ?? ''));
+        $qrRel = trim((string)($item['qr_path'] ?? ''));
         if ($qrRel !== '') {
             $candidates = [];
             $candidates[] = $qrRel;
