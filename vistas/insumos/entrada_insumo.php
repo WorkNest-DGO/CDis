@@ -134,11 +134,48 @@ ob_start();
     const imprimirQrBtn = document.getElementById('entrada-qr-imprimir');
     let entradaActual = null;
 
+    function obtenerIdEntradaValido(valor) {
+        if (valor === null || typeof valor === 'undefined') {
+            return null;
+        }
+        var numero = parseInt(String(valor), 10);
+        if (!Number.isFinite(numero) || numero <= 0) {
+            return null;
+        }
+        return numero;
+    }
+
+    function solicitarImpresionQrEntrada(entradaId) {
+        var idValido = obtenerIdEntradaValido(entradaId);
+        if (!idValido) {
+            return Promise.reject(new Error('No hay un QR disponible para imprimir.'));
+        }
+        return fetch('../../api/insumos/imprimir_qrs_entrada.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ entrada_ids: [idValido] })
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                return response.json();
+            })
+            .then(function (payload) {
+                if (!payload || payload.success !== true) {
+                    throw new Error(payload && payload.mensaje ? payload.mensaje : 'No se pudo imprimir');
+                }
+                var resultado = payload.resultado || {};
+                var impresos = (typeof resultado.impresos !== 'undefined') ? resultado.impresos : null;
+                return { impresos: impresos, payload: payload };
+            });
+    }
+
     if (imprimirQrBtn) {
         imprimirQrBtn.addEventListener('click', function () {
-            var entradaIdAttr = this.dataset.entradaId || '';
-            var entradaId = parseInt(entradaIdAttr, 10);
-            if (!Number.isFinite(entradaId) || entradaId <= 0) {
+            var entradaId = obtenerIdEntradaValido(this.dataset.entradaId || '');
+            if (!entradaId) {
                 alert('No hay un QR disponible para imprimir.');
                 return;
             }
@@ -150,27 +187,11 @@ ob_start();
                 btn.disabled = false;
                 btn.textContent = originalText;
             };
-            fetch('../../api/insumos/imprimir_qrs_entrada.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'same-origin',
-                body: JSON.stringify({ entrada_ids: [entradaId] })
-            })
-                .then(function (response) {
-                    if (!response.ok) {
-                        throw new Error('HTTP ' + response.status);
-                    }
-                    return response.json();
-                })
-                .then(function (payload) {
-                    if (!payload || payload.success !== true) {
-                        throw new Error(payload && payload.mensaje ? payload.mensaje : 'No se pudo imprimir');
-                    }
-                    var resultado = payload.resultado || {};
-                    var impresos = (typeof resultado.impresos !== 'undefined') ? resultado.impresos : null;
+            solicitarImpresionQrEntrada(entradaId)
+                .then(function (info) {
                     restaurarBoton();
-                    if (impresos !== null) {
-                        alert('Solicitud de impresión enviada (' + impresos + ' QR).');
+                    if (info && info.impresos !== null && typeof info.impresos !== 'undefined') {
+                        alert('Solicitud de impresión enviada (' + info.impresos + ' QR).');
                     } else {
                         alert('Solicitud de impresión enviada correctamente.');
                     }
@@ -353,6 +374,28 @@ ob_start();
                 linkQr.rel = 'noopener';
                 linkQr.className = 'btn btn-sm btn-outline-primary';
                 linkQr.textContent = 'Ver QR';
+                const entradaIdRelacionado = obtenerIdEntradaValido((movimiento && (movimiento.entrada_id || movimiento.id_entrada)) || (entradaActual && entradaActual.id));
+                if (entradaIdRelacionado) {
+                    linkQr.dataset.entradaId = String(entradaIdRelacionado);
+                }
+                linkQr.addEventListener('click', function () {
+                    const idEntrada = obtenerIdEntradaValido(this.dataset.entradaId || (movimiento && (movimiento.entrada_id || movimiento.id_entrada)) || (entradaActual && entradaActual.id));
+                    if (!idEntrada) {
+                        return;
+                    }
+                    solicitarImpresionQrEntrada(idEntrada)
+                        .then(function (info) {
+                            if (info && info.impresos !== null && typeof info.impresos !== 'undefined') {
+                                alert('Solicitud de impresión enviada (' + info.impresos + ' QR).');
+                            } else {
+                                alert('Solicitud de impresión enviada correctamente.');
+                            }
+                        })
+                        .catch(function (error) {
+                            console.error(error);
+                            alert('No fue posible imprimir el QR: ' + error.message);
+                        });
+                });
                 acciones.appendChild(linkQr);
                 tieneAccion = true;
             }
