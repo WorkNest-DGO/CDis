@@ -119,21 +119,21 @@ ob_start();
 .board-entregado .kanban-item { border-left-color:#7f8c8d; opacity:.85; }
 </style>
 
-<div id="sec-crear-lote" class="container my-3" style="<?= ($__puede_toolbar && $__corte_id_abierto>0) ? '' : 'display:none'; ?>">
-  <div class="procesado-toolbar">
-    <label for="selInsumoOrigen">Origen</label>
-    <select id="selInsumoOrigen" class="form-control"></select>
+<div id="sec-crear-grupo" class="container my-3" style="<?= ($__puede_toolbar && $__corte_id_abierto>0) ? '' : 'display:none'; ?>">
+  <div class="procesado-toolbar" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
+    <label>Orígenes</label>
+    <div style="grid-column: 1 / -1;">
+      <div id="origenesContainer"></div>
+      <button id="btnAddOrigen" class="btn btn-secondary btn-sm mt-2">Agregar origen</button>
+    </div>
 
-    <label for="inpCantidadOrigen">Cantidad</label>
-    <input id="inpCantidadOrigen" type="number" step="0.01" min="0" class="form-control" placeholder="0.00">
+    <label for="selInsumoDestinoGrupo">Destino</label>
+    <select id="selInsumoDestinoGrupo" class="form-control"></select>
 
-    <label for="selInsumoDestino">Destino</label>
-    <select id="selInsumoDestino" class="form-control"></select>
+    <label for="inpObsProcGrupo">Observaciones</label>
+    <input id="inpObsProcGrupo" type="text" class="form-control" placeholder="Observaciones (opcional)">
 
-    <label for="inpObsProc">Observaciones</label>
-    <input id="inpObsProc" type="text" class="form-control" placeholder="Observaciones (opcional)">
-
-    <button id="btnCrearLote" class="btn custom-btn" style="grid-column: 1 / -1;">Crear lote</button>
+    <button id="btnCrearGrupo" class="btn custom-btn" style="grid-column: 1 / -1;">Crear grupo</button>
   </div>
 </div>
 <div id="alert-sin-corte-lote" class="container my-3" style="<?= ($__corte_id_abierto <= 0) ? '' : 'display:none'; ?>">
