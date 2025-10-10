@@ -69,7 +69,7 @@ ob_start();
                     <div class="border rounded p-3 h-100 d-flex flex-column justify-content-center">
                         <img id="entrada-qr" src="" alt="Código QR" class="img-fluid mx-auto mb-3 d-none" style="max-width: 260px;">
                         <p id="entrada-sin-qr" class="text-muted">No se encontró un código QR asociado.</p>
-                        <button id="entrada-qr-imprimir" type="button" class="btn custom-btn d-none btn-imprimir-qr" data-id="" data-qr="">Imprimir QR</button>
+                        <button id="entrada-qr-imprimir" type="button" class="btn custom-btn d-none">Imprimir QR</button>
                         <div id="retiro-qr-container" class="mt-4 d-none">
                             <h5 class="text-dark">Última salida registrada</h5>
                             <p id="retiro-qr-info" class="text-muted small mb-1">—</p>
@@ -134,93 +134,54 @@ ob_start();
     const imprimirQrBtn = document.getElementById('entrada-qr-imprimir');
     let entradaActual = null;
 
-    function toAbsolutePath(path) {
-        if (!path) {
-            return '';
-        }
-        try {
-            return new URL(path, window.location.href).href;
-        } catch (error) {
-            return String(path);
-        }
-    }
-
-    function imprimirQRDesdeRuta(qrPath) {
-        if (!qrPath) {
-            alert('No hay un QR disponible para imprimir.');
-            return;
-        }
-        const finalPath = toAbsolutePath(qrPath);
-        const w = window.open('', '_blank');
-        if (!w) {
-            alert('No se pudo abrir la ventana de impresión.');
-            return;
-        }
-        const safeSrc = String(finalPath).replace(/"/g, '&quot;');
-        w.document.write(`
-      <html>
-        <head><title>Imprimir QR</title>
-          <style>
-            body{margin:0;display:flex;align-items:center;justify-content:center;height:100vh}
-            img{max-width:90vw;max-height:90vh}
-          </style>
-        </head>
-        <body>
-          <img src="${safeSrc}" onload="window.print(); window.onafterprint = () => window.close();" />
-        </body>
-      </html>
-    `);
-        w.document.close();
-    }
-
-    function getQRPathFromButton(btn) {
-        if (!btn) {
-            return null;
-        }
-        const direct = btn.getAttribute('data-qr');
-        if (direct) {
-            return direct;
-        }
-        const idAttr = btn.getAttribute('data-id');
-        if (!idAttr) {
-            return null;
-        }
-        const btnRow = btn.closest('tr');
-        if (btnRow && btnRow.dataset && btnRow.dataset.qr) {
-            return btnRow.dataset.qr;
-        }
-        const row = document.querySelector(`tr[data-id="${idAttr}"]`);
-        if (row && row.dataset && row.dataset.qr) {
-            return row.dataset.qr;
-        }
-        if (entradaActual && String(entradaActual.id) === String(idAttr) && entradaActual.qr) {
-            return resolverRuta(entradaActual.qr);
-        }
-        const fallback = resolverRuta(`archivos/qr/entrada_insumo_${idAttr}.png`);
-        return fallback || null;
-    }
-
-    document.addEventListener('click', function (e) {
-        const btn = e.target.closest('.btn-imprimir-qr, .btn-ver-qr');
-        if (!btn) {
-            return;
-        }
-        e.preventDefault();
-        const qrPath = getQRPathFromButton(btn);
-        if (qrPath) {
-            imprimirQRDesdeRuta(qrPath);
-            return;
-        }
-        const idAttr = btn.getAttribute('data-id');
-        if (idAttr) {
-            const fallback = resolverRuta(`archivos/qr/entrada_insumo_${idAttr}.png`);
-            if (fallback) {
-                imprimirQRDesdeRuta(fallback);
+    if (imprimirQrBtn) {
+        imprimirQrBtn.addEventListener('click', function () {
+            var entradaIdAttr = this.dataset.entradaId || '';
+            var entradaId = parseInt(entradaIdAttr, 10);
+            if (!Number.isFinite(entradaId) || entradaId <= 0) {
+                alert('No hay un QR disponible para imprimir.');
                 return;
             }
-        }
-        alert('No se encontró un QR disponible para imprimir.');
-    });
+            var btn = this;
+            var originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Imprimiendo...';
+            var restaurarBoton = function () {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            };
+            fetch('../../api/insumos/imprimir_qrs_entrada.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ entrada_ids: [entradaId] })
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('HTTP ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(function (payload) {
+                    if (!payload || payload.success !== true) {
+                        throw new Error(payload && payload.mensaje ? payload.mensaje : 'No se pudo imprimir');
+                    }
+                    var resultado = payload.resultado || {};
+                    var impresos = (typeof resultado.impresos !== 'undefined') ? resultado.impresos : null;
+                    restaurarBoton();
+                    if (impresos !== null) {
+                        alert('Solicitud de impresión enviada (' + impresos + ' QR).');
+                    } else {
+                        alert('Solicitud de impresión enviada correctamente.');
+                    }
+                })
+                .catch(function (error) {
+                    console.error(error);
+                    restaurarBoton();
+                    alert('No fue posible imprimir el QR: ' + error.message);
+                });
+        });
+    }
 
     if (retiroQrImprimirBtn) {
         retiroQrImprimirBtn.addEventListener('click', function () {
@@ -336,12 +297,6 @@ ob_start();
         const fragment = document.createDocumentFragment();
         movimientos.forEach(function (movimiento) {
             const tr = document.createElement('tr');
-            const movimientoId = movimiento && (movimiento.id || movimiento.movimiento_id)
-                ? (movimiento.id || movimiento.movimiento_id)
-                : null;
-            if (movimientoId) {
-                tr.dataset.id = String(movimientoId);
-            }
 
             const fechaTd = document.createElement('td');
             fechaTd.textContent = movimiento && movimiento.fecha ? String(movimiento.fecha) : '-';
@@ -392,16 +347,13 @@ ob_start();
 
             const rutaQr = movimiento ? resolverRuta(movimiento.qr_imagen) : '';
             if (rutaQr) {
-                tr.dataset.qr = rutaQr;
-                const verQrBtn = document.createElement('button');
-                verQrBtn.type = 'button';
-                verQrBtn.className = 'btn btn-sm btn-outline-primary btn-ver-qr';
-                if (movimientoId) {
-                    verQrBtn.setAttribute('data-id', String(movimientoId));
-                }
-                verQrBtn.setAttribute('data-qr', rutaQr);
-                verQrBtn.textContent = 'Ver QR';
-                acciones.appendChild(verQrBtn);
+                const linkQr = document.createElement('a');
+                linkQr.href = rutaQr;
+                linkQr.target = '_blank';
+                linkQr.rel = 'noopener';
+                linkQr.className = 'btn btn-sm btn-outline-primary';
+                linkQr.textContent = 'Ver QR';
+                acciones.appendChild(linkQr);
                 tieneAccion = true;
             }
 
@@ -638,10 +590,7 @@ ob_start();
                     imprimirQrBtn.classList.remove('d-none');
                     imprimirQrBtn.disabled = false;
                     imprimirQrBtn.textContent = 'Imprimir QR';
-                    if (data && data.id) {
-                        imprimirQrBtn.dataset.id = String(data.id);
-                    }
-                    imprimirQrBtn.dataset.qr = absoluteQr;
+                    imprimirQrBtn.dataset.entradaId = data && data.id ? String(data.id) : '';
                 }
                 if (qrEmpty) {
                     qrEmpty.classList.add('d-none');
@@ -653,8 +602,7 @@ ob_start();
                     imprimirQrBtn.classList.add('d-none');
                     imprimirQrBtn.disabled = false;
                     imprimirQrBtn.textContent = 'Imprimir QR';
-                    delete imprimirQrBtn.dataset.id;
-                    delete imprimirQrBtn.dataset.qr;
+                    delete imprimirQrBtn.dataset.entradaId;
                 }
                 if (qrEmpty) {
                     qrEmpty.classList.remove('d-none');
