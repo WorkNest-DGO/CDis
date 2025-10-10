@@ -122,7 +122,7 @@ ob_start();
 .merma-qr-item a { display:inline-flex; border-radius:4px; overflow:hidden; }
 .merma-qr-item img { max-width:120px; height:auto; display:block; }
 .merma-qr-item button { width:100%; }
-.merma-section h6 { font-weight:600; margin-bottom:6px; }
+.merma-section h6 {color:black; font-weight:600; margin-bottom:6px; }
 </style>
 
 <div id="sec-crear-grupo" class="container my-3" style="<?= ($__puede_toolbar && $__corte_id_abierto>0) ? '' : 'display:none'; ?>">
