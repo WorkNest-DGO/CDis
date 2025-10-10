@@ -127,6 +127,27 @@ window.alert = showAppMsg;
     try{ const r = await fetch('../../api/cocina/mover_grupo.php', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ pedido, nuevo_estado }) }); const j = await r.json(); if (!r.ok || j.success === false){ alert(j.mensaje || 'No se pudo mover'); return false; } return true; }catch(e){ alert('Error de red'); return false; }
   }
 
+  async function imprimirMermaQr(movIds, triggerBtn){
+    if (!Array.isArray(movIds) || movIds.length === 0){ alert('Sin movimientos para imprimir'); return; }
+    const btn = triggerBtn || null;
+    if (btn) btn.disabled = true;
+    try {
+      const r = await fetch('../../api/cocina/imprimir_qrs_merma.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ movimiento_ids: movIds }) });
+      let j = null;
+      try { j = await r.json(); } catch(e) { j = null; }
+      if (!r.ok || !j || j.success === false){
+        const msg = (j && (j.mensaje || (j.resultado && j.resultado.mensaje))) || 'No se pudo imprimir';
+        throw new Error(msg);
+      }
+      const impresos = (j.resultado && typeof j.resultado.impresos !== 'undefined') ? j.resultado.impresos : (typeof j.impresos !== 'undefined' ? j.impresos : movIds.length);
+      alert(`Se envió a imprimir ${impresos} QR${impresos === 1 ? '' : 's'} de merma.`);
+    } catch (err) {
+      alert(err && err.message ? err.message : 'Error al imprimir');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   async function apiCompleteGrupo(pedido, cantidad_resultante, mermas, motivo){
     try{ const r = await fetch('../../api/cocina/completar_grupo.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ pedido, cantidad_resultante, mermas, motivo_merma: motivo||'' }) }); const j = await r.json(); if (!r.ok || j.success === false){ alert(j.mensaje || 'No se pudo completar'); return null; } return j; }catch(e){ alert('Error de red'); return null; }
   }
@@ -285,6 +306,8 @@ window.alert = showAppMsg;
             const rel = String(qrObj.qr || '');
             if (!rel) return;
             const path = '../../' + rel.replace(/^\/+/, '');
+            const itemWrap = document.createElement('div');
+            itemWrap.className = 'merma-qr-item';
             const link = document.createElement('a');
             link.href = path;
             link.target = '_blank';
@@ -295,7 +318,20 @@ window.alert = showAppMsg;
             img.alt = `QR merma ${p.insumo_origen}`;
             img.loading = 'lazy';
             link.appendChild(img);
-            grid.appendChild(link);
+            itemWrap.appendChild(link);
+            const movId = Number(qrObj.movimiento_id || qrObj.id || 0);
+            const btnPrint = document.createElement('button');
+            btnPrint.type = 'button';
+            btnPrint.className = 'btn btn-sm btn-primary merma-qr-print-btn';
+            btnPrint.textContent = 'Imprimir';
+            if (movId > 0) {
+              btnPrint.addEventListener('click', () => imprimirMermaQr([movId], btnPrint));
+            } else {
+              btnPrint.disabled = true;
+              btnPrint.title = 'Movimiento no disponible';
+            }
+            itemWrap.appendChild(btnPrint);
+            grid.appendChild(itemWrap);
           });
           section.appendChild(grid);
           body.appendChild(section);

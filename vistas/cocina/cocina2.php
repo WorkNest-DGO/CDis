@@ -118,8 +118,10 @@ ob_start();
 .board-entregado h3 { background:#f5f5f5; border-color:#e5e5e5; }
 .board-entregado .kanban-item { border-left-color:#7f8c8d; opacity:.85; }
 .merma-qr-grid { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
-.merma-qr-grid a { display:inline-flex; border:1px solid #e0e0e0; border-radius:6px; padding:4px; background:#fff; }
-.merma-qr-grid img { max-width:120px; height:auto; border-radius:4px; }
+.merma-qr-item { display:flex; flex-direction:column; align-items:center; gap:6px; border:1px solid #e0e0e0; border-radius:6px; padding:6px; background:#fff; min-width:120px; }
+.merma-qr-item a { display:inline-flex; border-radius:4px; overflow:hidden; }
+.merma-qr-item img { max-width:120px; height:auto; display:block; }
+.merma-qr-item button { width:100%; }
 .merma-section h6 { font-weight:600; margin-bottom:6px; }
 </style>
 
