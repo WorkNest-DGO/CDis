@@ -7,40 +7,52 @@
 header('Content-Type: application/json');
 
 $whitelist = [
-    'vista_productos_mas_vendidos',
-    'vista_resumen_cortes',
-    'vista_resumen_pagos',
-    'vista_ventas_diarias',
-    'vista_ventas_por_mesero',
-    'vw_consumo_insumos',
-    'vw_corte_resumen',
-    'vw_ventas_detalladas',
-    'logs_accion',
-    'log_asignaciones_mesas',
-    'log_mesas',
-    'movimientos_insumos',
-    'fondo',
+    // Vistas KPIs actuales
+    'vw_compras_por_proveedor',
+    'vw_compras_por_insumo',
+    'vw_consumo_por_insumo',
+    'vw_reabasto_alertas',
+    'vw_procesos_rendimiento',
+    'vw_bajo_stock',
+    'vw_existencias_y_cobertura',
+    // Tablas base habituales (se filtran por existencia)
     'insumos',
+    'proveedores',
+    'entradas_insumos',
+    'movimientos_insumos',
+    'reabasto_alertas',
+    'reabasto_metricas',
+    'cortes_almacen',
+    'cortes_almacen_detalle',
     'tickets',
     'ventas',
-    'qrs_insumo'
+    'qrs_insumo',
+    'impresoras',
+    'direccion_qr'
 ];
 
 try {
     // Conexión
     $config = __DIR__ . '/../../config/db.php';
     if (file_exists($config)) {
-        require $config; // provee $host, $user, $pass, $db
+        require $config; // provee $conn (mysqli) y posibles $pdoCdi*
     }
-    $host = $host ?? getenv('DB_HOST') ?? 'localhost';
-    $db   = $db   ?? getenv('DB_NAME') ?? 'restaurante';
-    $user = $user ?? getenv('DB_USER') ?? 'root';
-    $pass = $pass ?? getenv('DB_PASS') ?? '';
-    $dsn = "mysql:host={$host};dbname={$db};charset=utf8mb4";
-    $pdo = new PDO($dsn, $user, $pass, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ]);
+    // Tomar variables de entorno del proyecto CDI si no hay config previa de host/credenciales
+    $host = $host ?? getenv('CDI_DB_HOST') ?? 'localhost';
+    $db   = $db   ?? getenv('CDI_DB_NAME') ?? 'restaurante_cdis';
+    $user = $user ?? getenv('CDI_DB_USER') ?? 'root';
+    $pass = $pass ?? getenv('CDI_DB_PASS') ?? '';
+    // Intentar reutilizar PDO de config si existe
+    if (isset($pdoCdi1) && $pdoCdi1 instanceof PDO) {
+        $pdo = $pdoCdi1;
+    } else {
+        $dsn = "mysql:host={$host};dbname={$db};charset=utf8mb4";
+        $pdo = new PDO($dsn, $user, $pass, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]);
+        $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_general_ci");
+    }
 
     $action = $_GET['action'] ?? '';
 
