@@ -27,6 +27,7 @@ window.alert = showAppMsg;
   const selDestinoGrupo = qs('#selInsumoDestinoGrupo');
   const inpObsGrupo = qs('#inpObsProcGrupo');
   const btnCrearGrupo = qs('#btnCrearGrupo');
+  const selImpresora = qs('#selImpresoraCocina');
 
   let cache = [];
   let grupoActual = null; // para completar grupo
@@ -57,8 +58,17 @@ window.alert = showAppMsg;
       `;
       bindDragGroup(card);
       const col = cols[g.estado] || cols.pendiente; if (col) col.appendChild(card);
-      card.querySelector('.btn-qr')?.addEventListener('click', ()=>{
+      card.querySelector('.btn-qr')?.addEventListener('click', async ()=>{
         const src = card.querySelector('.btn-qr')?.getAttribute('data-src'); if (src) window.open('../../' + src.replace(/^\/+/, ''), '_blank');
+        try {
+          const eid = Number(g.entrada_insumo_id || 0);
+          if (eid > 0){
+            let url = '../../api/insumos/imprimir_qrs_entrada.php';
+            const v = (selImpresora && selImpresora.value) ? selImpresora.value : '';
+            if (v) url += ('?printer_ip=' + encodeURIComponent(v));
+            await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ entrada_ids: [eid] }) });
+          }
+        } catch(e) {}
       });
       card.querySelector('.btn-merma')?.addEventListener('click', ()=>{ mostrarMermaQrModal(g); });
       card.querySelector('.btn-completar-grupo')?.addEventListener('click', ()=>{ grupoActual = g; ensureCompletarGrupoModal(g); });
@@ -132,7 +142,9 @@ window.alert = showAppMsg;
     const btn = triggerBtn || null;
     if (btn) btn.disabled = true;
     try {
-      const r = await fetch('../../api/cocina/imprimir_qrs_merma.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ movimiento_ids: movIds }) });
+      let url = '../../api/cocina/imprimir_qrs_merma.php';
+      try { const v = (selImpresora && selImpresora.value) ? selImpresora.value : ''; if (v) url += ('?printer_ip=' + encodeURIComponent(v)); } catch(e) {}
+      const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ movimiento_ids: movIds }) });
       let j = null;
       try { j = await r.json(); } catch(e) { j = null; }
       if (!r.ok || !j || j.success === false){
@@ -195,6 +207,23 @@ window.alert = showAppMsg;
   }
   try { watchCorte(); } catch(e) {}
   loadInsumos().then(cargarProcesos).catch(()=>{});
+
+  // Cargar impresoras
+  function cargarImpresoras($sel){
+    fetch('/CDI/api/impresoras/listar.php', {cache:'no-store'})
+      .then(r=>r.json()).then(j=>{
+        const data = j && (j.resultado || j.data) || [];
+        if(!$sel) return;
+        $sel.innerHTML = '<option value="">(Selecciona impresora)</option>';
+        (data||[]).forEach(p=>{
+          const opt = document.createElement('option');
+          opt.value = p.ip;
+          opt.textContent = ((p.lugar||'') + ' — ' + p.ip).trim();
+          $sel.appendChild(opt);
+        });
+      }).catch(()=>{});
+  }
+  try { if (selImpresora) cargarImpresoras(selImpresora); } catch(e) {}
 
   // Modal completar grupo
   function ensureCompletarGrupoModal(g){

@@ -22,13 +22,13 @@ if (!$hasNota) {
 }
 
 $sql = "SELECT e.id, e.fecha, e.insumo_id, e.proveedor_id, e.descripcion, e.cantidad, e.unidad,
-               e.costo_total, e.nota,
+               e.costo_total, e.nota, e.credito,
                p.nombre AS proveedor, i.nombre AS producto
-        FROM entradas_insumos e
-        LEFT JOIN proveedores p ON p.id = e.proveedor_id
-        LEFT JOIN insumos i ON i.id = e.insumo_id
-        WHERE e.nota = ?
-        ORDER BY e.fecha DESC, e.id DESC";
+         FROM entradas_insumos e
+         LEFT JOIN proveedores p ON p.id = e.proveedor_id
+         LEFT JOIN insumos i ON i.id = e.insumo_id
+         WHERE e.nota = ?
+         ORDER BY e.fecha DESC, e.id DESC";
 $stmt = $conn->prepare($sql);
 if (!$stmt) { error('Error al preparar consulta: ' . $conn->error); }
 $stmt->bind_param('i', $nota);
@@ -40,4 +40,3 @@ $stmt->close();
 
 success($rows);
 ?>
-

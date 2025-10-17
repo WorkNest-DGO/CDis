@@ -37,29 +37,59 @@ if ($token !== '') {
     $mensaje = 'QR inválido';
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$mensaje && $qr) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$mensaje && !empty($qr)) {
     $obs = trim($_POST['observaciones'] ?? '');
-    $usuario_id = $_SESSION['usuario_id'];
-    $conn->begin_transaction();
+    $usuario_id = (int)($_SESSION['usuario_id'] ?? 0);
+
+    // Selección de BD de destino para insertar (opcional)
+    $destKey = isset($_POST['dest_db']) ? trim($_POST['dest_db']) : '';
+    $destPdo = null;
+    if ($destKey !== '' && function_exists('cdi_pdo_by_key')) {
+        $destPdo = cdi_pdo_by_key($destKey);
+    }
+
+    $usingLocal = !($destPdo instanceof PDO);
     try {
-        $upd = $conn->prepare('UPDATE insumos SET existencia = existencia + ? WHERE id = ?');
-        $mov = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, usuario_destino_id, insumo_id, cantidad, observacion, qr_token) VALUES ('entrada', ?, ?, ?, ?, ?, ?)");
-        foreach ($datos as $d) {
-            $upd->bind_param('di', $d['cantidad'], $d['id']);
-            if (!$upd->execute()) throw new Exception($upd->error);
+        if ($usingLocal) {
+            // Inserción en BD actual
+            $conn->begin_transaction();
+            $upd = $conn->prepare('UPDATE insumos SET existencia = existencia + ? WHERE id = ?');
+            $mov = $conn->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, usuario_destino_id, insumo_id, cantidad, observacion, qr_token) VALUES ('entrada', ?, ?, ?, ?, ?, ?)");
+            foreach ($datos as $d) {
+                $cant = (float)$d['cantidad']; $iid = (int)$d['id'];
+                $upd->bind_param('di', $cant, $iid);
+                if (!$upd->execute()) throw new Exception($upd->error);
 
-            $mov->bind_param('iiidss', $usuario_id, $qr['creado_por'], $d['id'], $d['cantidad'], $obs, $token);
-            if (!$mov->execute()) throw new Exception($mov->error);
+                $mov->bind_param('iiidss', $usuario_id, $qr['creado_por'], $iid, $cant, $obs, $token);
+                if (!$mov->execute()) throw new Exception($mov->error);
+            }
+            $upd->close();
+            $mov->close();
+        } else {
+            // Inserción en BD destino (PDO)
+            $destPdo->beginTransaction();
+            $stmtUpd = $destPdo->prepare('UPDATE insumos SET existencia = existencia + :cant WHERE id = :id');
+            $stmtMov = $destPdo->prepare("INSERT INTO movimientos_insumos (tipo, usuario_id, usuario_destino_id, insumo_id, cantidad, observacion, qr_token) VALUES ('entrada', :uid, :uorig, :iid, :cant, :obs, :tok)");
+            foreach ($datos as $d) {
+                $stmtUpd->execute([':cant' => (float)$d['cantidad'], ':id' => (int)$d['id']]);
+                $stmtMov->execute([
+                    ':uid' => $usuario_id,
+                    ':uorig' => (int)$qr['creado_por'],
+                    ':iid' => (int)$d['id'],
+                    ':cant' => (float)$d['cantidad'],
+                    ':obs' => $obs,
+                    ':tok' => $token,
+                ]);
+            }
+            $destPdo->commit();
         }
-        $upd->close();
-        $mov->close();
 
+        // Generar PDF y actualizar estado del QR (SIEMPRE en la BD actual)
         $dirPdf = __DIR__ . '/../../uploads/qrs';
-        if (!is_dir($dirPdf)) {
-            mkdir($dirPdf, 0777, true);
-        }
+        if (!is_dir($dirPdf)) { mkdir($dirPdf, 0777, true); }
         $pdf_recepcion = 'uploads/qrs/recepcion_' . $token . '.pdf';
 
+        // Nombres de usuarios
         $stmtNombre = $conn->prepare('SELECT nombre FROM usuarios WHERE id = ?');
         $stmtNombre->bind_param('i', $qr['creado_por']);
         $stmtNombre->execute();
@@ -78,12 +108,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$mensaje && $qr) {
         $lineas[] = 'Fecha: ' . date('Y-m-d H:i');
         $lineas[] = 'Entregado por: ' . $nombre_envia;
         $lineas[] = 'Recibido por: ' . $nombre_recibe;
-        if ($obs !== '') {
-            $lineas[] = 'Observaciones: ' . $obs;
-        }
-        foreach ($datos as $d) {
-            $lineas[] = $d['nombre'] . ' - ' . $d['cantidad'] . ' ' . $d['unidad'];
-        }
+        if ($obs !== '') { $lineas[] = 'Observaciones: ' . $obs; }
+        foreach ($datos as $d) { $lineas[] = $d['nombre'] . ' - ' . $d['cantidad'] . ' ' . $d['unidad']; }
         generar_pdf_simple(__DIR__ . '/../../' . $pdf_recepcion, 'Recepción de insumos', $lineas);
 
         $upqr = $conn->prepare('UPDATE qrs_insumo SET estado = "confirmado", pdf_recepcion = ? WHERE id = ?');
@@ -91,10 +117,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$mensaje && $qr) {
         if (!$upqr->execute()) throw new Exception($upqr->error);
         $upqr->close();
 
-        $conn->commit();
+        if ($usingLocal) { $conn->commit(); }
         $mensaje = 'Recepción registrada';
-    } catch (Exception $e) {
-        $conn->rollback();
+    } catch (Throwable $e) {
+        if ($usingLocal && method_exists($conn, 'rollback')) { $conn->rollback(); }
+        if ($destPdo instanceof PDO && $destPdo->inTransaction()) { $destPdo->rollBack(); }
         $mensaje = 'Error al registrar recepción';
     }
 }
@@ -116,7 +143,7 @@ ob_start();
             </div>
         </div>
     </div>
-</div>
+    </div>
 <div class="container mt-4">
     <h2 class="text-white">Recepción de insumos</h2>
     <?php if ($mensaje): ?>
@@ -125,6 +152,15 @@ ob_start();
 
     <?php if ($datos && !$mensaje): ?>
         <form method="post">
+            <div class="mb-3">
+                <label class="text-white" for="dest_db">Insertar en BD</label>
+                <select class="form-select" name="dest_db" id="dest_db">
+                    <option value="">BD actual (esta)</option>
+                    <?php if (isset($CDI_DB_OPTIONS) && is_array($CDI_DB_OPTIONS)): foreach ($CDI_DB_OPTIONS as $k=>$opt): if (!empty($opt['pdo'])): ?>
+                        <option value="<?= htmlspecialchars($k) ?>"><?= htmlspecialchars($opt['label'] ?? $k) ?></option>
+                    <?php endif; endforeach; endif; ?>
+                </select>
+            </div>
             <div class="table-responsive">
                 <table class="styled-table">
                     <thead>
@@ -156,7 +192,7 @@ ob_start();
             </form>
     <?php endif; ?>
 
-    <?php if ($qr && !$mensaje): ?>
+    <?php if (!empty($qr) && !$mensaje): ?>
       <div class="mt-3">
         <h4 class="text-white">Devoluciones</h4>
         <div class="table-responsive">
@@ -183,7 +219,7 @@ ob_start();
 $content = ob_get_clean();
 include __DIR__ . '/../nav.php';
 ?>
-<?php if ($qr && !$mensaje): ?>
+<?php if (!empty($qr) && !$mensaje): ?>
 <script>
 const token = <?= json_encode($token) ?>;
 async function cargarResumen(){
@@ -238,4 +274,5 @@ document.getElementById('btnPDFRecep')?.addEventListener('click', ()=>{
 cargarResumen();
 </script>
 <?php endif; ?>
+
 

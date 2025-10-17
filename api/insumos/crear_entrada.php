@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../utils/response.php';
 require_once __DIR__ . '/../../utils/phpqrcode/qrlib.php';
@@ -85,8 +85,14 @@ if (!is_array($productos) || count($productos) === 0) {
 $descripcionGlobal = trim($_POST['descripcion'] ?? '');
 $referenciaGlobal = trim($_POST['referencia_doc'] ?? '');
 $folioGlobal = trim($_POST['folio_fiscal'] ?? '');
-$credito = isset($_POST['credito']) ? (int) $_POST['credito'] : 0;
-$credito = ($credito === 1) ? 1 : 0;
+
+// Tipo de pago: aceptar 'efectivo', 'credito', 'transferencia' (compatibilidad con 0/1)
+$credito = isset($_POST['credito']) ? (string) $_POST['credito'] : '';
+$credito = strtolower(trim($credito));
+if ($credito === '1' || $credito === 'true') { $credito = 'credito'; }
+if ($credito === '0' || $credito === 'false') { $credito = 'efectivo'; }
+$permitidos = ['efectivo','credito','transferencia'];
+if (!in_array($credito, $permitidos, true)) { $credito = 'efectivo'; }
 
 try {
     $verProveedor = $conn->prepare('SELECT id FROM proveedores WHERE id = ?');
@@ -113,12 +119,7 @@ try {
         $rsCol = $conn->query("SHOW COLUMNS FROM entradas_insumos LIKE 'corte_id'");
         if ($rsCol && $rsCol->num_rows > 0) { $hasCorteCol = true; }
     } catch (Throwable $e) { $hasCorteCol = false; }
-    if ($hasCorteCol) {
-        try {
-            $rsC = $conn->query("SELECT id FROM cortes_almacen WHERE fecha_fin IS NULL ORDER BY id DESC LIMIT 1");
-            if ($rsC && ($rC = $rsC->fetch_assoc())) { $corteId = (int)$rC['id']; }
-        } catch (Throwable $e) { $corteId = 0; }
-    }
+
     // Detectar columna 'nota' e inicializar consecutivo incremental por lote de compra
     $hasNotaCol = false; $nota = null;
     try {
@@ -181,7 +182,8 @@ try {
         $qrPlaceholder = 'pendiente';
 
         // Bind dinámico respetando columnas opcionales (nota, corte_id)
-        $types = 'iiisdsdsssdi';
+        // Cambio: 'credito' ahora es ENUM (texto), no entero
+        $types = 'iiisdsdsssds';
         $bindValues = [
             &$insumoId,
             &$proveedorId,
@@ -268,3 +270,5 @@ try {
         'error' => $e->getMessage()
     ], JSON_UNESCAPED_UNICODE);
 }
+
+?>

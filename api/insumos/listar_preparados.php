@@ -6,45 +6,43 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     error('Metodo no permitido');
 }
 
-$credito   = isset($_GET['credito']) && $_GET['credito'] !== '' ? strtolower(trim((string)$_GET['credito'])) : null; // 'efectivo'|'credito'|'transferencia'|null
-$pagado    = isset($_GET['pagado']) && $_GET['pagado'] !== '' ? (int)$_GET['pagado'] : null;   // 0|1|null
-$q         = isset($_GET['q']) ? trim($_GET['q']) : '';
-$date_from = isset($_GET['date_from']) ? trim($_GET['date_from']) : '';
-$date_to   = isset($_GET['date_to']) ? trim($_GET['date_to']) : '';
-$page      = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-$page_size = isset($_GET['page_size']) ? (int)$_GET['page_size'] : 0;
+$producto   = isset($_GET['producto']) ? trim($_GET['producto']) : '';
+$unidad     = isset($_GET['unidad']) ? trim($_GET['unidad']) : '';
+$cmin       = isset($_GET['cantidad_min']) && $_GET['cantidad_min'] !== '' ? (float)$_GET['cantidad_min'] : null;
+$cmax       = isset($_GET['cantidad_max']) && $_GET['cantidad_max'] !== '' ? (float)$_GET['cantidad_max'] : null;
+$date_from  = isset($_GET['date_from']) ? trim($_GET['date_from']) : '';
+$date_to    = isset($_GET['date_to']) ? trim($_GET['date_to']) : '';
+$page       = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$page_size  = isset($_GET['page_size']) ? (int)$_GET['page_size'] : 0;
 if (!in_array($page_size, [0, 15, 30, 50], true)) { $page_size = 0; }
 
- $where = [];
- // No listar entradas sin tipo de pago
- $where[] = 'e.credito IS NOT NULL';
+$where = [];
 $params = [];
 $types = '';
 
-if ($credito !== null) {
-    // Compat: aceptar 0/1 o strings
-    if ($credito === '1') { $credito = 'credito'; }
-    if ($credito === '0') { $credito = 'efectivo'; }
-    // Si viene un valor no permitido, ignorar filtro
-    if (in_array($credito, ['efectivo','credito','transferencia'], true)) {
-        $where[] = 'e.credito = ?';
-        $types .= 's';
-        $params[] = $credito;
-    }
+// Solo registros con tipo de pago NULL
+$where[] = 'e.credito IS NULL';
+
+if ($producto !== '') {
+    $where[] = 'LOWER(i.nombre) LIKE ?';
+    $types .= 's';
+    $params[] = '%' . strtolower($producto) . '%';
 }
-if ($pagado !== null) {
-    $where[] = 'COALESCE(e.pagado, 0) = ?';
-    $types .= 'i';
-    $params[] = $pagado;
+if ($unidad !== '') {
+    $where[] = 'LOWER(e.unidad) LIKE ?';
+    $types .= 's';
+    $params[] = '%' . strtolower($unidad) . '%';
 }
-// Búsqueda case-insensitive: forzar LOWER() de columnas y parámetro en minúsculas
-if ($q !== '') {
-    $where[] = '(LOWER(i.nombre) LIKE ? OR LOWER(p.nombre) LIKE ? OR LOWER(e.descripcion) LIKE ? OR LOWER(e.referencia_doc) LIKE ? OR LOWER(e.folio_fiscal) LIKE ?)';
-    $types .= 'sssss';
-    $like = '%' . strtolower($q) . '%';
-    array_push($params, $like, $like, $like, $like, $like);
+if ($cmin !== null) {
+    $where[] = 'e.cantidad >= ?';
+    $types .= 'd';
+    $params[] = $cmin;
 }
-// Filtro por rango de fechas (inclusive): [date_from 00:00:00, date_to +1d 00:00:00)
+if ($cmax !== null) {
+    $where[] = 'e.cantidad <= ?';
+    $types .= 'd';
+    $params[] = $cmax;
+}
 if ($date_from !== '' && $date_to !== '') {
     $where[] = '(e.fecha >= ? AND e.fecha < DATE_ADD(DATE(?), INTERVAL 1 DAY))';
     $types .= 'ss';
@@ -54,23 +52,16 @@ if ($date_from !== '' && $date_to !== '') {
 
 $whereSql = count($where) ? (' WHERE ' . implode(' AND ', $where)) : '';
 
-// Base SELECT
-$selectSql = "SELECT e.id, e.fecha, e.insumo_id, e.proveedor_id, e.usuario_id, e.descripcion,
-                     e.cantidad, e.unidad, e.costo_total, e.valor_unitario,
-                     e.referencia_doc, e.folio_fiscal, e.qr, e.cantidad_actual,
-                     e.credito, e.pagado,
-                     p.nombre AS proveedor, i.nombre AS producto
+$selectSql = "SELECT e.id, e.fecha, e.cantidad, e.unidad, e.costo_total,
+                     i.nombre AS producto
               FROM entradas_insumos e
-              LEFT JOIN proveedores p ON p.id = e.proveedor_id
               LEFT JOIN insumos i ON i.id = e.insumo_id
               $whereSql
               ORDER BY e.fecha DESC, e.id DESC";
 
-// Si hay paginación solicitada, calcular total y aplicar LIMIT/OFFSET
 if ($page_size > 0) {
     $countSql = "SELECT COUNT(*) AS total
                  FROM entradas_insumos e
-                 LEFT JOIN proveedores p ON p.id = e.proveedor_id
                  LEFT JOIN insumos i ON i.id = e.insumo_id
                  $whereSql";
     $total = 0;
@@ -102,12 +93,11 @@ if ($page_size > 0) {
         $stmt->close();
     } else {
         $result = $conn->query($selectSql);
-        if (!$result) { error('Error al obtener entradas: ' . $conn->error); }
+        if (!$result) { error('Error al obtener preparados: ' . $conn->error); }
         while ($r = $result->fetch_assoc()) { $rows[] = $r; }
     }
     success(['rows' => $rows, 'total' => $total, 'page' => $page, 'page_size' => $page_size, 'pages' => $pages]);
 } else {
-    // Sin paginación: devolver arreglo simple para compatibilidad
     $rows = [];
     if ($types !== '') {
         $stmt = $conn->prepare($selectSql);
@@ -119,8 +109,10 @@ if ($page_size > 0) {
         $stmt->close();
     } else {
         $result = $conn->query($selectSql);
-        if (!$result) { error('Error al obtener entradas: ' . $conn->error); }
+        if (!$result) { error('Error al obtener preparados: ' . $conn->error); }
         while ($r = $result->fetch_assoc()) { $rows[] = $r; }
     }
     success($rows);
 }
+
+?>

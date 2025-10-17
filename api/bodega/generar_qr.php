@@ -7,7 +7,7 @@ require_once __DIR__ . '/../../utils/phpqrcode/qrlib.php';
 
 // Base de la URL donde se alojará el sistema para los códigos QR
 if (!defined('URL_BASE_QR')) {
-    define('URL_BASE_QR', 'http://192.168.1.4080');
+    define('URL_BASE_QR', 'https://tokyosushiprime.com');
 }
 
 // Constante utilizada por la librería de QR
@@ -77,7 +77,23 @@ $stmtU->close();
 $token = generarToken();
 $conn->begin_transaction();
 try {
-    $urlQR = URL_BASE_QR . '/CDI/vistas/bodega/recepcion_qr.php?token=' . $token;
+    // Resolver URL base para el QR desde la entrada y validarla contra la BD (direccion_qr)
+    $__base = defined('URL_BASE_QR') ? URL_BASE_QR : 'https://tokyosushiprime.com';
+    if (isset($input['url_base']) && is_string($input['url_base']) && trim($input['url_base']) !== '') {
+        $cand = trim($input['url_base']);
+        $qdir = $conn->prepare('SELECT ip FROM direccion_qr WHERE ip = ? LIMIT 1');
+        if ($qdir) {
+            $qdir->bind_param('s', $cand);
+            if ($qdir->execute()) {
+                $rdir = $qdir->get_result();
+                if ($rdir && ($row = $rdir->fetch_assoc()) && !empty($row['ip'])) {
+                    $__base = $row['ip'];
+                }
+            }
+            $qdir->close();
+        }
+    }
+    $urlQR = $__base . '/CDI/vistas/bodega/recepcion_qr.php?token=' . $token;
     $json = json_encode($seleccionados, JSON_UNESCAPED_UNICODE);
     $ins = $conn->prepare('INSERT INTO qrs_insumo (token, json_data, estado, creado_por, creado_en) VALUES (?, ?, "pendiente", ?, NOW())');
     if (!$ins) throw new Exception($conn->error);

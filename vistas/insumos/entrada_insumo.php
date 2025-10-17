@@ -69,6 +69,9 @@ ob_start();
                     <div class="border rounded p-3 h-100 d-flex flex-column justify-content-center">
                         <img id="entrada-qr" src="" alt="Código QR" class="img-fluid mx-auto mb-3 d-none" style="max-width: 260px;">
                         <p id="entrada-sin-qr" class="text-muted">No se encontró un código QR asociado.</p>
+                        <div class="print-controls mb-2">
+                          <select class="sel-impresora"><option value="">(Selecciona impresora)</option></select>
+                        </div>
                         <button id="entrada-qr-imprimir" type="button" class="btn custom-btn d-none">Imprimir QR</button>
                         <div id="retiro-qr-container" class="mt-4 d-none">
                             <h5 class="text-dark">Última salida registrada</h5>
@@ -76,6 +79,9 @@ ob_start();
                             <p class="text-muted small mb-2">Token: <code id="retiro-qr-token">—</code></p>
                             <p class="text-muted small mb-2">URL de consulta: <code id="retiro-qr-consulta-text">—</code></p>
                             <img id="retiro-qr-img" src="" alt="Código QR de salida" class="img-fluid mx-auto mb-2 d-none" style="max-width: 220px;">
+                            <div class="print-controls mb-2">
+                              <select class="sel-impresora"><option value="">(Selecciona impresora)</option></select>
+                            </div>
                             <button id="retiro-qr-imprimir" type="button" class="btn btn-sm custom-btn d-none">Imprimir QR de salida</button>
                             <a id="retiro-qr-consulta" href="#" class="btn btn-sm btn-outline-primary mt-2 d-none" target="_blank" rel="noopener">Abrir detalles del retiro</a>
                         </div>
@@ -89,6 +95,10 @@ ob_start();
             </div>
             <div class="mt-4" id="historial-retiros-section">
                 <h5 class="text-dark">Historial de retiros</h5>
+                <div class="print-controls mb-2">
+                    <label class="text-muted small mb-1">Impresora</label>
+                    <select class="sel-impresora form-select form-select-sm"><option value="">(Selecciona impresora)</option></select>
+                </div>
                 <p id="historial-retiros-mensaje" class="text-muted small">Selecciona una entrada para consultar el historial de retiros.</p>
                 <div id="historial-retiros-wrapper" class="table-responsive d-none">
                     <table style="color:black" class="table table-sm table-hover table-bordered align-middle mb-0">
@@ -145,12 +155,22 @@ ob_start();
         return numero;
     }
 
-    function solicitarImpresionQrEntrada(entradaId) {
+function solicitarImpresionQrEntrada(entradaId, printerIp) {
         var idValido = obtenerIdEntradaValido(entradaId);
         if (!idValido) {
             return Promise.reject(new Error('No hay un QR disponible para imprimir.'));
         }
-        return fetch('../../api/insumos/imprimir_qrs_entrada.php', {
+    var url = '../../api/insumos/imprimir_qrs_entrada.php';
+    try {
+        if (printerIp && String(printerIp).trim() !== '') {
+            url += ('?printer_ip=' + encodeURIComponent(String(printerIp).trim()));
+        } else {
+            var selHist = document.querySelector('#historial-retiros-section .sel-impresora');
+            var sel = selHist || document.querySelector('.print-controls .sel-impresora');
+            if (sel && sel.value) { url += ('?printer_ip=' + encodeURIComponent(sel.value)); }
+        }
+    } catch(e) {}
+        return fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
@@ -220,7 +240,9 @@ ob_start();
                 btn.disabled = false;
                 btn.textContent = originalText;
             };
-            fetch('../../api/insumos/imprimir_qrs_salida.php', {
+            var urlSalida = '../../api/insumos/imprimir_qrs_salida.php';
+            try { var sel2 = document.querySelector('#retiro-qr-container .sel-impresora'); if (sel2 && sel2.value) { urlSalida += ('?printer_ip=' + encodeURIComponent(sel2.value)); } } catch(e) {}
+            fetch(urlSalida, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'same-origin',
@@ -790,6 +812,26 @@ ob_start();
         }
     })();
 })();
+</script>
+<script>
+// Carga de impresoras para selects en esta vista
+function cargarImpresoras($sel){
+  fetch('/rest2/CDI/api/impresoras/listar.php', { cache: 'no-store' })
+    .then(r=>r.json()).then(j=>{
+      const data = j && (j.resultado || j.data) || [];
+      if(!$sel) return;
+      $sel.innerHTML = '<option value="">(Selecciona impresora)</option>';
+      (data||[]).forEach(p=>{
+        const opt = document.createElement('option');
+        opt.value = p.ip;
+        opt.textContent = ((p.lugar||'') + ' — ' + p.ip).trim();
+        $sel.appendChild(opt);
+      });
+    }).catch(console.error);
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.sel-impresora').forEach(cargarImpresoras);
+});
 </script>
 <!-- Modal Retiro -->
 <div class="modal fade" id="modalRetiro" tabindex="-1" role="dialog" aria-hidden="true">

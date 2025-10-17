@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../utils/response.php';
 
-$query = "SELECT id, nombre, unidad, existencia, tipo_control, imagen FROM insumos ORDER BY nombre";
+$query = "SELECT id, nombre, unidad, existencia, tipo_control, imagen, minimo_stock, reque FROM insumos ORDER BY nombre";
 $result = $conn->query($query);
 
 if (!$result) {

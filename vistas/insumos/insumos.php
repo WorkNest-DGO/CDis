@@ -97,7 +97,11 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
                             </div>
                             <div class="form-group">
                                 <label for="existencia">Existencia:</label>
-                                <input type="number" step="0.01" id="existencia" class="form-control" value="0">
+                                <input type="number" step="0.01" id="existencia" class="form-control" value="0" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="minimo_stock">Mínimo en stock:</label>
+                                <input type="number" step="0.01" min="0" id="minimo_stock" class="form-control" placeholder="0.00" required>
                             </div>
                             <div class="form-group">
                                 <label for="tipo_control">Tipo:</label>
@@ -107,6 +111,17 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
                                     <option value="uso_general">uso_general</option>
                                     <option value="no_controlado">no_controlado</option>
                                     <option value="desempaquetado">desempaquetado</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="reque">Área/Requerimiento:</label>
+                                <select id="reque" class="form-control" required>
+                                    <option value="" disabled selected>--Selecciona--</option>
+                                    <option value="Zona Barra">Zona Barra</option>
+                                    <option value="Bebidas">Bebidas</option>
+                                    <option value="Refrigerdor">Refrigerdor</option>
+                                    <option value="Articulos_de_limpieza">Articulos_de_limpieza</option>
+                                    <option value="Plasticos y otros">Plasticos y otros</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -135,19 +150,27 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
     <form  id="form-entrada" class="bg-dark p-4 rounded" name="form-entrada">
         <div class="form-group">
             <label for="proveedor" class="text-white">Proveedor:</label>
-            <select id="proveedor" name="proveedor_id" class="form-control"></select>
+            <div class="selector-proveedor position-relative">
+                <input type="text" class="form-control buscador-proveedor" placeholder="Buscar proveedor...">
+                <select id="proveedor" name="proveedor_id" class="form-control d-none"></select>
+                <ul class="list-group lista-proveedores position-absolute w-100" style="z-index: 1000;"></ul>
+            </div>
             <button type="button" id="btnNuevoProveedor" class="btn custom-btn mt-2">Nuevo proveedor</button>
         </div>
 
         <div class="form-group">
             <label class="text-white d-block">Tipo de pago:</label>
             <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="credito" id="pagoEfectivo" value="0" checked>
+                <input class="form-check-input" type="radio" name="credito" id="pagoEfectivo" value="efectivo" checked>
                 <label class="form-check-label text-white" for="pagoEfectivo">Efectivo</label>
             </div>
             <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="credito" id="pagoCredito" value="1">
+                <input class="form-check-input" type="radio" name="credito" id="pagoCredito" value="credito">
                 <label class="form-check-label text-white" for="pagoCredito">Crédito</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="credito" id="pagoTransferencia" value="transferencia">
+                <label class="form-check-label text-white" for="pagoTransferencia">Transferencia</label>
             </div>
         </div>
 
@@ -162,7 +185,7 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
             </div>
         </div>
 
-        <div class="table-responsive">
+        
             <table id="tablaProductos" class="styled-table">
                 <thead>
                     <tr>
@@ -175,7 +198,13 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
                 </thead>
                 <tbody>
                     <tr class="fila-producto">
-                        <td><select class="form-control insumo_id" name="insumo_id"></select></td>
+                        <td>
+                            <div class="selector-insumo position-relative">
+                                <input type="text" class="form-control buscador-insumo" placeholder="Buscar insumo...">
+                                <select class="form-control insumo_id d-none" name="insumo_id"></select>
+                                <ul class="list-group lista-insumos position-absolute w-100" style="z-index: 1000;"></ul>
+                            </div>
+                        </td>
                         <td class="tipo">-</td>
                         <td><input type="number" class="form-control cantidad" name="cantidad" step="0.01" min="0"></td>
                         <td><input type="text" class="form-control unidad" name="unidad" readonly></td>
@@ -183,7 +212,7 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
                     </tr>
                 </tbody>
             </table>
-        </div>
+       
 
         <p class="text-white"><strong>Total: $<span id="total">0.00</span></strong></p>
 
@@ -383,9 +412,17 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
                 <p id="resumenEntradaMensaje" class="text-muted mb-3">Se generaron las siguientes entradas y códigos QR.</p>
                 <div id="resumenEntradasLista" class="row gy-3"></div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn custom-btn" id="btnImprimirResumen">Imprimir QRs</button>
+            <div class="modal-footer d-flex align-items-center justify-content-between">
+                <div class="print-controls me-2">
+                    <label class="mb-1" for="selImpresoraResumen" style="color:black">Impresora</label>
+                    <select id="selImpresoraResumen" class="sel-impresora form-select">
+                        <option value="">(Selecciona impresora)</option>
+                    </select>
+                </div>
+                <div class="ms-auto">
+                    <button type="button" class="btn btn-secondary me-2" data-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn custom-btn" id="btnImprimirResumen">Imprimir QRs</button>
+                </div>
             </div>
         </div>
     </div>
@@ -427,6 +464,7 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
 
 <?php require_once __DIR__ . '/../footer.php'; ?>
 
+<script src="../../utils/js/buscador.js"></script>
 <script src="insumos.js" defer></script>
 </body>
 

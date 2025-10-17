@@ -97,6 +97,7 @@ window.alert = showAppMsg;
 
 let catalogo = [];
 let filtrado = [];
+let proveedoresCatalogo = [];
 // Bajo stock: datos y estado de paginación/filtro
 let bajoStockData = [];
 let bajoStockFiltro = '';
@@ -136,17 +137,19 @@ async function cargarProveedores() {
         const resp = await fetch('../../api/insumos/listar_proveedores.php');
         const data = await resp.json();
         if (data.success) {
+            proveedoresCatalogo = Array.isArray(data.resultado) ? data.resultado : [];
             const select = document.getElementById('proveedor');
             if (!select) {
                 return;
             }
             select.innerHTML = '<option value="">--Selecciona--</option>';
-            data.resultado.forEach(p => {
+            proveedoresCatalogo.forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.id;
                 opt.textContent = p.nombre;
                 select.appendChild(opt);
             });
+            try { inicializarBuscadorProveedor(select); } catch(e) {}
         } else {
             alert(data.mensaje);
         }
@@ -194,6 +197,7 @@ function poblarSelectsInsumo(root = document) {
             sel.value = current;
         }
         mostrarTipoEnFila(sel.closest('tr'));
+        try { inicializarBuscadorInsumo(sel); } catch(e) {}
     });
 }
 
@@ -287,7 +291,13 @@ function agregarFila() {
     qsa(nueva, 'input').forEach(input => {
         input.value = '';
         clearError(input);
+        if (input.classList.contains('buscador-insumo')) {
+            delete input.dataset.autocompleteInitialized;
+        }
     });
+    // limpiar lista de sugerencias si existe
+    const listaAuto = qs(nueva, '.lista-insumos');
+    if (listaAuto) { listaAuto.innerHTML = ''; listaAuto.style.display = 'none'; }
     qsa(nueva, 'select').forEach(select => {
         select.value = '';
         clearError(select);
@@ -297,6 +307,61 @@ function agregarFila() {
     tbody.appendChild(nueva);
     poblarSelectsInsumo(nueva);
     mostrarTipoEnFila(nueva);
+}
+
+// Autocompletado para insumo_id similar a ventas (buscador-producto)
+function inicializarBuscadorInsumo(select) {
+    if (!select) return;
+    const cont = select.closest('.selector-insumo');
+    if (!cont) return;
+    const input = cont.querySelector('.buscador-insumo');
+    const lista = cont.querySelector('.lista-insumos');
+    if (!input || !lista || input.dataset.autocompleteInitialized) return;
+    input.dataset.autocompleteInitialized = 'true';
+
+    input.addEventListener('input', () => {
+        const val = (typeof normalizarTexto === 'function') ? normalizarTexto(input.value) : String(input.value || '').toLowerCase();
+        lista.innerHTML = '';
+        if (!val) {
+            lista.style.display = 'none';
+            return;
+        }
+        const coincidencias = (catalogo || [])
+            .filter(i => {
+                const nom = (i && i.nombre) ? i.nombre : '';
+                const norm = (typeof normalizarTexto === 'function') ? normalizarTexto(nom) : String(nom).toLowerCase();
+                return norm.includes(val);
+            })
+            .slice(0, 50);
+        coincidencias.forEach(i => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item list-group-item-action';
+            li.textContent = i.nombre;
+            li.addEventListener('click', () => {
+                input.value = i.nombre;
+                select.value = i.id;
+                // Disparar change para actualizar Unidad/Tipo y cualquier otro efecto
+                try { select.dispatchEvent(new Event('change')); } catch(_) {}
+                lista.innerHTML = '';
+                lista.style.display = 'none';
+            });
+            lista.appendChild(li);
+        });
+        lista.style.display = coincidencias.length ? 'block' : 'none';
+    });
+
+    // Cerrar lista al hacer click fuera
+    document.addEventListener('click', (e) => {
+        if (!cont.contains(e.target)) {
+            lista.style.display = 'none';
+        }
+    });
+
+    // Si el select ya tiene valor (ej. edición), rellenar el input
+    if (select.value) {
+        const item = (catalogo || []).find(c => String(c.id) === String(select.value));
+        if (item && input) input.value = item.nombre || '';
+    }
 }
 
 
@@ -590,14 +655,30 @@ function abrirFormulario(id) {
             exEl.value = ins.existencia;
             exEl.readOnly = true;
         }
+        const minEl = document.getElementById('minimo_stock');
+        if (minEl) {
+            minEl.value = (typeof ins.minimo_stock !== 'undefined' && ins.minimo_stock !== null) ? ins.minimo_stock : '';
+        }
+        const reqEl = document.getElementById('reque');
+        if (reqEl) {
+            reqEl.value = (ins.reque || '');
+        }
         document.getElementById('tipo_control').value = ins.tipo_control;
     } else {
         form.reset();
-        // Nuevo insumo: permitir edición del campo si se requiere en altas
+        // Nuevo insumo: existencia solo lectura y en 0
         const exEl = document.getElementById('existencia');
         if (exEl) {
-            exEl.readOnly = false;
+            exEl.readOnly = true;
             exEl.value = 0;
+        }
+        const minEl = document.getElementById('minimo_stock');
+        if (minEl) {
+            minEl.value = '';
+        }
+        const reqEl = document.getElementById('reque');
+        if (reqEl) {
+            reqEl.value = '';
         }
     }
     showModal('#modalInsumo');
@@ -613,8 +694,13 @@ async function guardarInsumo(ev) {
     const fd = new FormData();
     fd.append('nombre', document.getElementById('nombre').value);
     fd.append('unidad', document.getElementById('unidad').value);
-    fd.append('existencia', document.getElementById('existencia').value);
+    // En altas y ediciones no se permite modificar existencia manualmente desde el formulario
+    fd.append('existencia', document.getElementById('existencia').value || '0');
     fd.append('tipo_control', document.getElementById('tipo_control').value);
+    const minEl = document.getElementById('minimo_stock');
+    const reqEl = document.getElementById('reque');
+    if (minEl) fd.append('minimo_stock', minEl.value || '0');
+    if (reqEl) fd.append('reque', reqEl.value || '');
     const img = document.getElementById('imagen').files[0];
     if (img) fd.append('imagen', img);
     if (id) fd.append('id', id);
@@ -746,8 +832,10 @@ async function registrarEntrada(e) {
         const formData = new FormData();
         formData.append('proveedor_id', proveedorField.value);
         formData.append('usuario_id', String(usuarioId));
-        const tipoPago = qs(form, '[name="credito"]:checked');
-        formData.append('credito', tipoPago ? String(tipoPago.value) : '0');
+        // Enviar el tipo de pago como texto: 'efectivo' | 'credito' | 'transferencia'
+        const tipoPagoEl = qs(form, '[name="credito"]:checked');
+        const tipoPagoVal = (tipoPagoEl && tipoPagoEl.value) ? String(tipoPagoEl.value) : 'efectivo';
+        formData.append('credito', tipoPagoVal);
         const descripcionGeneral = qs(form, '[name="descripcion"]');
         const referenciaGeneral = qs(form, '[name="referencia_doc"]');
         const folioGeneral = qs(form, '[name="folio_fiscal"]');
@@ -1079,7 +1167,12 @@ async function imprimirResumenQRs() {
         return;
     }
     try {
-        const resp = await fetch('../../api/insumos/imprimir_qrs_entrada.php', {
+        let url = '../../api/insumos/imprimir_qrs_entrada.php';
+        try {
+            const sel = document.getElementById('selImpresoraResumen');
+            if (sel && sel.value) { url += ('?printer_ip=' + encodeURIComponent(sel.value)); }
+        } catch(e) {}
+        const resp = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ entrada_ids: entradaIds })
@@ -1094,4 +1187,80 @@ async function imprimirResumenQRs() {
         console.error(err);
         alert('Error de comunicación al imprimir');
     }
+}
+
+// Cargar impresoras en el modal de resumen
+function cargarImpresoras($sel){
+  // Usar ruta relativa al módulo para evitar romper cuando la app
+  // está bajo un subdirectorio (p. ej. /rest2/)
+  fetch('../../api/impresoras/listar.php', { cache: 'no-store' })
+    .then(r => r.json())
+    .then(j => {
+      const data = j && (j.resultado || j.data) || [];
+      if (!$sel) return;
+      $sel.innerHTML = '<option value="">(Selecciona impresora)</option>';
+      (data || []).forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.ip;
+        opt.textContent = ((p.lugar || '') + ' - ' + p.ip).trim();
+        $sel.appendChild(opt);
+      });
+    })
+    .catch(console.error);
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  const sel = document.getElementById('selImpresoraResumen');
+  if (sel) cargarImpresoras(sel);
+});
+
+// Autocompletado para proveedor (lista + coincidencia) usando proveedoresCatalogo
+function inicializarBuscadorProveedor(select) {
+    if (!select) return;
+    const cont = select.closest('.selector-proveedor');
+    if (!cont) return;
+    const input = cont.querySelector('.buscador-proveedor');
+    const lista = cont.querySelector('.lista-proveedores');
+    if (!input || !lista || input.dataset.autocompleteInitialized) return;
+    input.dataset.autocompleteInitialized = 'true';
+
+    // Si ya hay un valor seleccionado, reflejar nombre en el input
+    if (select.value) {
+        const prov = (proveedoresCatalogo || []).find(p => String(p.id) === String(select.value));
+        if (prov) input.value = prov.nombre || '';
+    }
+
+    input.addEventListener('input', () => {
+        const val = (typeof normalizarTexto === 'function') ? normalizarTexto(input.value) : String(input.value || '').toLowerCase();
+        lista.innerHTML = '';
+        if (!val) {
+            lista.style.display = 'none';
+            return;
+        }
+        const arr = Array.isArray(proveedoresCatalogo) ? proveedoresCatalogo : [];
+        const coincidencias = arr.filter(p => {
+            const nom = p && p.nombre ? p.nombre : '';
+            const norm = (typeof normalizarTexto === 'function') ? normalizarTexto(nom) : String(nom).toLowerCase();
+            return norm.includes(val);
+        }).slice(0, 50);
+        coincidencias.forEach(p => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item list-group-item-action';
+            li.textContent = p.nombre;
+            li.addEventListener('click', () => {
+                input.value = p.nombre;
+                select.value = p.id;
+                try { select.dispatchEvent(new Event('change')); } catch(_) {}
+                lista.innerHTML = '';
+                lista.style.display = 'none';
+            });
+            lista.appendChild(li);
+        });
+        lista.style.display = coincidencias.length ? 'block' : 'none';
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!cont.contains(e.target)) {
+            lista.style.display = 'none';
+        }
+    });
 }

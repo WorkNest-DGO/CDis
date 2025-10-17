@@ -34,8 +34,9 @@ ob_start();
                 <label class="text-white" for="filtroCredito">Tipo de pago</label>
                 <select id="filtroCredito" class="form-control">
                     <option value="">Todos</option>
-                    <option value="0">Efectivo</option>
-                    <option value="1">Crédito</option>
+                    <option value="efectivo">Efectivo</option>
+                    <option value="credito">Crédito</option>
+                    <option value="transferencia">Transferencia</option>
                 </select>
             </div>
             <div class="col-sm-6 col-md-3">
@@ -123,11 +124,69 @@ ob_start();
                         <th>Cantidad</th>
                         <th>Unidad</th>
                         <th>Costo total</th>
+                        <th>Tipo pago</th>
                         <th>Nota</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
             </table>
+        </div>
+    </div>
+
+    <div class="mt-5">
+        <h4 class="text-white">Listado de preparados</h4>
+        <div class="row g-2 align-items-end bg-dark p-3 rounded">
+            <div class="col-sm-6 col-md-3">
+                <label class="text-white" for="prepDateFrom">Desde</label>
+                <input type="date" id="prepDateFrom" class="form-control">
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label class="text-white" for="prepDateTo">Hasta</label>
+                <input type="date" id="prepDateTo" class="form-control">
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label class="text-white" for="prepBuscarProd">Producto</label>
+                <input type="text" id="prepBuscarProd" class="form-control" placeholder="Nombre del producto">
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label class="text-white" for="prepBuscarUnidad">Unidad</label>
+                <input type="text" id="prepBuscarUnidad" class="form-control" placeholder="Unidad">
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label class="text-white" for="prepCantMin">Cantidad mínima</label>
+                <input type="number" step="0.01" id="prepCantMin" class="form-control" placeholder="0">
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label class="text-white" for="prepCantMax">Cantidad máxima</label>
+                <input type="number" step="0.01" id="prepCantMax" class="form-control" placeholder="">
+            </div>
+            <div class="col-sm-6 col-md-2">
+                <label class="text-white" for="prepPageSize">Ver</label>
+                <select id="prepPageSize" class="form-control">
+                    <option value="15">15</option>
+                    <option value="30">30</option>
+                    <option value="50">50</option>
+                </select>
+            </div>
+            <div class="col-sm-6 col-md-2 text-end">
+                <button class="btn custom-btn w-100" id="prepBtnBuscar">Filtrar</button>
+            </div>
+        </div>
+        <div class="table-responsive mt-2">
+            <table id="tablaPreparados" class="styled-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Fecha</th>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Unidad</th>
+                        <th>Costo total</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <ul id="prepPaginador" class="pagination justify-content-center mt-2"></ul>
         </div>
     </div>
 </div>

@@ -1,4 +1,5 @@
 <?php 
+require_once __DIR__ . '/../../config/db.php';
 require __DIR__ . '/../../vendor/autoload.php';
 
 use Mike42\Escpos\Printer;
@@ -7,7 +8,33 @@ use Mike42\Escpos\EscposImage;
 use Mike42\Escpos\GdEscposImage;
 use Mike42\Escpos\PrintConnectors\WindowsPrintConnector;
 //$connector = new WindowsPrintConnector("smb://ip_maquina/nombre_impresora");
-$connector = new WindowsPrintConnector("smb://FUED/pos58");
+// Resolver impresora (POST 'printer_ip' o primera en BD)
+$printerIp = isset($_POST['printer_ip']) ? trim((string)$_POST['printer_ip']) : '';
+if ($printerIp === '' && isset($_GET['printer_ip'])) {
+    $printerIp = trim((string)$_GET['printer_ip']);
+}
+if ($printerIp === '') {
+    $sql = "SELECT ip FROM impresoras ORDER BY print_id ASC LIMIT 1";
+    if ($st = $conn->prepare($sql)) {
+        $st->execute();
+        $st->bind_result($ip);
+        if ($st->fetch() && $ip) {
+            $printerIp = $ip;
+        }
+        $st->close();
+    }
+    if ($printerIp === '') {
+        http_response_code(400);
+        echo 'Error: No hay impresoras configuradas en BD.';
+        exit;
+    }
+}
+if (!preg_match('#^(smb://|\\\\)#i', $printerIp)) {
+    http_response_code(400);
+    echo 'Error: Impresora inválida: ' . $printerIp;
+    exit;
+}
+$connector = new WindowsPrintConnector($printerIp);
 
 $printer = new Printer($connector);
 

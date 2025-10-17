@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 10-10-2025 a las 02:09:26
+-- Tiempo de generación: 16-10-2025 a las 16:48:55
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -20,8 +20,6 @@ SET time_zone = "+00:00";
 --
 -- Base de datos: `restaurante_cdis`
 --
-CREATE DATABASE IF NOT EXISTS `restaurante_cdis` DEFAULT CHARACTER SET utf32 COLLATE utf32_bin;
-USE `restaurante_cdis`;
 
 DELIMITER $$
 --
@@ -288,7 +286,7 @@ CREATE TABLE `cortes_almacen` (
 --
 
 INSERT INTO `cortes_almacen` (`id`, `fecha_inicio`, `fecha_fin`, `usuario_abre_id`, `usuario_cierra_id`, `observaciones`) VALUES
-(1, '2025-10-09 17:30:38', NULL, 1, NULL, NULL);
+(1, '2025-10-09 21:26:36', NULL, 1, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -502,6 +500,16 @@ CREATE TABLE `despachos` (
   `qr_token` varchar(64) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf32 COLLATE=utf32_bin;
 
+--
+-- Volcado de datos para la tabla `despachos`
+--
+
+INSERT INTO `despachos` (`id`, `sucursal_id`, `usuario_id`, `fecha_envio`, `fecha_recepcion`, `estado`, `corte_id`, `qr_token`) VALUES
+(1, NULL, 2, '2025-10-10 09:42:03', NULL, 'pendiente', NULL, 'ef482451495ed7f5fd92a7acf05a8708'),
+(2, NULL, 2, '2025-10-13 08:18:53', NULL, 'pendiente', NULL, 'd4e06ad42c51b7d884064ef1a511164c'),
+(3, NULL, 2, '2025-10-13 08:20:13', NULL, 'pendiente', NULL, 'eda2ff98a1dc60739e8832229d4fd6b5'),
+(4, NULL, 2, '2025-10-14 15:31:30', NULL, 'pendiente', NULL, 'ae39962f63a642f37a67b8769be1da39');
+
 -- --------------------------------------------------------
 
 --
@@ -518,6 +526,37 @@ CREATE TABLE `despachos_detalle` (
   `precio_unitario` decimal(10,2) DEFAULT NULL,
   `subtotal` decimal(10,2) GENERATED ALWAYS AS (`cantidad` * `precio_unitario`) STORED
 ) ENGINE=InnoDB DEFAULT CHARSET=utf32 COLLATE=utf32_bin;
+
+--
+-- Volcado de datos para la tabla `despachos_detalle`
+--
+
+INSERT INTO `despachos_detalle` (`id`, `despacho_id`, `corte_id`, `insumo_id`, `cantidad`, `unidad`, `precio_unitario`) VALUES
+(1, 1, NULL, 89, 1.00, 'gramos', 0.00),
+(2, 2, NULL, 1, 1.00, 'Kilos', 0.00),
+(3, 3, NULL, 1, 1.00, 'Kilos', 0.00),
+(4, 4, NULL, 35, 1.00, 'Kilos', 0.00),
+(5, 4, NULL, 89, 23.00, 'gramos', 0.00),
+(6, 4, NULL, 93, 3.00, 'mililitros', 0.00);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `direccion_qr`
+--
+
+CREATE TABLE `direccion_qr` (
+  `ip` varchar(255) NOT NULL,
+  `nombre` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf32 COLLATE=utf32_bin;
+
+--
+-- Volcado de datos para la tabla `direccion_qr`
+--
+
+INSERT INTO `direccion_qr` (`ip`, `nombre`) VALUES
+('127.0.0.1', 'localhost'),
+('120.0.0.2', 'CdiTier');
 
 -- --------------------------------------------------------
 
@@ -541,7 +580,7 @@ CREATE TABLE `entradas_insumos` (
   `folio_fiscal` varchar(100) DEFAULT NULL,
   `qr` varchar(255) NOT NULL,
   `cantidad_actual` decimal(10,2) NOT NULL,
-  `credito` tinyint(1) DEFAULT NULL,
+  `credito` enum('credito','efectivo','transferencia') DEFAULT NULL,
   `pagado` tinyint(1) DEFAULT NULL,
   `nota` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf32 COLLATE=utf32_bin;
@@ -551,8 +590,13 @@ CREATE TABLE `entradas_insumos` (
 --
 
 INSERT INTO `entradas_insumos` (`id`, `insumo_id`, `proveedor_id`, `usuario_id`, `fecha`, `corte_id`, `descripcion`, `cantidad`, `unidad`, `costo_total`, `referencia_doc`, `folio_fiscal`, `qr`, `cantidad_actual`, `credito`, `pagado`, `nota`) VALUES
-(1, 1, 14, 1, '2025-10-09 17:32:18', 1, '', 10.00, 'Kilos', 1.00, '', '', 'archivos/qr/entrada_insumo_1.png', 9.00, 0, NULL, 1),
-(2, 2, 14, 1, '2025-10-09 17:32:18', 1, '', 10.00, 'piezas', 1.00, '', '', 'archivos/qr/entrada_insumo_2.png', 9.00, 0, NULL, 1);
+(1, 89, 14, 1, '2025-10-09 21:26:59', 1, '', 100.00, 'gramos', 1.00, '', '', 'archivos/qr/entrada_insumo_1.png', 75.00, 'efectivo', NULL, 1),
+(2, 93, 14, 1, '2025-10-09 21:26:59', 1, '', 100.00, 'mililitros', 1.00, '', '', 'archivos/qr/entrada_insumo_2.png', 96.00, 'transferencia', NULL, 1),
+(3, 87, 1, 2, '2025-10-09 22:03:07', 1, 'Procesado grupo pedido 1 hacia insumo 87', 1.80, 'mililitros', 0.00, '', '', 'archivos/qr/entrada_insumo_3.png', 1.80, NULL, NULL, 0),
+(4, 1, 14, 1, '2025-10-10 09:42:37', 1, '', 25.00, 'Kilos', 1.00, '', '', 'archivos/qr/entrada_insumo_4.png', 13.00, 'credito', NULL, 2),
+(5, 35, 14, 1, '2025-10-14 15:16:31', 1, '', 1.00, 'Kilos', 1.00, '4545454', '', 'archivos/qr/entrada_insumo_5.png', 0.00, 'transferencia', NULL, 3),
+(6, 8, 10, 1, '2025-10-14 15:39:43', 1, '', 18.00, 'gramos', 180.00, '', '', 'archivos/qr/entrada_insumo_6.png', 8.00, 'efectivo', NULL, 4),
+(7, 13, 1, 2, '2025-10-14 15:42:21', 1, 'Procesado grupo pedido 2 hacia insumo 13', 1.80, 'Kilos', 0.00, '', '', 'archivos/qr/entrada_insumo_7.png', 1.80, NULL, NULL, 0);
 
 --
 -- Disparadores `entradas_insumos`
@@ -587,6 +631,25 @@ DELIMITER ;
 -- --------------------------------------------------------
 
 --
+-- Estructura de tabla para la tabla `impresoras`
+--
+
+CREATE TABLE `impresoras` (
+  `print_id` int(11) NOT NULL,
+  `lugar` varchar(255) NOT NULL,
+  `ip` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf32 COLLATE=utf32_bin;
+
+--
+-- Volcado de datos para la tabla `impresoras`
+--
+
+INSERT INTO `impresoras` (`print_id`, `lugar`, `ip`) VALUES
+(1, 'pruebas', 'smb://FUED/pos58');
+
+-- --------------------------------------------------------
+
+--
 -- Estructura de tabla para la tabla `insumos`
 --
 
@@ -597,186 +660,187 @@ CREATE TABLE `insumos` (
   `existencia` decimal(10,2) DEFAULT NULL,
   `tipo_control` enum('por_receta','unidad_completa','uso_general','no_controlado','desempaquetado') DEFAULT 'por_receta',
   `imagen` varchar(255) DEFAULT NULL,
-  `minimo_stock` decimal(10,2) DEFAULT 0.00
+  `minimo_stock` decimal(10,2) DEFAULT 0.00,
+  `reque` enum('Zona Barra','Bebidas','Refrigerdor','Articulos_de_limpieza','Plasticos y otros','') NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf32 COLLATE=utf32_bin;
 
 --
 -- Volcado de datos para la tabla `insumos`
 --
 
-INSERT INTO `insumos` (`id`, `nombre`, `unidad`, `existencia`, `tipo_control`, `imagen`, `minimo_stock`) VALUES
-(1, 'Arroz', 'Kilos', 10.00, 'por_receta', 'ins_68717301313ad.jpg', 0.00),
-(2, 'Alga', 'piezas', 10.00, 'por_receta', 'ins_6871716a72681.jpg', 0.00),
-(3, 'Salmón fresco', 'Kilos', 0.00, 'por_receta', 'ins_6871777fa2c56.png', 0.00),
-(4, 'Refresco en lata', 'piezas', 0.00, 'unidad_completa', 'ins_6871731d075cb.webp', 0.00),
-(7, 'Surimi', 'gramos', 0.00, 'uso_general', 'ins_688a521dcd583.jpg', 0.00),
-(8, 'Tocino', 'gramos', 0.00, 'uso_general', 'ins_688a4dc84c002.jpg', 0.00),
-(9, 'Pollo', 'Kilos', 0.00, 'desempaquetado', 'ins_688a4e4bd5999.jpg', 0.00),
-(10, 'Camarón', 'Kilos', 0.00, 'desempaquetado', 'ins_688a4f5c873c6.jpg', 0.00),
-(11, 'Queso Chihuahua', 'Kilos', 0.00, 'unidad_completa', 'ins_688a4feca9865.jpg', 0.00),
-(12, 'Philadelphia', 'Kilos', 0.00, 'uso_general', 'ins_688a504f9cb40.jpg', 0.00),
-(13, 'Arroz cocido', 'Kilos', 0.00, 'por_receta', 'ins_689f82d674c65.jpg', 0.00),
-(14, 'Carne', 'Kilos', 0.00, 'uso_general', 'ins_688a528d1261a.jpg', 0.00),
-(15, 'Queso Amarillo', 'piezas', 0.00, 'uso_general', 'ins_688a53246c1c2.jpg', 0.00),
-(16, 'Ajonjolí', 'gramos', 0.00, 'uso_general', 'ins_689f824a23343.jpg', 0.00),
-(17, 'Panko', 'gramos', 0.00, 'por_receta', 'ins_688a53da64b5f.jpg', 0.00),
-(18, 'Salsa tampico', 'Litros', 0.00, 'no_controlado', 'ins_688a54cf1872b.jpg', 0.00),
-(19, 'Anguila', 'Litros', 0.00, 'por_receta', 'ins_689f828638aa9.jpg', 0.00),
-(20, 'BBQ', 'Litros', 0.00, 'no_controlado', 'ins_688a557431fce.jpg', 0.00),
-(21, 'Serrano', 'Kilos', 0.00, 'uso_general', 'ins_688a55c66f09d.jpg', 0.00),
-(22, 'Chile Morrón', 'Kilos', 0.00, 'por_receta', 'ins_688a5616e8f25.jpg', 0.00),
-(23, 'Kanikama', 'gramos', 0.00, 'por_receta', 'ins_688a5669e24a8.jpg', 0.00),
-(24, 'Aguacate', 'Kilos', 0.00, 'por_receta', 'ins_689f8254c2e71.jpg', 0.00),
-(25, 'Dedos de queso', 'pieza', 0.00, 'unidad_completa', 'ins_688a56fda3221.jpg', 0.00),
-(26, 'Mango', 'Kilos', 0.00, 'por_receta', 'ins_688a573c762f4.jpg', 0.00),
-(27, 'Tostadas', 'pieza', 0.00, 'uso_general', 'ins_688a57a499b35.jpg', 0.00),
-(28, 'Papa', 'Kilos', 0.00, 'por_receta', 'ins_688a580061ffd.jpg', 0.00),
-(29, 'Cebolla Morada', 'Kilos', 0.00, 'por_receta', 'ins_688a5858752a0.jpg', 0.00),
-(30, 'Salsa de soya', 'Litros', 0.00, 'no_controlado', 'ins_688a58cc6cb6c.jpg', 0.00),
-(31, 'Naranja', 'Kilos', 0.00, 'por_receta', 'ins_688a590bca275.jpg', 0.00),
-(32, 'Chile Caribe', 'Kilos', 0.00, 'por_receta', 'ins_688a59836c32e.jpg', 0.00),
-(33, 'Pulpo', 'Kilos', 0.00, 'por_receta', 'ins_688a59c9a1d0b.jpg', 0.00),
-(34, 'Zanahoria', 'Kilos', 0.00, 'por_receta', 'ins_688a5a0a3a959.jpg', 0.00),
-(35, 'Apio', 'Kilos', 0.00, 'por_receta', 'ins_688a5a52af990.jpg', 0.00),
-(36, 'Pepino', 'Kilos', 0.00, 'uso_general', 'ins_688a5aa0cbaf5.jpg', 0.00),
-(37, 'Masago', 'gramos', 0.00, 'por_receta', 'ins_688a5b3f0dca6.jpg', 0.00),
-(38, 'Nuez de la india', 'gramos', 0.00, 'por_receta', 'ins_688a5be531e11.jpg', 0.00),
-(39, 'Cátsup', 'Litros', 0.00, 'por_receta', 'ins_688a5c657eb83.jpg', 0.00),
-(40, 'Atún fresco', 'Kilos', 0.00, 'por_receta', 'ins_688a5ce18adc5.jpg', 0.00),
-(41, 'Callo almeja', 'Kilos', 0.00, 'por_receta', 'ins_688a5d28de8a5.jpg', 0.00),
-(42, 'Calabacin', 'Kilos', 0.00, 'por_receta', 'ins_688a5d6b2bca1.jpg', 0.00),
-(43, 'Fideo chino transparente', 'gramos', 0.00, 'por_receta', 'ins_688a5dd3b406d.jpg', 0.00),
-(44, 'Brócoli', 'Kilos', 0.00, 'por_receta', 'ins_688a5e2736870.jpg', 0.00),
-(45, 'Chile de árbol', 'Kilos', 0.00, 'por_receta', 'ins_688a5e6f08ccd.jpg', 0.00),
-(46, 'Pasta udon', 'gramos', 0.00, 'por_receta', 'ins_688a5eb627f38.jpg', 0.00),
-(47, 'Huevo', 'pieza', 0.00, 'por_receta', 'ins_688a5ef9b575e.jpg', 0.00),
-(48, 'Cerdo', 'Kilos', 0.00, 'por_receta', 'ins_688a5f3915f5e.jpg', 0.00),
-(49, 'Masa para gyozas', 'gramos', 0.00, 'por_receta', 'ins_688a5fae2e7f1.jpg', 0.00),
-(50, 'Naruto', 'gramos', 0.00, 'por_receta', 'ins_688a5ff57f62d.jpg', 0.00),
-(51, 'Atún ahumado', 'Kilos', 0.00, 'por_receta', 'ins_68adcd62c5a19.jpg', 0.00),
-(52, 'Cacahuate con salsa (salado)', 'Kilos', 0.00, 'por_receta', 'ins_68adcf253bd1d.jpg', 0.00),
-(53, 'Calabaza', 'Kilos', 0.00, 'por_receta', 'ins_68add0ff781fb.jpg', 0.00),
-(54, 'Camarón gigante para pelar', 'Kilos', 0.00, 'por_receta', 'ins_68add3264c465.jpg', 0.00),
-(55, 'Cebolla', 'Kilos', 0.00, 'por_receta', 'ins_68add38beff59.jpg', 0.00),
-(56, 'Chile en polvo', 'gramos', 0.00, 'por_receta', 'ins_68add4a750a0e.jpg', 0.00),
-(57, 'Coliflor', 'Kilos', 0.00, 'por_receta', 'ins_68add5291130e.jpg', 0.00),
-(59, 'Dedos de surimi', 'pieza', 0.00, 'unidad_completa', 'ins_68add5c575fbb.jpg', 0.00),
-(60, 'Fideos', 'gramos', 0.00, 'por_receta', 'ins_68add629d094b.jpg', 0.00),
-(61, 'Fondo de res', 'Litros', 0.00, 'no_controlado', 'ins_68add68d317d5.jpg', 0.00),
-(62, 'Gravy Naranja', 'Litros', 0.00, 'no_controlado', 'ins_68add7bb461b3.jpg', 0.00),
-(63, 'Salsa Aguachil', 'Litros', 0.00, 'no_controlado', 'ins_68ae000034b31.jpg', 0.00),
-(64, 'Julianas de zanahoria', 'gramos', 0.00, 'por_receta', 'ins_68add82c9c245.jpg', 0.00),
-(65, 'Limón', 'Kilos', 0.00, 'por_receta', 'ins_68add890ee640.jpg', 0.00),
-(66, 'Queso Mix', 'gramos', 0.00, 'uso_general', 'ins_68ade1625f489.jpg', 0.00),
-(67, 'Chile morrón rojo', 'Kilos', 0.00, 'por_receta', 'ins_68addcbc6d15a.jpg', 0.00),
-(69, 'Pasta chukasoba', 'gramos', 0.00, 'por_receta', 'ins_68addd277fde6.jpg', 0.00),
-(70, 'Pasta frita', 'gramos', 0.00, 'por_receta', 'ins_68addd91a005e.jpg', 0.00),
-(71, 'Queso crema', 'Kilos', 0.00, 'uso_general', 'ins_68ade11cdadcb.jpg', 0.00),
-(72, 'Refresco embotellado', 'pieza', 0.00, 'unidad_completa', 'ins_68adfdd53f04e.jpg', 0.00),
-(73, 'res', 'Kilos', 0.00, 'uso_general', 'ins_68adfe2e49580.jpg', 0.00),
-(74, 'Rodajas de naranja', 'pieza', 0.00, 'por_receta', 'ins_68adfeccd68d8.jpg', 0.00),
-(75, 'Salmón', 'gramos', 0.00, 'por_receta', 'ins_68adffa2a2db0.jpg', 0.00),
-(76, 'Salsa de anguila', 'Litros', 0.00, 'no_controlado', 'ins_68ae005f1b3cd.jpg', 0.00),
-(77, 'Salsa teriyaki (dulce)', 'Litros', 0.00, 'no_controlado', 'ins_68ae00c53121a.jpg', 0.00),
-(78, 'Salsas orientales', 'Litros', 0.00, 'no_controlado', 'ins_68ae01341e7b1.jpg', 0.00),
-(79, 'Shisimi', 'gramos', 0.00, 'uso_general', 'ins_68ae018d22a63.jpg', 0.00),
-(80, 'Siracha', 'Litros', 0.00, 'no_controlado', 'ins_68ae03413da26.jpg', 0.00),
-(81, 'Tampico', 'Litros', 0.00, 'uso_general', 'ins_68ae03f65bd71.jpg', 0.00),
-(82, 'Tortilla de harina', 'pieza', 0.00, 'unidad_completa', 'ins_68ae04b46d24a.jpg', 0.00),
-(83, 'Tostada', 'pieza', 0.00, 'unidad_completa', 'ins_68ae05924a02a.jpg', 0.00),
-(85, 'Chile morron amarillo', 'Kilos', 0.00, 'por_receta', 'ins_68ae061b1175b.jpg', 0.00),
-(86, 'Sal con Ajo', 'gramos', 0.00, 'por_receta', 'ins_68adff6dbf111.jpg', 0.00),
-(87, 'Aderezo Chipotle', 'mililitros', 0.00, 'por_receta', 'ins_68adcabeb1ee9.jpg', 0.00),
-(88, 'Mezcla de Horneado', 'gramos', 0.00, 'por_receta', 'ins_68addaa3e53f7.jpg', 0.00),
-(89, 'Aderezo', 'gramos', 0.00, 'uso_general', 'ins_68adcc0771a3c.jpg', 0.00),
-(90, 'Camarón Empanizado', 'gramos', 0.00, 'por_receta', 'ins_68add1de1aa0e.jpg', 0.00),
-(91, 'Pollo Empanizado', 'gramos', 0.00, 'por_receta', 'ins_68adde81c6be3.jpg', 0.00),
-(92, 'Cebollín', 'Kilos', 0.00, 'por_receta', 'ins_68add3e38d04b.jpg', 0.00),
-(93, 'Aderezo Cebolla Dul.', 'mililitros', 0.00, 'uso_general', 'ins_68adcb8fa562e.jpg', 0.00),
-(94, 'Camaron Enchiloso', 'gramos', 0.00, 'por_receta', 'ins_68add2db69e2e.jpg', 0.00),
-(95, 'Pastel chocoflan', 'pieza', 0.00, 'unidad_completa', 'ins_68adddfa22fe2.jpg', 0.00),
-(96, 'Pay de queso', 'pieza', 0.00, 'unidad_completa', 'ins_68adde4fa8275.jpg', 0.00),
-(97, 'Helado tempura', 'pieza', 0.00, 'unidad_completa', 'ins_68add7e53c6fe.jpg', 0.00),
-(98, 'Postre especial', 'pieza', 0.00, 'unidad_completa', 'ins_68addee98fdf0.jpg', 0.00),
-(99, 'Búfalo', 'mililitros', 0.00, 'no_controlado', 'ins_68adce63dd347.jpg', 0.00),
-(101, 'Corona 1/2', 'pieza', 0.00, 'unidad_completa', 'ins_68add55a1e3b7.jpg', 0.00),
-(102, 'Golden Light 1/2', 'pieza', 0.00, 'unidad_completa', 'ins_68add76481f22.jpg', 0.00),
-(103, 'Negra Modelo', 'pieza', 0.00, 'unidad_completa', 'ins_68addc59c2ea9.jpg', 0.00),
-(104, 'Modelo Especial', 'pieza', 0.00, 'unidad_completa', 'ins_68addb9d59000.jpg', 0.00),
-(105, 'Bud Light', 'pieza', 0.00, 'unidad_completa', 'ins_68adcdf3295e8.jpg', 0.00),
-(106, 'Stella Artois', 'pieza', 0.00, 'unidad_completa', 'ins_68ae0397afb2f.jpg', 0.00),
-(107, 'Ultra 1/2', 'pieza', 0.00, 'unidad_completa', 'ins_68ae05466a8e2.jpg', 0.00),
-(108, 'Michelob 1/2', 'pieza', 0.00, 'unidad_completa', 'ins_68addb2d00c85.jpg', 0.00),
-(109, 'Alitas de pollo', 'pieza', 0.00, 'unidad_completa', 'ins_68adccf5a1147.jpg', 0.00),
-(110, 'Ranch', 'mililitros', 0.00, 'no_controlado', 'ins_68adfcddef7e3.jpg', 0.00),
-(111, 'Buffalo', 'mililitros', 0.00, 'no_controlado', '', 0.00),
-(112, 'Chichimi', 'gramos', 0.00, 'no_controlado', 'ins_68add45bdb306.jpg', 0.00),
-(113, 'Calpico', 'pieza', 0.00, 'unidad_completa', 'ins_68add19570673.jpg', 0.00),
-(114, 'Vaina de soja', 'gramos', 0.00, 'uso_general', 'ins_68ae05de869d1.jpg', 0.00),
-(115, 'Boneless', 'Kilos', 0.00, 'por_receta', 'ins_68adcdbb6b5b4.jpg', 0.00),
-(116, 'Agua members', 'pieza', 0.00, 'unidad_completa', 'ins_68adcc5feaee1.jpg', 0.00),
-(117, 'Agua mineral', 'pieza', 0.00, 'unidad_completa', 'ins_68adcca85ae2c.jpg', 0.00),
-(118, 'Cilantro', 'gramos', 0.00, 'por_receta', 'ins_68add4edab118.jpg', 0.00),
-(119, 'Té de jazmin', 'Litros', 0.00, 'por_receta', 'ins_68ae0474dfc36.jpg', 0.00),
-(120, 'bolsa camiseta 35x60', 'kilo', 0.00, 'unidad_completa', '', 0.00),
-(121, 'bolsa camiseta 25x50', 'kilo', 0.00, 'unidad_completa', '', 0.00),
-(122, 'bolsa camiseta 25x40', 'kilo', 0.00, 'unidad_completa', '', 0.00),
-(123, 'bolsa poliseda 15x25', 'rollo', 0.00, 'unidad_completa', '', 0.00),
-(124, 'bolsa rollo 20x30', 'rollo', 0.00, 'unidad_completa', '', 0.00),
-(125, 'bowls cpp1911-3', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(126, 'bowls cpp20', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(127, 'bowls cpp1911-3 tapa', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(128, 'bowls cpp20 tapa', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(129, 'baso termico 1l', 'piza', 0.00, 'unidad_completa', '', 0.00),
-(130, 'bisagra 22x22', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(131, 'servilleta', 'paquete', 0.00, 'unidad_completa', '', 0.00),
-(132, 'Papel aluminio 400', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(133, 'Vitafilim 14', 'rollo', 0.00, 'unidad_completa', '', 0.00),
-(134, 'guante vinil', 'caja', 0.00, 'unidad_completa', '', 0.00),
-(135, 'Popote 26cm', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(136, 'Bolsa papel x 100pz', 'paquete', 0.00, 'unidad_completa', '', 0.00),
-(137, 'rollo impresora mediano', 'rollo', 0.00, 'unidad_completa', '', 0.00),
-(138, 'rollo impresora grande', 'rollo', 0.00, 'unidad_completa', '', 0.00),
-(139, 'tenedor fantasy mediano 25pz', 'paquete', 0.00, 'unidad_completa', '', 0.00),
-(140, 'Bolsa basura 90x120 negra', 'bulto', 0.00, 'unidad_completa', '', 0.00),
-(141, 'Ts2', 'tira', 0.00, 'unidad_completa', '', 0.00),
-(142, 'Ts1', 'tira', 0.00, 'unidad_completa', '', 0.00),
-(143, 'TS200', 'tira', 0.00, 'unidad_completa', '', 0.00),
-(144, 'S100', 'tira', 0.00, 'unidad_completa', '', 0.00),
-(145, 'Pet 1l c/tapa', 'bulto', 0.00, 'unidad_completa', '', 0.00),
-(146, 'Pet 1/2l c/tapa', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(147, 'Cuchara mediana fantasy 50pz', 'paquete', 0.00, 'unidad_completa', '', 0.00),
-(148, 'Charola 8x8', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(149, 'Charola 6x6', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(150, 'Charola 8x8 negra', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(151, 'Charola 6x6 negra', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(152, 'Polipapel', 'kilo', 0.00, 'unidad_completa', '', 0.00),
-(153, 'Charola pastelera', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(154, 'Papel secante', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(155, 'Papel rollo higienico', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(156, 'Fabuloso 20l', 'bidon', 0.00, 'unidad_completa', '', 0.00),
-(157, 'Desengrasante 20l', 'bidon', 0.00, 'unidad_completa', '', 0.00),
-(158, 'Cloro 20l', 'bidon', 0.00, 'unidad_completa', '', 0.00),
-(159, 'Iorizante 20l', 'bidon', 0.00, 'unidad_completa', '', 0.00),
-(160, 'Windex 20l', 'bidon', 0.00, 'unidad_completa', '', 0.00),
-(161, 'quitacochambre 1l', 'litro', 0.00, 'unidad_completa', '', 0.00),
-(162, 'Fibra metal', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(163, 'Esponja', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(164, 'Escoba', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(165, 'Recogedor', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(166, 'Trapeador', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(167, 'Cubeta 16l', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(168, 'Sanitas', 'paquete', 0.00, 'unidad_completa', '', 0.00),
-(169, 'Jabon polvo 9k', 'bulto', 0.00, 'unidad_completa', '', 0.00),
-(170, 'Shampoo trastes 20l', 'bidon', 0.00, 'unidad_completa', '', 0.00),
-(171, 'Jaladores', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(172, 'Cofia', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(173, 'Trapo', 'pieza', 0.00, 'unidad_completa', '', 0.00),
-(174, 'champinon', 'Kilos', 0.00, 'por_receta', '', 0.00),
-(175, 'ejotes', 'Kilos', 0.00, 'por_receta', '', 0.00),
-(176, 'Chile Caribe', 'Kilos', 0.00, 'por_receta', '', 0.00),
-(177, 'Chile serrano', 'Kilos', 0.00, 'por_receta', '', 0.00),
-(178, 'Col morada', 'Kilos', 0.00, 'por_receta', '', 0.00);
+INSERT INTO `insumos` (`id`, `nombre`, `unidad`, `existencia`, `tipo_control`, `imagen`, `minimo_stock`, `reque`) VALUES
+(1, 'Arroz', 'Kilos', 23.00, 'por_receta', 'ins_68717301313ad.jpg', 0.00, 'Zona Barra'),
+(2, 'Alga', 'piezas', 0.00, 'por_receta', 'ins_6871716a72681.jpg', 0.00, 'Refrigerdor'),
+(3, 'Salmón fresco', 'Kilos', 0.00, 'por_receta', 'ins_6871777fa2c56.png', 0.00, 'Zona Barra'),
+(4, 'Refresco en lata', 'piezas', 0.00, 'unidad_completa', 'ins_6871731d075cb.webp', 0.00, 'Zona Barra'),
+(7, 'Surimi', 'gramos', 0.00, 'uso_general', 'ins_688a521dcd583.jpg', 0.00, 'Zona Barra'),
+(8, 'Tocino', 'gramos', 18.00, 'uso_general', 'ins_688a4dc84c002.jpg', 0.00, 'Zona Barra'),
+(9, 'Pollo', 'Kilos', 0.00, 'desempaquetado', 'ins_688a4e4bd5999.jpg', 0.00, 'Zona Barra'),
+(10, 'Camarón', 'Kilos', 0.00, 'desempaquetado', 'ins_688a4f5c873c6.jpg', 0.00, 'Zona Barra'),
+(11, 'Queso Chihuahua', 'Kilos', 0.00, 'unidad_completa', 'ins_688a4feca9865.jpg', 0.00, 'Zona Barra'),
+(12, 'Philadelphia', 'Kilos', 0.00, 'uso_general', 'ins_688a504f9cb40.jpg', 0.00, 'Zona Barra'),
+(13, 'Arroz cocido', 'Kilos', 0.00, 'por_receta', 'ins_689f82d674c65.jpg', 0.00, 'Zona Barra'),
+(14, 'Carne', 'Kilos', 0.00, 'uso_general', 'ins_688a528d1261a.jpg', 0.00, 'Zona Barra'),
+(15, 'Queso Amarillo', 'piezas', 0.00, 'uso_general', 'ins_688a53246c1c2.jpg', 0.00, 'Zona Barra'),
+(16, 'Ajonjolí', 'gramos', 0.00, 'uso_general', 'ins_689f824a23343.jpg', 0.00, 'Zona Barra'),
+(17, 'Panko', 'gramos', 0.00, 'por_receta', 'ins_688a53da64b5f.jpg', 0.00, 'Zona Barra'),
+(18, 'Salsa tampico', 'Litros', 0.00, 'no_controlado', 'ins_688a54cf1872b.jpg', 0.00, 'Zona Barra'),
+(19, 'Anguila', 'Litros', 0.00, 'por_receta', 'ins_689f828638aa9.jpg', 0.00, 'Zona Barra'),
+(20, 'BBQ', 'Litros', 0.00, 'no_controlado', 'ins_688a557431fce.jpg', 0.00, 'Zona Barra'),
+(21, 'Serrano', 'Kilos', 0.00, 'uso_general', 'ins_688a55c66f09d.jpg', 0.00, 'Zona Barra'),
+(22, 'Chile Morrón', 'Kilos', 0.00, 'por_receta', 'ins_688a5616e8f25.jpg', 0.00, 'Zona Barra'),
+(23, 'Kanikama', 'gramos', 0.00, 'por_receta', 'ins_688a5669e24a8.jpg', 0.00, 'Zona Barra'),
+(24, 'Aguacate', 'Kilos', 0.00, 'por_receta', 'ins_689f8254c2e71.jpg', 0.00, 'Zona Barra'),
+(25, 'Dedos de queso', 'pieza', 0.00, 'unidad_completa', 'ins_688a56fda3221.jpg', 0.00, 'Zona Barra'),
+(26, 'Mango', 'Kilos', 0.00, 'por_receta', 'ins_688a573c762f4.jpg', 0.00, 'Zona Barra'),
+(27, 'Tostadas', 'pieza', 0.00, 'uso_general', 'ins_688a57a499b35.jpg', 0.00, 'Zona Barra'),
+(28, 'Papa', 'Kilos', 0.00, 'por_receta', 'ins_688a580061ffd.jpg', 0.00, 'Zona Barra'),
+(29, 'Cebolla Morada', 'Kilos', 0.00, 'por_receta', 'ins_688a5858752a0.jpg', 0.00, 'Zona Barra'),
+(30, 'Salsa de soya', 'Litros', 0.00, 'no_controlado', 'ins_688a58cc6cb6c.jpg', 0.00, 'Zona Barra'),
+(31, 'Naranja', 'Kilos', 0.00, 'por_receta', 'ins_688a590bca275.jpg', 0.00, 'Zona Barra'),
+(32, 'Chile Caribe', 'Kilos', 0.00, 'por_receta', 'ins_688a59836c32e.jpg', 0.00, 'Zona Barra'),
+(33, 'Pulpo', 'Kilos', 0.00, 'por_receta', 'ins_688a59c9a1d0b.jpg', 0.00, 'Zona Barra'),
+(34, 'Zanahoria', 'Kilos', 0.00, 'por_receta', 'ins_688a5a0a3a959.jpg', 0.00, 'Zona Barra'),
+(35, 'Apio', 'Kilos', 0.00, 'por_receta', 'ins_688a5a52af990.jpg', 0.00, 'Refrigerdor'),
+(36, 'Pepino', 'Kilos', 0.00, 'uso_general', 'ins_688a5aa0cbaf5.jpg', 0.00, 'Zona Barra'),
+(37, 'Masago', 'gramos', 0.00, 'por_receta', 'ins_688a5b3f0dca6.jpg', 0.00, 'Zona Barra'),
+(38, 'Nuez de la india', 'gramos', 0.00, 'por_receta', 'ins_688a5be531e11.jpg', 0.00, 'Zona Barra'),
+(39, 'Cátsup', 'Litros', 0.00, 'por_receta', 'ins_688a5c657eb83.jpg', 0.00, 'Zona Barra'),
+(40, 'Atún fresco', 'Kilos', 0.00, 'por_receta', 'ins_688a5ce18adc5.jpg', 0.00, 'Zona Barra'),
+(41, 'Callo almeja', 'Kilos', 0.00, 'por_receta', 'ins_688a5d28de8a5.jpg', 0.00, 'Zona Barra'),
+(42, 'Calabacin', 'Kilos', 0.00, 'por_receta', 'ins_688a5d6b2bca1.jpg', 0.00, 'Zona Barra'),
+(43, 'Fideo chino transparente', 'gramos', 0.00, 'por_receta', 'ins_688a5dd3b406d.jpg', 0.00, 'Zona Barra'),
+(44, 'Brócoli', 'Kilos', 0.00, 'por_receta', 'ins_688a5e2736870.jpg', 0.00, 'Zona Barra'),
+(45, 'Chile de árbol', 'Kilos', 0.00, 'por_receta', 'ins_688a5e6f08ccd.jpg', 0.00, 'Zona Barra'),
+(46, 'Pasta udon', 'gramos', 0.00, 'por_receta', 'ins_688a5eb627f38.jpg', 0.00, 'Zona Barra'),
+(47, 'Huevo', 'pieza', 0.00, 'por_receta', 'ins_688a5ef9b575e.jpg', 0.00, 'Zona Barra'),
+(48, 'Cerdo', 'Kilos', 0.00, 'por_receta', 'ins_688a5f3915f5e.jpg', 0.00, 'Zona Barra'),
+(49, 'Masa para gyozas', 'gramos', 0.00, 'por_receta', 'ins_688a5fae2e7f1.jpg', 0.00, 'Zona Barra'),
+(50, 'Naruto', 'gramos', 0.00, 'por_receta', 'ins_688a5ff57f62d.jpg', 0.00, 'Zona Barra'),
+(51, 'Atún ahumado', 'Kilos', 0.00, 'por_receta', 'ins_68adcd62c5a19.jpg', 0.00, 'Zona Barra'),
+(52, 'Cacahuate con salsa (salado)', 'Kilos', 0.00, 'por_receta', 'ins_68adcf253bd1d.jpg', 0.00, 'Zona Barra'),
+(53, 'Calabaza', 'Kilos', 0.00, 'por_receta', 'ins_68add0ff781fb.jpg', 0.00, 'Zona Barra'),
+(54, 'Camarón gigante para pelar', 'Kilos', 0.00, 'por_receta', 'ins_68add3264c465.jpg', 0.00, 'Zona Barra'),
+(55, 'Cebolla', 'Kilos', 0.00, 'por_receta', 'ins_68add38beff59.jpg', 0.00, 'Zona Barra'),
+(56, 'Chile en polvo', 'gramos', 0.00, 'por_receta', 'ins_68add4a750a0e.jpg', 0.00, 'Zona Barra'),
+(57, 'Coliflor', 'Kilos', 0.00, 'por_receta', 'ins_68add5291130e.jpg', 0.00, 'Zona Barra'),
+(59, 'Dedos de surimi', 'pieza', 0.00, 'unidad_completa', 'ins_68add5c575fbb.jpg', 0.00, 'Zona Barra'),
+(60, 'Fideos', 'gramos', 0.00, 'por_receta', 'ins_68add629d094b.jpg', 0.00, 'Zona Barra'),
+(61, 'Fondo de res', 'Litros', 0.00, 'no_controlado', 'ins_68add68d317d5.jpg', 0.00, 'Zona Barra'),
+(62, 'Gravy Naranja', 'Litros', 0.00, 'no_controlado', 'ins_68add7bb461b3.jpg', 0.00, 'Zona Barra'),
+(63, 'Salsa Aguachil', 'Litros', 0.00, 'no_controlado', 'ins_68ae000034b31.jpg', 0.00, 'Zona Barra'),
+(64, 'Julianas de zanahoria', 'gramos', 0.00, 'por_receta', 'ins_68add82c9c245.jpg', 0.00, 'Zona Barra'),
+(65, 'Limón', 'Kilos', 0.00, 'por_receta', 'ins_68add890ee640.jpg', 0.00, 'Zona Barra'),
+(66, 'Queso Mix', 'gramos', 0.00, 'uso_general', 'ins_68ade1625f489.jpg', 0.00, 'Zona Barra'),
+(67, 'Chile morrón rojo', 'Kilos', 0.00, 'por_receta', 'ins_68addcbc6d15a.jpg', 0.00, 'Zona Barra'),
+(69, 'Pasta chukasoba', 'gramos', 0.00, 'por_receta', 'ins_68addd277fde6.jpg', 0.00, 'Zona Barra'),
+(70, 'Pasta frita', 'gramos', 0.00, 'por_receta', 'ins_68addd91a005e.jpg', 0.00, 'Zona Barra'),
+(71, 'Queso crema', 'Kilos', 0.00, 'uso_general', 'ins_68ade11cdadcb.jpg', 0.00, 'Zona Barra'),
+(72, 'Refresco embotellado', 'pieza', 0.00, 'unidad_completa', 'ins_68adfdd53f04e.jpg', 0.00, 'Zona Barra'),
+(73, 'res', 'Kilos', 0.00, 'uso_general', 'ins_68adfe2e49580.jpg', 0.00, 'Refrigerdor'),
+(74, 'Rodajas de naranja', 'pieza', 0.00, 'por_receta', 'ins_68adfeccd68d8.jpg', 0.00, 'Zona Barra'),
+(75, 'Salmón', 'gramos', 0.00, 'por_receta', 'ins_68adffa2a2db0.jpg', 0.00, 'Zona Barra'),
+(76, 'Salsa de anguila', 'Litros', 0.00, 'no_controlado', 'ins_68ae005f1b3cd.jpg', 0.00, 'Zona Barra'),
+(77, 'Salsa teriyaki (dulce)', 'Litros', 0.00, 'no_controlado', 'ins_68ae00c53121a.jpg', 0.00, 'Zona Barra'),
+(78, 'Salsas orientales', 'Litros', 0.00, 'no_controlado', 'ins_68ae01341e7b1.jpg', 0.00, 'Zona Barra'),
+(79, 'Shisimi', 'gramos', 0.00, 'uso_general', 'ins_68ae018d22a63.jpg', 0.00, 'Zona Barra'),
+(80, 'Siracha', 'Litros', 0.00, 'no_controlado', 'ins_68ae03413da26.jpg', 0.00, 'Zona Barra'),
+(81, 'Tampico', 'Litros', 0.00, 'uso_general', 'ins_68ae03f65bd71.jpg', 0.00, 'Zona Barra'),
+(82, 'Tortilla de harina', 'pieza', 0.00, 'unidad_completa', 'ins_68ae04b46d24a.jpg', 0.00, 'Zona Barra'),
+(83, 'Tostada', 'pieza', 0.00, 'unidad_completa', 'ins_68ae05924a02a.jpg', 0.00, 'Zona Barra'),
+(85, 'Chile morron amarillo', 'Kilos', 0.00, 'por_receta', 'ins_68ae061b1175b.jpg', 0.00, 'Zona Barra'),
+(86, 'Sal con Ajo', 'gramos', 0.00, 'por_receta', 'ins_68adff6dbf111.jpg', 0.00, 'Zona Barra'),
+(87, 'Aderezo Chipotle', 'mililitros', 0.00, 'por_receta', 'ins_68adcabeb1ee9.jpg', 0.00, 'Zona Barra'),
+(88, 'Mezcla de Horneado', 'gramos', 0.00, 'por_receta', 'ins_68addaa3e53f7.jpg', 0.00, 'Zona Barra'),
+(89, 'Aderezo', 'gramos', 76.00, 'uso_general', 'ins_68adcc0771a3c.jpg', 0.00, 'Zona Barra'),
+(90, 'Camarón Empanizado', 'gramos', 0.00, 'por_receta', 'ins_68add1de1aa0e.jpg', 0.00, 'Zona Barra'),
+(91, 'Pollo Empanizado', 'gramos', 0.00, 'por_receta', 'ins_68adde81c6be3.jpg', 0.00, 'Zona Barra'),
+(92, 'Cebollín', 'Kilos', 0.00, 'por_receta', 'ins_68add3e38d04b.jpg', 0.00, 'Zona Barra'),
+(93, 'Aderezo Cebolla Dul.', 'mililitros', 97.00, 'uso_general', 'ins_68adcb8fa562e.jpg', 0.00, 'Zona Barra'),
+(94, 'Camaron Enchiloso', 'gramos', 0.00, 'por_receta', 'ins_68add2db69e2e.jpg', 0.00, 'Zona Barra'),
+(95, 'Pastel chocoflan', 'pieza', 0.00, 'unidad_completa', 'ins_68adddfa22fe2.jpg', 0.00, 'Zona Barra'),
+(96, 'Pay de queso', 'pieza', 0.00, 'unidad_completa', 'ins_68adde4fa8275.jpg', 0.00, 'Zona Barra'),
+(97, 'Helado tempura', 'pieza', 0.00, 'unidad_completa', 'ins_68add7e53c6fe.jpg', 0.00, 'Zona Barra'),
+(98, 'Postre especial', 'pieza', 0.00, 'unidad_completa', 'ins_68addee98fdf0.jpg', 0.00, 'Zona Barra'),
+(99, 'Búfalo', 'mililitros', 0.00, 'no_controlado', 'ins_68adce63dd347.jpg', 0.00, 'Zona Barra'),
+(101, 'Corona 1/2', 'pieza', 0.00, 'unidad_completa', 'ins_68add55a1e3b7.jpg', 0.00, 'Zona Barra'),
+(102, 'Golden Light 1/2', 'pieza', 0.00, 'unidad_completa', 'ins_68add76481f22.jpg', 0.00, 'Zona Barra'),
+(103, 'Negra Modelo', 'pieza', 0.00, 'unidad_completa', 'ins_68addc59c2ea9.jpg', 0.00, 'Zona Barra'),
+(104, 'Modelo Especial', 'pieza', 0.00, 'unidad_completa', 'ins_68addb9d59000.jpg', 0.00, 'Zona Barra'),
+(105, 'Bud Light', 'pieza', 0.00, 'unidad_completa', 'ins_68adcdf3295e8.jpg', 0.00, 'Zona Barra'),
+(106, 'Stella Artois', 'pieza', 0.00, 'unidad_completa', 'ins_68ae0397afb2f.jpg', 0.00, 'Zona Barra'),
+(107, 'Ultra 1/2', 'pieza', 0.00, 'unidad_completa', 'ins_68ae05466a8e2.jpg', 0.00, 'Zona Barra'),
+(108, 'Michelob 1/2', 'pieza', 0.00, 'unidad_completa', 'ins_68addb2d00c85.jpg', 0.00, 'Zona Barra'),
+(109, 'Alitas de pollo', 'pieza', 0.00, 'unidad_completa', 'ins_68adccf5a1147.jpg', 0.00, 'Refrigerdor'),
+(110, 'Ranch', 'mililitros', 0.00, 'no_controlado', 'ins_68adfcddef7e3.jpg', 0.00, 'Zona Barra'),
+(111, 'Buffalo', 'mililitros', 0.00, 'no_controlado', '', 0.00, 'Zona Barra'),
+(112, 'Chichimi', 'gramos', 0.00, 'no_controlado', 'ins_68add45bdb306.jpg', 0.00, 'Zona Barra'),
+(113, 'Calpico', 'pieza', 0.00, 'unidad_completa', 'ins_68add19570673.jpg', 0.00, 'Bebidas'),
+(114, 'Vaina de soja', 'gramos', 0.00, 'uso_general', 'ins_68ae05de869d1.jpg', 0.00, 'Zona Barra'),
+(115, 'Boneless', 'Kilos', 0.00, 'por_receta', 'ins_68adcdbb6b5b4.jpg', 0.00, 'Zona Barra'),
+(116, 'Agua members', 'pieza', 0.00, 'unidad_completa', 'ins_68adcc5feaee1.jpg', 0.00, 'Bebidas'),
+(117, 'Agua mineral', 'pieza', 0.00, 'unidad_completa', 'ins_68adcca85ae2c.jpg', 0.00, 'Bebidas'),
+(118, 'Cilantro', 'gramos', 0.00, 'por_receta', 'ins_68add4edab118.jpg', 0.00, 'Zona Barra'),
+(119, 'Té de jazmin', 'Litros', 0.00, 'por_receta', 'ins_68ae0474dfc36.jpg', 0.00, 'Zona Barra'),
+(120, 'bolsa camiseta 35x60', 'kilo', 0.00, 'unidad_completa', '', 0.00, 'Plasticos y otros'),
+(121, 'bolsa camiseta 25x50', 'kilo', 0.00, 'unidad_completa', '', 0.00, 'Plasticos y otros'),
+(122, 'bolsa camiseta 25x40', 'kilo', 0.00, 'unidad_completa', '', 0.00, 'Plasticos y otros'),
+(123, 'bolsa poliseda 15x25', 'rollo', 0.00, 'unidad_completa', '', 0.00, 'Plasticos y otros'),
+(124, 'bolsa rollo 20x30', 'rollo', 0.00, 'unidad_completa', '', 0.00, 'Plasticos y otros'),
+(125, 'bowls cpp1911-3', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Plasticos y otros'),
+(126, 'bowls cpp20', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Plasticos y otros'),
+(127, 'bowls cpp1911-3 tapa', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Plasticos y otros'),
+(128, 'bowls cpp20 tapa', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Plasticos y otros'),
+(129, 'baso termico 1l', 'piza', 0.00, 'unidad_completa', '', 0.00, 'Plasticos y otros'),
+(130, 'bisagra 22x22', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Plasticos y otros'),
+(131, 'servilleta', 'paquete', 0.00, 'unidad_completa', '', 0.00, 'Plasticos y otros'),
+(132, 'Papel aluminio 400', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(133, 'Vitafilim 14', 'rollo', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(134, 'guante vinil', 'caja', 0.00, 'unidad_completa', '', 0.00, 'Articulos_de_limpieza'),
+(135, 'Popote 26cm', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(136, 'Bolsa papel x 100pz', 'paquete', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(137, 'rollo impresora mediano', 'rollo', 0.00, 'unidad_completa', '', 0.00, 'Plasticos y otros'),
+(138, 'rollo impresora grande', 'rollo', 0.00, 'unidad_completa', '', 0.00, 'Plasticos y otros'),
+(139, 'tenedor fantasy mediano 25pz', 'paquete', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(140, 'Bolsa basura 90x120 negra', 'bulto', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(141, 'Ts2', 'tira', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(142, 'Ts1', 'tira', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(143, 'TS200', 'tira', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(144, 'S100', 'tira', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(145, 'Pet 1l c/tapa', 'bulto', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(146, 'Pet 1/2l c/tapa', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(147, 'Cuchara mediana fantasy 50pz', 'paquete', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(148, 'Charola 8x8', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(149, 'Charola 6x6', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(150, 'Charola 8x8 negra', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(151, 'Charola 6x6 negra', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(152, 'Polipapel', 'kilo', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(153, 'Charola pastelera', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(154, 'Papel secante', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(155, 'Papel rollo higienico', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(156, 'Fabuloso 20l', 'bidon', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(157, 'Desengrasante 20l', 'bidon', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(158, 'Cloro 20l', 'bidon', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(159, 'Iorizante 20l', 'bidon', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(160, 'Windex 20l', 'bidon', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(161, 'quitacochambre 1l', 'litro', 0.00, 'unidad_completa', '', 0.00, 'Articulos_de_limpieza'),
+(162, 'Fibra metal', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(163, 'Esponja', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(164, 'Escoba', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(165, 'Recogedor', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(166, 'Trapeador', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(167, 'Cubeta 16l', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(168, 'Sanitas', 'paquete', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(169, 'Jabon polvo 9k', 'bulto', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(170, 'Shampoo trastes 20l', 'bidon', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(171, 'Jaladores', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(172, 'Cofia', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(173, 'Trapo', 'pieza', 0.00, 'unidad_completa', '', 0.00, 'Zona Barra'),
+(174, 'champinon', 'Kilos', 0.00, 'por_receta', '', 0.00, 'Refrigerdor'),
+(175, 'ejotes', 'Kilos', 0.00, 'por_receta', '', 0.00, 'Refrigerdor'),
+(176, 'Chile Caribe', 'Kilos', 0.00, 'por_receta', '', 0.00, 'Zona Barra'),
+(177, 'Chile serrano', 'Kilos', 0.00, 'por_receta', '', 0.00, 'Zona Barra'),
+(178, 'Col morada', 'Kilos', 0.00, 'por_receta', '', 0.00, 'Zona Barra');
 
 -- --------------------------------------------------------
 
@@ -793,6 +857,16 @@ CREATE TABLE `logs_accion` (
   `referencia_id` int(11) DEFAULT NULL,
   `corte_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf32 COLLATE=utf32_bin;
+
+--
+-- Volcado de datos para la tabla `logs_accion`
+--
+
+INSERT INTO `logs_accion` (`id`, `usuario_id`, `modulo`, `accion`, `fecha`, `referencia_id`, `corte_id`) VALUES
+(1, 2, 'bodega', 'Generacion QR', '2025-10-10 09:42:03', 1, NULL),
+(2, 2, 'bodega', 'Generacion QR', '2025-10-13 08:18:53', 2, NULL),
+(3, 2, 'bodega', 'Generacion QR', '2025-10-13 08:20:13', 3, NULL),
+(4, 2, 'bodega', 'Generacion QR', '2025-10-14 15:31:30', 4, NULL);
 
 -- --------------------------------------------------------
 
@@ -836,8 +910,20 @@ CREATE TABLE `movimientos_insumos` (
 --
 
 INSERT INTO `movimientos_insumos` (`id`, `tipo`, `usuario_id`, `usuario_destino_id`, `insumo_id`, `id_entrada`, `cantidad`, `observacion`, `fecha`, `corte_id`, `qr_token`, `id_qr`) VALUES
-(1, 'salida', 2, NULL, 2, 2, -1.00, 'Salida lote_origen proceso id 1', '2025-10-09 17:42:58', 1, NULL, NULL),
-(2, 'salida', 2, NULL, 1, 1, -1.00, 'Salida lote_origen proceso id 2', '2025-10-09 17:42:58', 1, NULL, NULL);
+(1, 'salida', 2, NULL, 89, 1, -1.00, 'Salida lote_origen proceso id 1', '2025-10-09 22:02:33', 1, NULL, NULL),
+(2, 'salida', 2, NULL, 93, 2, -1.00, 'Salida lote_origen proceso id 2', '2025-10-09 22:02:33', 1, NULL, NULL),
+(3, 'merma', 2, NULL, 89, 3, 0.10, 'hacerlo - Merma del proceso id 1 (pedido 1)', '2025-10-09 22:03:08', 1, '29fadc07de79a1a85721e98c68f73aba', NULL),
+(4, 'merma', 2, NULL, 93, 3, 0.10, 'hacerlo - Merma del proceso id 2 (pedido 1)', '2025-10-09 22:03:08', 1, '9883dc1392529bc4c44750c7812d84a1', NULL),
+(5, 'traspaso', 2, NULL, 89, 1, -1.00, 'Enviado por QR a sucursal', '2025-10-10 09:42:03', NULL, 'ef482451495ed7f5fd92a7acf05a8708', 1),
+(6, 'traspaso', 2, NULL, 1, 4, -1.00, 'Enviado por QR a sucursal', '2025-10-13 08:18:53', NULL, 'd4e06ad42c51b7d884064ef1a511164c', 2),
+(7, 'traspaso', 2, NULL, 1, 4, -1.00, 'Enviado por QR a sucursal', '2025-10-13 08:20:13', NULL, 'eda2ff98a1dc60739e8832229d4fd6b5', 3),
+(8, 'traspaso', 2, NULL, 35, 5, -1.00, 'Enviado por QR a sucursal', '2025-10-14 15:31:30', NULL, 'ae39962f63a642f37a67b8769be1da39', 4),
+(9, 'traspaso', 2, NULL, 89, 1, -23.00, 'Enviado por QR a sucursal', '2025-10-14 15:31:30', NULL, 'ae39962f63a642f37a67b8769be1da39', 4),
+(10, 'traspaso', 2, NULL, 93, 2, -3.00, 'Enviado por QR a sucursal', '2025-10-14 15:31:30', NULL, 'ae39962f63a642f37a67b8769be1da39', 4),
+(11, 'salida', 2, NULL, 1, 4, -10.00, 'Salida lote_origen proceso id 3', '2025-10-14 15:41:39', 1, NULL, NULL),
+(12, 'salida', 2, NULL, 8, 6, -10.00, 'Salida lote_origen proceso id 4', '2025-10-14 15:41:39', 1, NULL, NULL),
+(13, 'merma', 2, NULL, 1, 7, 0.10, 'preparacion - Merma del proceso id 3 (pedido 2)', '2025-10-14 15:42:21', 1, 'a54dfb482534f4d99290ef713b23d1e5', NULL),
+(14, 'merma', 2, NULL, 8, 7, 0.10, 'preparacion - Merma del proceso id 4 (pedido 2)', '2025-10-14 15:42:21', 1, '1f6da12440fe9757efb97e4203f0dffa', NULL);
 
 -- --------------------------------------------------------
 
@@ -872,8 +958,10 @@ CREATE TABLE `procesos_insumos` (
 --
 
 INSERT INTO `procesos_insumos` (`id`, `insumo_origen_id`, `insumo_destino_id`, `cantidad_origen`, `unidad_origen`, `cantidad_resultante`, `unidad_destino`, `estado`, `observaciones`, `creado_por`, `preparado_por`, `listo_por`, `creado_en`, `actualizado_en`, `corte_id`, `entrada_insumo_id`, `mov_salida_id`, `qr_path`, `pedido`) VALUES
-(1, 2, 13, 1.00, 'piezas', NULL, 'Kilos', 'pendiente', '', 2, NULL, NULL, '2025-10-09 17:42:57', '2025-10-09 17:42:57', 1, NULL, NULL, NULL, 1),
-(2, 1, 13, 1.00, 'Kilos', NULL, 'Kilos', 'pendiente', '', 2, NULL, NULL, '2025-10-09 17:42:58', '2025-10-09 17:45:22', 1, NULL, NULL, NULL, 1);
+(1, 89, 87, 1.00, 'gramos', 1.80, 'mililitros', 'entregado', '', 2, 2, 2, '2025-10-09 22:02:33', '2025-10-09 22:03:12', 1, 3, NULL, 'archivos/qr/entrada_insumo_3.png', 1),
+(2, 93, 87, 1.00, 'mililitros', 1.80, 'mililitros', 'entregado', '', 2, 2, 2, '2025-10-09 22:02:33', '2025-10-09 22:03:12', 1, 3, NULL, 'archivos/qr/entrada_insumo_3.png', 1),
+(3, 1, 13, 10.00, 'Kilos', 1.80, 'Kilos', 'entregado', 'preparar', 2, 2, 2, '2025-10-14 15:41:39', '2025-10-14 15:42:22', 1, 7, NULL, 'archivos/qr/entrada_insumo_7.png', 2),
+(4, 8, 13, 10.00, 'gramos', 1.80, 'Kilos', 'entregado', 'preparar', 2, 2, 2, '2025-10-14 15:41:39', '2025-10-14 15:42:22', 1, 7, NULL, 'archivos/qr/entrada_insumo_7.png', 2);
 
 -- --------------------------------------------------------
 
@@ -981,6 +1069,16 @@ CREATE TABLE `qrs_insumo` (
   `corte_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf32 COLLATE=utf32_bin;
 
+--
+-- Volcado de datos para la tabla `qrs_insumo`
+--
+
+INSERT INTO `qrs_insumo` (`id`, `token`, `json_data`, `estado`, `creado_por`, `creado_en`, `expiracion`, `pdf_envio`, `pdf_recepcion`, `corte_id`) VALUES
+(1, 'ef482451495ed7f5fd92a7acf05a8708', '[{\"id\":89,\"nombre\":\"Aderezo\",\"unidad\":\"gramos\",\"cantidad\":1,\"precio_unitario\":0}]', 'pendiente', 2, '2025-10-10 09:42:03', NULL, 'archivos/bodega/pdfs/qr_ef482451495ed7f5fd92a7acf05a8708.pdf', NULL, NULL),
+(2, 'd4e06ad42c51b7d884064ef1a511164c', '[{\"id\":1,\"nombre\":\"Arroz\",\"unidad\":\"Kilos\",\"cantidad\":1,\"precio_unitario\":0}]', 'pendiente', 2, '2025-10-13 08:18:53', NULL, 'archivos/bodega/pdfs/qr_d4e06ad42c51b7d884064ef1a511164c.pdf', NULL, NULL),
+(3, 'eda2ff98a1dc60739e8832229d4fd6b5', '[{\"id\":1,\"nombre\":\"Arroz\",\"unidad\":\"Kilos\",\"cantidad\":1,\"precio_unitario\":0}]', 'pendiente', 2, '2025-10-13 08:20:13', NULL, 'archivos/bodega/pdfs/qr_eda2ff98a1dc60739e8832229d4fd6b5.pdf', NULL, NULL),
+(4, 'ae39962f63a642f37a67b8769be1da39', '[{\"id\":35,\"nombre\":\"Apio\",\"unidad\":\"Kilos\",\"cantidad\":1,\"precio_unitario\":0},{\"id\":89,\"nombre\":\"Aderezo\",\"unidad\":\"gramos\",\"cantidad\":23,\"precio_unitario\":0},{\"id\":93,\"nombre\":\"Aderezo Cebolla Dul.\",\"unidad\":\"mililitros\",\"cantidad\":3,\"precio_unitario\":0}]', 'pendiente', 2, '2025-10-14 15:31:30', NULL, 'archivos/bodega/pdfs/qr_ae39962f63a642f37a67b8769be1da39.pdf', NULL, NULL);
+
 -- --------------------------------------------------------
 
 --
@@ -1080,6 +1178,31 @@ INSERT INTO `rutas` (`id`, `nombre`, `path`, `tipo`, `grupo`, `orden`) VALUES
 -- --------------------------------------------------------
 
 --
+-- Estructura de tabla para la tabla `sedes`
+--
+
+CREATE TABLE `sedes` (
+  `id` int(11) NOT NULL,
+  `nombre` varchar(100) NOT NULL,
+  `direccion` text NOT NULL,
+  `rfc` varchar(20) NOT NULL,
+  `telefono` varchar(20) NOT NULL,
+  `correo` varchar(100) DEFAULT NULL,
+  `web` varchar(100) DEFAULT NULL,
+  `activo` tinyint(1) DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `sedes`
+--
+
+INSERT INTO `sedes` (`id`, `nombre`, `direccion`, `rfc`, `telefono`, `correo`, `web`, `activo`) VALUES
+(1, 'Forestal', 'Blvd. Luis Donaldo Colosio #317, Fracc. La Forestal ', 'VEAJ9408188U9', '6183222352', 'ventas@tokyo.com', 'tokyosushiprime.com', 1),
+(2, 'Domingo Arrieta', 'Chabacanos SN-5, El Naranjal, 34190 Durango, Dgo.', 'VEAJ9408188U9', '6181690319', 'ventas@tokyo.com', 'tokyosushiprime.com', 1);
+
+-- --------------------------------------------------------
+
+--
 -- Estructura de tabla para la tabla `sucursales`
 --
 
@@ -1164,7 +1287,6 @@ INSERT INTO `usuario_ruta` (`id`, `usuario_id`, `ruta_id`) VALUES
 (80, 1, 37),
 (81, 1, 38),
 (82, 1, 39),
-(117, 3, 3),
 (118, 4, 3),
 (119, 5, 3),
 (120, 5, 1),
@@ -1234,7 +1356,10 @@ INSERT INTO `usuario_ruta` (`id`, `usuario_id`, `ruta_id`) VALUES
 (196, 2, 31),
 (197, 2, 27),
 (198, 2, 37),
-(199, 2, 40);
+(199, 2, 40),
+(200, 3, 1),
+(201, 3, 14),
+(202, 3, 3);
 
 -- --------------------------------------------------------
 
@@ -1343,6 +1468,12 @@ ALTER TABLE `entradas_insumos`
   ADD KEY `ix_ei_corte` (`corte_id`);
 
 --
+-- Indices de la tabla `impresoras`
+--
+ALTER TABLE `impresoras`
+  ADD PRIMARY KEY (`print_id`);
+
+--
 -- Indices de la tabla `insumos`
 --
 ALTER TABLE `insumos`
@@ -1383,7 +1514,8 @@ ALTER TABLE `procesos_insumos`
   ADD KEY `idx_proc_estado` (`estado`),
   ADD KEY `idx_proc_origen` (`insumo_origen_id`),
   ADD KEY `idx_proc_destino` (`insumo_destino_id`),
-  ADD KEY `ix_proc_corte` (`corte_id`);
+  ADD KEY `ix_proc_corte` (`corte_id`),
+  ADD KEY `idx_proc_pedido` (`pedido`);
 
 --
 -- Indices de la tabla `procesos_insumos_origenes`
@@ -1484,19 +1616,25 @@ ALTER TABLE `cortes_almacen_detalle`
 -- AUTO_INCREMENT de la tabla `despachos`
 --
 ALTER TABLE `despachos`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT de la tabla `despachos_detalle`
 --
 ALTER TABLE `despachos_detalle`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT de la tabla `entradas_insumos`
 --
 ALTER TABLE `entradas_insumos`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+
+--
+-- AUTO_INCREMENT de la tabla `impresoras`
+--
+ALTER TABLE `impresoras`
+  MODIFY `print_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `insumos`
@@ -1508,7 +1646,7 @@ ALTER TABLE `insumos`
 -- AUTO_INCREMENT de la tabla `logs_accion`
 --
 ALTER TABLE `logs_accion`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT de la tabla `mermas_insumo`
@@ -1520,13 +1658,13 @@ ALTER TABLE `mermas_insumo`
 -- AUTO_INCREMENT de la tabla `movimientos_insumos`
 --
 ALTER TABLE `movimientos_insumos`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT de la tabla `procesos_insumos`
 --
 ALTER TABLE `procesos_insumos`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT de la tabla `procesos_insumos_origenes`
@@ -1550,7 +1688,7 @@ ALTER TABLE `proveedores`
 -- AUTO_INCREMENT de la tabla `qrs_insumo`
 --
 ALTER TABLE `qrs_insumo`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT de la tabla `reabasto_alertas`
@@ -1580,7 +1718,7 @@ ALTER TABLE `sucursales`
 -- AUTO_INCREMENT de la tabla `usuario_ruta`
 --
 ALTER TABLE `usuario_ruta`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=200;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=203;
 
 --
 -- Restricciones para tablas volcadas

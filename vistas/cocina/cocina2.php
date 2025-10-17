@@ -140,6 +140,10 @@ ob_start();
     <input id="inpObsProcGrupo" type="text" class="form-control" placeholder="Observaciones (opcional)">
 
     <button id="btnCrearGrupo" class="btn custom-btn" style="grid-column: 1 / -1;">Crear grupo</button>
+    <div class="mt-2" style="grid-column: 1 / -1;">
+      <label for="selImpresoraCocina" class="mb-1" style="color:black">Impresora</label>
+      <select id="selImpresoraCocina" class="sel-impresora form-control"><option value="">(Selecciona impresora)</option></select>
+    </div>
   </div>
 </div>
 <div id="alert-sin-corte-lote" class="container my-3" style="<?= ($__corte_id_abierto <= 0) ? '' : 'display:none'; ?>">

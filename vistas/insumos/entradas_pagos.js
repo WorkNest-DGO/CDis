@@ -10,18 +10,23 @@ function hideModal(selector) {
     document.body.classList.remove('modal-open'); document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
 }
 function showAppMsg(msg) { const body = document.querySelector('#appMsgModal .modal-body'); if (body) body.textContent = String(msg); showModal('#appMsgModal'); }
-window.alert = showAppMsg;
+  window.alert = showAppMsg;
 
 const qs = (r, s) => (r || document).querySelector(s);
 const qsa = (r, s) => Array.from((r || document).querySelectorAll(s));
 const fmt$ = n => { const v = parseFloat(String(n).replace(',', '.')); return Number.isFinite(v) ? v.toFixed(2) : ''; };
 
 // Paginación y filtros avanzados
-let epPagina = 1;
-let epPageSize = 15;
-let epTotal = 0;
+  let epPagina = 1;
+  let epPageSize = 15;
+  let epTotal = 0;
 
-async function cargarEntradasPagosPaged(page = epPagina) {
+  // Preparados (credito NULL)
+  let prepPagina = 1;
+  let prepPageSize = 15;
+  let prepTotal = 0;
+
+  async function cargarEntradasPagosPaged(page = epPagina) {
     epPagina = page;
     const credito = qs(document, '#filtroCredito')?.value ?? '';
     const pagado = qs(document, '#filtroPagado')?.value ?? '';
@@ -46,7 +51,70 @@ async function cargarEntradasPagosPaged(page = epPagina) {
         renderTabla(rows);
         renderPaginador();
     } catch (e) { console.error(e); alert('Error de comunicación'); }
-}
+  }
+
+  // Listado de preparados (solo credito IS NULL)
+  async function cargarPreparadosPaged(page = prepPagina) {
+    prepPagina = page;
+    const df = qs(document, '#prepDateFrom')?.value ?? '';
+    const dt = qs(document, '#prepDateTo')?.value ?? '';
+    const prod = qs(document, '#prepBuscarProd')?.value.trim() ?? '';
+    const uni = qs(document, '#prepBuscarUnidad')?.value.trim() ?? '';
+    const cmin = qs(document, '#prepCantMin')?.value ?? '';
+    const cmax = qs(document, '#prepCantMax')?.value ?? '';
+    const psSel = qs(document, '#prepPageSize');
+    prepPageSize = psSel ? (parseInt(psSel.value, 10) || 15) : prepPageSize;
+    const params = new URLSearchParams();
+    if (df && dt) { params.set('date_from', df); params.set('date_to', dt); }
+    if (prod) params.set('producto', prod);
+    if (uni) params.set('unidad', uni);
+    if (cmin !== '') params.set('cantidad_min', cmin);
+    if (cmax !== '') params.set('cantidad_max', cmax);
+    params.set('page', String(prepPagina));
+    params.set('page_size', String(prepPageSize));
+    try {
+      const resp = await fetch(`../../api/insumos/listar_preparados.php?${params.toString()}`);
+      const data = await resp.json();
+      if (!data.success) { alert(data.mensaje || 'Error al cargar'); return; }
+      const rows = Array.isArray(data.resultado) ? data.resultado : (data.resultado?.rows || []);
+      prepTotal = (data.resultado && Number.isFinite(data.resultado.total)) ? data.resultado.total : rows.length;
+      renderTablaPreparados(rows);
+      renderPaginadorPreparados();
+    } catch (e) { console.error(e); alert('Error de comunicación'); }
+  }
+
+  function renderTablaPreparados(rows) {
+    const tb = qs(document, '#tablaPreparados tbody'); if (!tb) return; tb.innerHTML = '';
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.id}</td>
+        <td>${r.fecha ?? ''}</td>
+        <td>${r.producto ?? ''}</td>
+        <td>${r.cantidad ?? ''}</td>
+        <td>${r.unidad ?? ''}</td>
+        <td>${fmt$(r.costo_total ?? '')}</td>
+      `;
+      tb.appendChild(tr);
+    });
+  }
+
+  function renderPaginadorPreparados() {
+    const pag = qs(document, '#prepPaginador'); if (!pag) return; pag.innerHTML = '';
+    const totalPag = Math.max(1, Math.ceil(prepTotal / prepPageSize));
+    const makeLi = (txt, disabled, onClick, active=false) => {
+      const li = document.createElement('li');
+      li.className = 'page-item' + (disabled ? ' disabled' : '') + (active ? ' active' : '');
+      const a = document.createElement('a'); a.className = 'page-link'; a.href = '#'; a.textContent = txt;
+      if (!disabled) a.addEventListener('click', (e)=>{ e.preventDefault(); onClick(); });
+      li.appendChild(a); return li;
+    };
+    pag.appendChild(makeLi('Anterior', prepPagina<=1, ()=> cargarPreparadosPaged(prepPagina-1)));
+    for (let p=1; p<= totalPag; p++) {
+      pag.appendChild(makeLi(String(p), false, ()=> cargarPreparadosPaged(p), p===prepPagina));
+    }
+    pag.appendChild(makeLi('Siguiente', prepPagina>=totalPag, ()=> cargarPreparadosPaged(prepPagina+1)));
+  }
 
 async function cargarEntradasPagos() {
     const credito = qs(document, '#filtroCredito')?.value ?? '';
@@ -70,7 +138,11 @@ function renderTabla(rows) {
     const tb = qs(document, '#tablaEntradasPagos tbody'); if (!tb) return; tb.innerHTML = '';
     rows.forEach(r => {
         const tr = document.createElement('tr');
-        const tipo = String(r.credito) === '1' ? 'Crédito' : 'Efectivo';
+        const c = (r && typeof r.credito !== 'undefined') ? String(r.credito).toLowerCase() : '';
+        let tipo = 'Efectivo';
+        if (c === '1' || c === 'credito') tipo = 'Crédito';
+        else if (c === '0' || c === 'efectivo') tipo = 'Efectivo';
+        else if (c === 'transferencia') tipo = 'Transferencia';
         const pagadoTxt = String(r.pagado) === '1' ? 'Sí' : 'No';
         tr.innerHTML = `
             <td><input type="checkbox" class="row-check" data-id="${r.id}"></td>
@@ -121,6 +193,11 @@ async function buscarNota() {
             tb.innerHTML = '';
             rows.forEach(r => {
                 const tr = document.createElement('tr');
+                const c = (r && typeof r.credito !== 'undefined') ? String(r.credito).toLowerCase() : '';
+                let tipo = 'Efectivo';
+                if (c === '1' || c === 'credito') tipo = 'Crédito';
+                else if (c === '0' || c === 'efectivo') tipo = 'Efectivo';
+                else if (c === 'transferencia') tipo = 'Transferencia';
                 tr.innerHTML = `
                     <td>${r.id}</td>
                     <td>${r.fecha ?? ''}</td>
@@ -129,6 +206,7 @@ async function buscarNota() {
                     <td>${r.cantidad ?? ''}</td>
                     <td>${r.unidad ?? ''}</td>
                     <td>${fmt$(r.costo_total ?? '')}</td>
+                    <td>${tipo}</td>
                     <td>${r.nota ?? ''}</td>
                 `;
                 tb.appendChild(tr);
@@ -156,7 +234,7 @@ async function marcarPagados() {
     } catch (e) { console.error(e); alert('Error de comunicación'); }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', () => {
     const ps = qs(document, '#epPageSize'); if (ps) ps.value = '15';
     cargarEntradasPagosPaged(1);
     qs(document, '#btnBuscar')?.addEventListener('click', ()=> cargarEntradasPagosPaged(1));
@@ -171,4 +249,16 @@ document.addEventListener('DOMContentLoaded', () => {
     qs(document, '#deseleccionarTodo')?.addEventListener('click', () => seleccionarTodo(false));
     qs(document, '#checkAll')?.addEventListener('change', e => seleccionarTodo(!!e.target.checked));
     qs(document, '#btnBuscarNota')?.addEventListener('click', buscarNota);
-});
+
+    // Preparados events
+    const pps = qs(document, '#prepPageSize'); if (pps) pps.value = '15';
+    cargarPreparadosPaged(1);
+    qs(document, '#prepBtnBuscar')?.addEventListener('click', ()=> cargarPreparadosPaged(1));
+    qs(document, '#prepDateFrom')?.addEventListener('change', ()=> cargarPreparadosPaged(1));
+    qs(document, '#prepDateTo')?.addEventListener('change', ()=> cargarPreparadosPaged(1));
+    qs(document, '#prepBuscarProd')?.addEventListener('keydown', e => { if (e.key === 'Enter') cargarPreparadosPaged(1); });
+    qs(document, '#prepBuscarUnidad')?.addEventListener('keydown', e => { if (e.key === 'Enter') cargarPreparadosPaged(1); });
+    qs(document, '#prepCantMin')?.addEventListener('change', ()=> cargarPreparadosPaged(1));
+    qs(document, '#prepCantMax')?.addEventListener('change', ()=> cargarPreparadosPaged(1));
+    qs(document, '#prepPageSize')?.addEventListener('change', ()=> cargarPreparadosPaged(1));
+  });

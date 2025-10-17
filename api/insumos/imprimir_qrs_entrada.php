@@ -8,6 +8,37 @@ use Mike42\Escpos\Printer;
 use Mike42\Escpos\EscposImage;
 use Mike42\Escpos\PrintConnectors\WindowsPrintConnector;
 
+// --- Helpers impresoras ---
+function cdis_first_printer_ip(mysqli $db): string {
+    $sql = "SELECT ip FROM impresoras ORDER BY print_id ASC LIMIT 1";
+    if ($st = $db->prepare($sql)) {
+        $st->execute();
+        $st->bind_result($ip);
+        if ($st->fetch() && $ip) {
+            $st->close();
+            return $ip;
+        }
+        $st->close();
+    }
+    throw new Exception("No hay impresoras configuradas en BD.");
+}
+
+function cdis_resolve_printer_ip(mysqli $db, ?string $fromPost): string {
+    $fromPost = $fromPost !== null ? trim($fromPost) : '';
+    if ($fromPost !== '') return $fromPost;
+    return cdis_first_printer_ip($db);
+}
+
+// Resolver impresora elegida o fallback
+try {
+    $printerIp = cdis_resolve_printer_ip($conn, $_POST['printer_ip'] ?? ($_GET['printer_ip'] ?? null));
+    if (!preg_match('#^(smb://|\\\\)#i', $printerIp)) {
+        throw new Exception("Impresora inválida: " . $printerIp);
+    }
+} catch (Exception $e) {
+    error($e->getMessage());
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     error('Método no permitido');
 }
@@ -81,7 +112,7 @@ foreach ($ids as $id) {
 
 try {
     // Ajusta el conector a tu impresora (igual a bodega/imprimir_qr.php)
-    $connector = new WindowsPrintConnector("smb://FUED/pos58");
+    $connector = new WindowsPrintConnector($printerIp);
     $printer = new Printer($connector);
     $printer->initialize();
 

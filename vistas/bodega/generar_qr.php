@@ -13,8 +13,12 @@ if (!in_array($path_actual, $_SESSION['rutas_permitidas'])) {
 
 require_once __DIR__ . '/../../config/db.php';
 
-$res = $conn->query('SELECT id, nombre, unidad, existencia FROM insumos');
+$res = $conn->query("SELECT id, nombre, unidad, existencia, reque FROM insumos ORDER BY reque, nombre");
 $insumos = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+
+// Cargar opciones de URL base para QR desde la tabla direccion_qr
+$resDir = $conn->query('SELECT ip, nombre FROM direccion_qr');
+$direcciones_qr = $resDir ? $resDir->fetch_all(MYSQLI_ASSOC) : [];
 
 $title = 'Generar QR';
 ob_start();
@@ -50,19 +54,18 @@ ob_start();
                 </select>
             </div>
         </div>
-        <div class="table-responsive">
-            <table class="styled-table">
-                <thead>
-                    <tr>
-                        <th>Insumo</th>
-                        <th>Existencia</th>
-                        <th>Unidad</th>
-                        <th>Cantidad a enviar</th>
-                    </tr>
-                </thead>
-                <tbody id="tablaInsumos"></tbody>
-            </table>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="urlBase" class="text-white me-2">URL base QR</label>
+                <select id="urlBase" class="form-select">
+                    <option value="">(Usar default https://tokyosushiprime.com)</option>
+<?php foreach ($direcciones_qr as $d): ?>
+                    <option value="<?= htmlspecialchars($d['ip']) ?>"><?= htmlspecialchars(($d['nombre'] ?: '') . (isset($d['ip']) && $d['ip'] ? ' — ' . $d['ip'] : '')) ?></option>
+<?php endforeach; ?>
+                </select>
+            </div>
         </div>
+        <div id="seccionesInsumos"></div>
         <div class="d-flex justify-content-center my-2">
             <button type="button" id="prevPag" class="btn custom-btn me-2">Anterior</button>
             <button type="button" id="nextPag" class="btn custom-btn">Siguiente</button>
@@ -75,6 +78,10 @@ ob_start();
                 </thead>
                 <tbody></tbody>
             </table>
+        </div>
+        <div class="mt-3 print-controls">
+            <label class="text-white me-2">Impresora</label>
+            <select class="sel-impresora"><option value="">(Selecciona impresora)</option></select>
         </div>
         <button type="button" id="btnGenerar" class="btn custom-btn mt-3">Generar QR</button>
     </form>
@@ -159,10 +166,12 @@ document.getElementById('btnGenerar').addEventListener('click', async function(e
         return;
     }
     try {
+        const urlBaseSel = document.getElementById('urlBase');
+        const url_base = urlBaseSel && urlBaseSel.value ? urlBaseSel.value : '';
         const resp = await fetch('../../api/bodega/generar_qr.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ insumos })
+            body: JSON.stringify({ insumos, url_base })
         });
         const text = await resp.text();
         let data;
@@ -194,6 +203,86 @@ document.getElementById('btnGenerar').addEventListener('click', async function(e
         console.error(err);
         alert('Error de comunicación');
     }
+});
+
+// Agrupación por categoría (reque) y render por secciones (5 tablas)
+function getOrdenReque(){
+    // Solo las 5 categorías del enum (sin vacío)
+    return ['Zona Barra','Bebidas','Refrigerdor','Articulos_de_limpieza','Plasticos y otros'];
+}
+function renderTabla(){
+    const cont = document.getElementById('seccionesInsumos');
+    if (!cont) return;
+    cont.innerHTML = '';
+    const categorias = getOrdenReque();
+    categorias.forEach(cat => {
+        const itemsCat = (filtrado || []).filter(i => (i.reque || '') === cat);
+        if (!itemsCat.length) return;
+        const sec = document.createElement('div');
+        sec.className = 'mb-4';
+        const headerHtml = `<h5 class="text-white mb-2">${cat}</h5>`;
+        const thead = `
+            <thead>
+                <tr>
+                    <th>Insumo</th>
+                    <th>Existencia</th>
+                    <th>Unidad</th>
+                    <th>Cantidad a enviar</th>
+                </tr>
+            </thead>`;
+        let rows = '';
+        itemsCat.forEach(i => {
+            const val = seleccionados[i.id] || '';
+            rows += `<tr>
+                        <td>${i.nombre}</td>
+                        <td>${i.existencia ?? ''}</td>
+                        <td>${i.unidad ?? ''}</td>
+                        <td><input type="number" step="0.01" min="0" data-id="${i.id}" class="form-control" value="${val}"></td>
+                    </tr>`;
+        });
+        sec.innerHTML = headerHtml +
+            `<div class="table-responsive">
+                <table class="styled-table">
+                    ${thead}
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>`;
+        cont.appendChild(sec);
+    });
+    cont.querySelectorAll('input[data-id]').forEach(inp => inp.addEventListener('input', onInputChange));
+}
+</script>
+<script>
+// Llenado de selects de impresoras y hook para el link de impresión
+function cargarImpresoras($sel){
+ fetch('/rest2/CDI/api/impresoras/listar.php', { cache: 'no-store' })
+    .then(r=>r.json()).then(j=>{
+      const data = j && (j.resultado || j.data) || [];
+      if(!$sel) return;
+      $sel.innerHTML = '<option value="">(Selecciona impresora)</option>';
+      (data||[]).forEach(p=>{
+        const opt = document.createElement('option');
+        opt.value = p.ip;
+        opt.textContent = ((p.lugar||'') + ' — ' + p.ip).trim();
+        $sel.appendChild(opt);
+      });
+    }).catch(console.error);
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.sel-impresora').forEach(cargarImpresoras);
+  document.addEventListener('click', function(ev){
+    const a = ev.target.closest('a');
+    if (!a) return;
+    if (a.getAttribute('href') && a.getAttribute('href').includes('/api/bodega/imprimir_qr.php')){
+      const sel = document.querySelector('.sel-impresora');
+      const v = sel && sel.value ? sel.value : '';
+      try {
+        const url = new URL(a.href, window.location.origin);
+        if (v) url.searchParams.set('printer_ip', v); else url.searchParams.delete('printer_ip');
+        a.href = url.pathname + url.search;
+      } catch(e) { if (v) { a.href = a.href + (a.href.includes('?') ? '&' : '?') + 'printer_ip=' + encodeURIComponent(v); } }
+    }
+  });
 });
 </script>
 <?php require_once __DIR__ . '/../footer.php'; ?>
