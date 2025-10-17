@@ -1264,3 +1264,74 @@ function inicializarBuscadorProveedor(select) {
         }
     });
 }
+
+// === Override buscador de insumos: comportamiento más tolerante (Enter/blur, bubbling) ===
+function inicializarBuscadorInsumo(select) {
+    if (!select) return;
+    const cont = select.closest('.selector-insumo');
+    if (!cont) return;
+    const input = cont.querySelector('.buscador-insumo');
+    const lista = cont.querySelector('.lista-insumos');
+    if (!input || !lista || input.dataset.autocompleteInitialized) return;
+    input.dataset.autocompleteInitialized = 'true';
+
+    let ultimasCoincidencias = [];
+    function renderLista(coincidencias) {
+        lista.innerHTML = '';
+        coincidencias.forEach(i => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item list-group-item-action';
+            li.textContent = i.nombre;
+            li.addEventListener('click', () => { commitSeleccion(i); });
+            lista.appendChild(li);
+        });
+        lista.style.display = coincidencias.length ? 'block' : 'none';
+    }
+    function buscarCoincidencias(term) {
+        const val = (typeof normalizarTexto === 'function') ? normalizarTexto(term) : String(term || '').toLowerCase();
+        if (!val) { ultimasCoincidencias = []; renderLista([]); return; }
+        ultimasCoincidencias = (catalogo || [])
+            .filter(i => {
+                const nom = (i && i.nombre) ? i.nombre : '';
+                const norm = (typeof normalizarTexto === 'function') ? normalizarTexto(nom) : String(nom).toLowerCase();
+                return norm.includes(val);
+            })
+            .slice(0, 50);
+        renderLista(ultimasCoincidencias);
+    }
+    function commitSeleccion(item) {
+        if (!item) return;
+        input.value = item.nombre || '';
+        select.value = item.id;
+        try { select.dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
+        lista.innerHTML = '';
+        lista.style.display = 'none';
+    }
+    input.addEventListener('input', () => { buscarCoincidencias(input.value); });
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const term = input.value.trim();
+            if (!term) return;
+            const normTerm = (typeof normalizarTexto === 'function') ? normalizarTexto(term) : term.toLowerCase();
+            let item = (catalogo || []).find(it => ((typeof normalizarTexto === 'function') ? normalizarTexto(it.nombre) : String(it.nombre || '').toLowerCase()) === normTerm);
+            if (!item && /^\d+$/.test(term)) { const idNum = parseInt(term, 10); item = (catalogo || []).find(it => parseInt(it.id, 10) === idNum); }
+            if (!item) { if (!ultimasCoincidencias.length) buscarCoincidencias(term); item = ultimasCoincidencias[0]; }
+            if (item) commitSeleccion(item);
+        }
+    });
+    input.addEventListener('blur', () => {
+        if (select.value) return;
+        const term = input.value.trim();
+        if (!term) return;
+        const normTerm = (typeof normalizarTexto === 'function') ? normalizarTexto(term) : term.toLowerCase();
+        let item = (catalogo || []).find(it => ((typeof normalizarTexto === 'function') ? normalizarTexto(it.nombre) : String(it.nombre || '').toLowerCase()) === normTerm);
+        if (!item) { if (!ultimasCoincidencias.length) buscarCoincidencias(term); if (ultimasCoincidencias.length === 1) item = ultimasCoincidencias[0]; }
+        if (item) commitSeleccion(item);
+    });
+    document.addEventListener('click', (e) => { if (!cont.contains(e.target)) { lista.style.display = 'none'; } });
+    if (select.value) {
+        const item = (catalogo || []).find(c => String(c.id) === String(select.value));
+        if (item && input) input.value = item.nombre || '';
+    }
+}

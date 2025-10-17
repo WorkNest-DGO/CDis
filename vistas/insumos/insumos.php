@@ -178,11 +178,10 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
             <div class="col-sm-6">
                 <label for="notaFisica" class="text-white">Nota física</label>
                 <input type="text" id="notaFisica" name="referencia_doc" class="form-control" placeholder="Ej. Ticket/Nota del proveedor">
-            </div>
-            <div class="col-sm-6">
                 <label for="folioFiscal" class="text-white">Folio fiscal</label>
                 <input type="text" id="folioFiscal" name="folio_fiscal" class="form-control" placeholder="UUID de la factura (si aplica)">
             </div>
+
         </div>
 
         
@@ -225,7 +224,7 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
 </div>
 <div id="alert-sin-corte" class="container mt-5" style="<?= $__mostrar_registro_entrada ? 'display:none' : '';?>">
   <div class="alert alert-warning" role="alert">
-    No hay un corte de almacn abierto. Abra un corte para habilitar "Registrar entrada de productos".
+    No hay un corte de almacén abierto. Abra un corte para habilitar "Registrar entrada de productos".
   </div>
 </div>
 <!-- insumo End -->

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 16-10-2025 a las 16:48:55
+-- Tiempo de generación: 17-10-2025 a las 16:53:57
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -20,6 +20,8 @@ SET time_zone = "+00:00";
 --
 -- Base de datos: `restaurante_cdis`
 --
+CREATE DATABASE IF NOT EXISTS `restaurante_cdis` DEFAULT CHARACTER SET utf32 COLLATE utf32_bin;
+USE `restaurante_cdis`;
 
 DELIMITER $$
 --
