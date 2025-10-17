@@ -107,10 +107,16 @@ ob_start();
         <div class="row g-2 align-items-end bg-dark p-3 rounded">
             <div class="col-sm-6 col-md-3">
                 <label class="text-white" for="notaBuscar">Nota</label>
-                <input type="number" id="notaBuscar" class="form-control" min="1" placeholder="Número de nota">
+                <select id="notaBuscar" class="form-control">
+                    <option value="">Todas</option>
+                </select>
+            </div>
+            <div class="col-sm-6 col-md-4">
+                <label class="text-white" for="notaBuscarTexto">Referencia/Folio fiscal</label>
+                <input type="text" id="notaBuscarTexto" class="form-control" placeholder="Referencia de nota o folio fiscal">
             </div>
             <div class="col-sm-6 col-md-2">
-                <button class="btn custom-btn w-100" id="btnBuscarNota">Buscar nota</button>
+                <button class="btn custom-btn w-100" id="btnBuscarNota">Buscar</button>
             </div>
         </div>
         <div class="table-responsive mt-2">

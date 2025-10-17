@@ -182,9 +182,49 @@ function renderPaginador() {
 async function buscarNota() {
     const notaEl = qs(document, '#notaBuscar');
     const n = notaEl ? parseInt(notaEl.value, 10) : 0;
-    if (!Number.isFinite(n) || n <= 0) { alert('Ingresa un número de nota válido'); return; }
+    const txtEl = qs(document, '#notaBuscarTexto');
+    const t = txtEl ? String(txtEl.value || '').trim() : '';
+    if (t) {
+        try {
+            const params = new URLSearchParams();
+            params.set('q', t);
+            const resp = await fetch(`../../api/insumos/consultar_nota_compra.php?${params.toString()}`);
+            const data = await resp.json();
+            if (!data.success) { alert(data.mensaje || 'Sin resultados'); return; }
+            const rows = Array.isArray(data.resultado) ? data.resultado : [];
+            const tb = qs(document, '#tablaNotaResultados tbody');
+            if (tb) {
+                tb.innerHTML = '';
+                rows.forEach(r => {
+                    const tr = document.createElement('tr');
+                    const c = (r && typeof r.credito !== 'undefined') ? String(r.credito).toLowerCase() : '';
+                    let tipo = 'Efectivo';
+                    if (c === '1' || c === 'credito') tipo = 'Crdito';
+                    else if (c === '0' || c === 'efectivo') tipo = 'Efectivo';
+                    else if (c === 'transferencia') tipo = 'Transferencia';
+                    tr.innerHTML = `
+                        <td>${r.id}</td>
+                        <td>${r.fecha ?? ''}</td>
+                        <td>${r.proveedor ?? ''}</td>
+                        <td>${r.producto ?? ''}</td>
+                        <td>${r.cantidad ?? ''}</td>
+                        <td>${r.unidad ?? ''}</td>
+                        <td>${fmt$(r.costo_total ?? '')}</td>
+                        <td>${tipo}</td>
+                        <td>${r.nota ?? ''}</td>
+                    `;
+                    tb.appendChild(tr);
+                });
+            }
+        } catch (e) { console.error(e); alert('Error al consultar la nota'); }
+        return;
+    }
+    if ((!Number.isFinite(n) || n <= 0) && !t) { alert('Selecciona una nota o ingresa texto'); return; }
     try {
-        const resp = await fetch(`../../api/insumos/consultar_nota_compra.php?nota=${n}`);
+        const params = new URLSearchParams();
+        if (Number.isFinite(n) && n > 0) params.set('nota', String(n));
+        if (t) params.set('q', t);
+        const resp = await fetch(`../../api/insumos/consultar_nota_compra.php?${params.toString()}`);
         const data = await resp.json();
         if (!data.success) { alert(data.mensaje || 'Sin resultados'); return; }
         const rows = Array.isArray(data.resultado) ? data.resultado : [];
@@ -235,6 +275,29 @@ async function marcarPagados() {
 }
 
   document.addEventListener('DOMContentLoaded', () => {
+    // Cargar lista de notas para el select
+    (async () => {
+      try {
+        const resp = await fetch('../../api/insumos/listar_notas.php');
+        const data = await resp.json();
+        if (data && data.success) {
+          const sel = qs(document, '#notaBuscar');
+          if (sel) {
+            // limpiar, mantener opción "Todas"
+            sel.innerHTML = '<option value="">Todas</option>';
+            (data.resultado || []).forEach(r => {
+              const v = (r && typeof r.nota !== 'undefined') ? r.nota : null;
+              if (v !== null && v !== undefined) {
+                const opt = document.createElement('option');
+                opt.value = String(v);
+                opt.textContent = String(v);
+                sel.appendChild(opt);
+              }
+            });
+          }
+        }
+      } catch (e) { console.error('Error cargando notas', e); }
+    })();
     const ps = qs(document, '#epPageSize'); if (ps) ps.value = '15';
     cargarEntradasPagosPaged(1);
     qs(document, '#btnBuscar')?.addEventListener('click', ()=> cargarEntradasPagosPaged(1));
@@ -249,6 +312,8 @@ async function marcarPagados() {
     qs(document, '#deseleccionarTodo')?.addEventListener('click', () => seleccionarTodo(false));
     qs(document, '#checkAll')?.addEventListener('change', e => seleccionarTodo(!!e.target.checked));
     qs(document, '#btnBuscarNota')?.addEventListener('click', buscarNota);
+    qs(document, '#notaBuscar')?.addEventListener('change', () => buscarNota());
+    qs(document, '#notaBuscarTexto')?.addEventListener('keydown', e => { if (e.key === 'Enter') buscarNota(); });
 
     // Preparados events
     const pps = qs(document, '#prepPageSize'); if (pps) pps.value = '15';
