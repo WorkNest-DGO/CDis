@@ -69,20 +69,6 @@ ob_start();
   </div>
 </div>
 
-<div class="container my-3">
-  <div class="d-flex gap-2 align-items-center flex-wrap">
-    <input id="txtFiltro" type="text" class="form-control" placeholder="Filtrar por producto/destino" style="max-width:280px">
-    <select id="selTipoEntrega" class="form-control" style="max-width:180px">
-      <option value="">Todos</option>
-      <option value="mesa">Mesa</option>
-      <option value="domicilio">Domicilio</option>
-      <option value="rapido">Rápido</option>
-    </select>
-    <button id="btnRefrescar" class="btn custom-btn">Refrescar</button>
-  </div>
- </div>
-
-
 <style>
 /* Toolbar de procesado */
 .procesado-toolbar{

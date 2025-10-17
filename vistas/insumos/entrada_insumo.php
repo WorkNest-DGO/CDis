@@ -90,8 +90,8 @@ ob_start();
             </div>
             <hr>
             <div>
-                <h5>Descripción</h5>
-                <p id="entrada-descripcion" class="mb-3">-</p>
+                <h5 style="color:black">Descripción</h5>
+                <p style="color:black" id="entrada-descripcion" class="mb-3">-</p>
             </div>
             <div class="mt-4" id="historial-retiros-section">
                 <h5 class="text-dark">Historial de retiros</h5>

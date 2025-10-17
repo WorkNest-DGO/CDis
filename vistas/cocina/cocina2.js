@@ -106,7 +106,11 @@ window.alert = showAppMsg;
     row.innerHTML = `
       <div style="flex:2;">
         <label>Insumo</label>
-        <select class="form-control selOrigen"></select>
+        <div class="selector-insumo position-relative">
+          <input type="text" class="form-control buscador-insumo" placeholder="Buscar insumo...">
+          <select class="form-control selOrigen d-none"></select>
+          <ul class="list-group lista-insumos position-absolute w-100" style="z-index:1000;"></ul>
+        </div>
       </div>
       <div style="flex:1;">
         <label>Cantidad</label>
@@ -115,16 +119,134 @@ window.alert = showAppMsg;
       <div>
         <button type="button" class="btn btn-danger btn-sm btnRemove">-</button>
       </div>`;
-    const sel = row.querySelector('.selOrigen'); sel.innerHTML = ['<option value="">Seleccione...</option>'].concat(insumos.map(i => `<option value="${i.id}">${i.nombre} (${i.unidad||''})</option>`)).join('');
+    // Poblar el select oculto con el catálogo para mantener unidad en la etiqueta
+    const sel = row.querySelector('.selOrigen');
+    sel.innerHTML = ['<option value="">Seleccione...</option>']
+      .concat((insumos||[]).map(i => `<option value="${i.id}">${i.nombre} (${i.unidad||''})</option>`))
+      .join('');
+    // Inicializar buscador tipo autocomplete
+    try { inicializarBuscadorOrigen(row, insumos); } catch(e) { /* noop */ }
     row.querySelector('.btnRemove').addEventListener('click', ()=> row.remove());
     return row;
+  }
+
+  // Autocompletado para Destino (similar a insumo en entradas)
+  function inicializarBuscadorDestino(select, insumos){
+    if (!select) return;
+    // Si ya fue inicializado, solo refrescar dataset para búsqueda
+    let cont = select.previousElementSibling;
+    const isCont = cont && cont.classList && cont.classList.contains('selector-destino');
+    if (!isCont){
+      // Crear contenedor y elementos de UI
+      cont = document.createElement('div');
+      cont.className = 'selector-insumo position-relative selector-destino';
+      const input = document.createElement('input');
+      input.type = 'text'; input.className = 'form-control buscador-destino'; input.placeholder = 'Buscar destino...';
+      const ul = document.createElement('ul');
+      ul.className = 'list-group lista-destino position-absolute w-100'; ul.style.zIndex = '1000'; ul.style.display = 'none';
+      cont.appendChild(input); cont.appendChild(ul);
+      // Insertar antes del select y ocultar select
+      if (select.parentElement) select.parentElement.insertBefore(cont, select);
+      select.classList.add('d-none');
+    }
+    const input = cont.querySelector('.buscador-destino');
+    const lista = cont.querySelector('.lista-destino');
+    if (!input || !lista) return;
+    if (input.dataset.autocompleteInitialized === 'true') return;
+    input.dataset.autocompleteInitialized = 'true';
+
+    const normalizar = (s) => {
+      try { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); } catch(e) { return String(s || '').toLowerCase(); }
+    };
+    const getNombre = (i) => (i && i.nombre) ? i.nombre : '';
+
+    input.addEventListener('input', () => {
+      const val = normalizar(input.value);
+      lista.innerHTML = '';
+      if (!val) { lista.style.display = 'none'; return; }
+      const coincidencias = (insumos || []).filter(i => normalizar(getNombre(i)).includes(val)).slice(0, 50);
+      coincidencias.forEach(i => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item list-group-item-action';
+        li.textContent = i.nombre + (i.unidad ? '' : '');
+        li.addEventListener('click', () => {
+          input.value = i.nombre;
+          select.value = String(i.id);
+          try { select.dispatchEvent(new Event('change')); } catch(_) {}
+          lista.innerHTML = ''; lista.style.display = 'none';
+        });
+        lista.appendChild(li);
+      });
+      lista.style.display = coincidencias.length ? 'block' : 'none';
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!cont.contains(e.target)) { lista.style.display = 'none'; }
+    });
+
+    // Inicializar texto si ya hay valor seleccionado
+    if (select.value) {
+      const it = (insumos || []).find(c => String(c.id) === String(select.value));
+      if (it) input.value = it.nombre || '';
+    }
+  }
+
+  // Autocompletado similar a insumos.php para seleccionar insumo de origen
+  function inicializarBuscadorOrigen(row, insumos){
+    const cont = row.querySelector('.selector-insumo');
+    if (!cont) return;
+    const input = cont.querySelector('.buscador-insumo');
+    const lista = cont.querySelector('.lista-insumos');
+    const select = cont.querySelector('.selOrigen');
+    if (!input || !lista || !select || input.dataset.autocompleteInitialized) return;
+    input.dataset.autocompleteInitialized = 'true';
+
+    const normalizar = (s) => {
+      try { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); } catch(e) { return String(s || '').toLowerCase(); }
+    };
+
+    input.addEventListener('input', () => {
+      const val = normalizar(input.value);
+      lista.innerHTML = '';
+      if (!val) { lista.style.display = 'none'; return; }
+      const coincidencias = (insumos || [])
+        .filter(i => normalizar(i.nombre).includes(val))
+        .slice(0, 50);
+      coincidencias.forEach(i => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item list-group-item-action';
+        li.textContent = `${i.nombre}`;
+        li.addEventListener('click', () => {
+          input.value = i.nombre;
+          select.value = String(i.id);
+          try { select.dispatchEvent(new Event('change')); } catch(_) {}
+          lista.innerHTML = '';
+          lista.style.display = 'none';
+        });
+        lista.appendChild(li);
+      });
+      lista.style.display = coincidencias.length ? 'block' : 'none';
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!cont.contains(e.target)) { lista.style.display = 'none'; }
+    });
+
+    // Si ya hay valor seleccionado, rellenar input
+    if (select.value) {
+      const it = (insumos||[]).find(c => String(c.id) === String(select.value));
+      if (it) input.value = it.nombre || '';
+    }
   }
 
   async function loadInsumos(){
     const r = await fetch('../../api/insumos/listar_insumos.php'); if (!r.ok) { alert('Error al cargar insumos'); return; }
     const j = await r.json(); const lista = j.resultado || j.items || j.data || [];
-    const opts = ['<option value="">Seleccione...</option>'].concat(lista.map(i => `<option value="${i.id}">${i.nombre} (${i.unidad || ''})</option>`));
-    if (selDestinoGrupo) selDestinoGrupo.innerHTML = opts.join('');
+    const opts = ['<option value="">Seleccione...</option>'].concat(lista.map(i => `<option value=\"${i.id}\">${i.nombre} (${i.unidad || ''})</option>`));
+    if (selDestinoGrupo) {
+      selDestinoGrupo.innerHTML = opts.join('');
+      try { inicializarBuscadorDestino(selDestinoGrupo, lista); } catch(e) {}
+    }
     if (origenesContainer){ origenesContainer.innerHTML = ''; origenesContainer.appendChild(buildOrigenRow(lista)); btnAddOrigen && (btnAddOrigen.onclick = ()=> origenesContainer.appendChild(buildOrigenRow(lista))); }
   }
 
@@ -210,7 +332,7 @@ window.alert = showAppMsg;
 
   // Cargar impresoras
   function cargarImpresoras($sel){
-    fetch('/CDI/api/impresoras/listar.php', {cache:'no-store'})
+    fetch('../../api/impresoras/listar.php', {cache:'no-store'})
       .then(r=>r.json()).then(j=>{
         const data = j && (j.resultado || j.data) || [];
         if(!$sel) return;
