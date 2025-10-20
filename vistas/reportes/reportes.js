@@ -7,6 +7,16 @@ window.alert = showAppMsg;
 const usuarioId = 1; // En producción usar id de sesión
 const apiReportes = '../../api/reportes/vistas_db.php';
 
+// Estado para gráficas (D3)
+let chartColumns = [];
+let chartRows = [];
+let chartState = { type: 'bar', x: '', y: '' };
+
+// Compat con REST: sincronizar datos y poblar selects
+function syncChartData(columns, rows) {
+  try { updateChartFields(columns, rows); } catch (e) { /* noop */ }
+}
+
 async function cargarUsuarios() {
     const sel = document.getElementById('filtroUsuario');
     if (!sel) return;
@@ -217,10 +227,13 @@ async function listarFuentes() {
     try {
         const resp = await fetch(`${apiReportes}?action=list_sources`);
         const data = await resp.json();
+        const safe = (data && typeof data === 'object') ? data : {};
+        const views = Array.isArray(safe.views) ? safe.views : [];
+        const tables = Array.isArray(safe.tables) ? safe.tables : [];
         select.innerHTML = '';
         const ogV = document.createElement('optgroup');
         ogV.label = 'Vistas';
-        data.views.forEach(v => {
+        views.forEach(v => {
             const o = document.createElement('option');
             o.value = v;
             o.textContent = v;
@@ -228,25 +241,28 @@ async function listarFuentes() {
         });
         const ogT = document.createElement('optgroup');
         ogT.label = 'Tablas';
-        data.tables.forEach(t => {
+        tables.forEach(t => {
             const o = document.createElement('option');
             o.value = t;
             o.textContent = t;
             ogT.appendChild(o);
         });
-        if (data.views.length) {
+        if (views.length) {
             select.appendChild(ogV);
             select.appendChild(ogT);
-            select.value = data.views[0];
+            select.value = views[0];
         } else {
             select.appendChild(ogV);
             select.appendChild(ogT);
-            if (data.tables.length) select.value = data.tables[0];
+            if (tables.length) select.value = tables[0];
         }
         fuenteActual = select.value;
         cargarFuente();
     } catch (err) {
         console.error(err);
+        // Degradar a estado vacío
+        const select = document.getElementById('selectFuente');
+        if (select) select.innerHTML = '<option value="">(sin fuentes)</option>';
     }
 }
 
@@ -315,6 +331,8 @@ async function cargarFuente() {
             });
             tbody.appendChild(frag);
         }
+        // Actualizar datos de gráficas
+        try { updateChartFields(data.columns, data.rows); } catch (e) { /* noop */ }
         const inicio = data.total ? ((data.page - 1) * data.pageSize + 1) : 0;
         const fin = Math.min(data.page * data.pageSize, data.total);
         document.getElementById('infoReportes').textContent = `Mostrando ${inicio}-${fin} de ${data.total}`;
@@ -386,12 +404,159 @@ function initReportesDinamicos() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    cargarUsuarios();
-    cargarHistorial();
-    document.getElementById('btnResumen').addEventListener('click', resumenActual);
-    const btn = document.getElementById('aplicarFiltros');
-    if (btn) btn.addEventListener('click', cargarHistorial);
-    const imp = document.getElementById('btnImprimir');
-    if (imp) imp.addEventListener('click', () => window.print());
+    // Solo dejar el filtrado de tablas/vistas dinámicas
     initReportesDinamicos();
 });
+
+// ====== Gráficas (mínimas: barras, línea, pastel con D3) ======
+function initChartsUI() {
+  const tSel = document.getElementById('chartType');
+  const xSel = document.getElementById('chartXField');
+  const ySel = document.getElementById('chartYField');
+  const btn = document.getElementById('btnRenderChart');
+  if (tSel) tSel.addEventListener('change', () => { chartState.type = tSel.value; });
+  if (xSel) xSel.addEventListener('change', () => { chartState.x = xSel.value; });
+  if (ySel) ySel.addEventListener('change', () => { chartState.y = ySel.value; });
+  if (btn) btn.addEventListener('click', renderChart);
+}
+
+function updateChartFields(columns, rows) {
+  chartColumns = Array.isArray(columns) ? columns.slice() : [];
+  chartRows = Array.isArray(rows) ? rows.slice() : [];
+  const numCols = inferNumericColumns(chartColumns, chartRows);
+  const xSel = document.getElementById('chartXField');
+  const ySel = document.getElementById('chartYField');
+  if (!xSel || !ySel) return;
+  xSel.innerHTML = '';
+  ySel.innerHTML = '';
+  chartColumns.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; xSel.appendChild(o); });
+  numCols.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; ySel.appendChild(o); });
+  if (!chartState.x && chartColumns.length) chartState.x = chartColumns[0];
+  if (!chartState.y && numCols.length) chartState.y = numCols[0];
+  xSel.value = chartState.x || '';
+  ySel.value = chartState.y || '';
+}
+
+function inferNumericColumns(cols, rows) {
+  const num = [];
+  cols.forEach(c => {
+    let ok = false; let checked = 0;
+    for (let i=0; i<rows.length && checked<20; i++, checked++) {
+      const v = rows[i][c];
+      if (v === null || v === '' || typeof v === 'boolean') continue;
+      const n = Number(String(v).replace(',', '.'));
+      if (!Number.isNaN(n)) { ok = true; break; }
+    }
+    if (ok) num.push(c);
+  });
+  return num;
+}
+
+function renderChart() {
+  const t = (document.getElementById('chartType')||{}).value || chartState.type || 'bar';
+  const x = (document.getElementById('chartXField')||{}).value || chartState.x;
+  const y = (document.getElementById('chartYField')||{}).value || chartState.y;
+  if (!x || !y) { alert('Selecciona campos X y Y'); return; }
+  const svg = d3.select('#chartSvg');
+  svg.selectAll('*').remove();
+  const widthAttr = svg.attr('width');
+  const width = (widthAttr && !isNaN(parseInt(widthAttr))) ? parseInt(widthAttr) : 800;
+  const height = parseInt(svg.attr('height')) || 420;
+  const margin = { top: 20, right: 20, bottom: 60, left: 60 };
+  const w = width - margin.left - margin.right;
+  const h = height - margin.top - margin.bottom;
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  const map = new Map();
+  (chartRows||[]).forEach(r => {
+    const k = String(r[x] ?? '');
+    const nRaw = r[y];
+    const n = Number(String(nRaw).replace(',', '.'));
+    const cur = map.get(k) || 0;
+    map.set(k, cur + (Number.isFinite(n) ? n : 0));
+  });
+  const data = Array.from(map.entries()).map(([key, value]) => ({ key, value }));
+  if (!data.length) { alert('Sin datos para graficar'); return; }
+
+  if (t === 'pie') {
+    const radius = Math.min(w, h) / 2;
+    const color = d3.scaleOrdinal().domain(data.map(d=>d.key)).range(d3.schemeTableau10);
+    const grp = g.append('g').attr('transform', `translate(${w/2},${h/2})`);
+    const pie = d3.pie().value(d=>d.value);
+    const arcs = pie(data);
+    const arc = d3.arc().innerRadius(0).outerRadius(radius);
+    grp.selectAll('path').data(arcs).enter().append('path').attr('d', arc).attr('fill', d=>color(d.data.key)).attr('stroke','#fff');
+    grp.selectAll('text').data(arcs).enter().append('text')
+      .attr('transform', d=>`translate(${arc.centroid(d)})`).attr('text-anchor','middle').attr('font-size','10px')
+      .text(d=>d.data.key);
+  } else {
+    const xBand = d3.scaleBand().domain(data.map(d=>d.key)).range([0, w]).padding(0.15);
+    const yLin = d3.scaleLinear().domain([0, d3.max(data, d=>d.value)||0]).nice().range([h,0]);
+    g.append('g').attr('transform',`translate(0,${h})`).call(d3.axisBottom(xBand)).selectAll('text').attr('transform','rotate(-35)').style('text-anchor','end');
+    g.append('g').call(d3.axisLeft(yLin));
+    if (t === 'bar') {
+      g.selectAll('rect').data(data).enter().append('rect')
+        .attr('x', d=>xBand(d.key)).attr('y', d=>yLin(d.value)).attr('width', xBand.bandwidth()).attr('height', d=>h - yLin(d.value))
+        .attr('fill', '#4e79a7');
+    } else if (t === 'line') {
+      const line = d3.line().x(d=> xBand(d.key)+xBand.bandwidth()/2).y(d=>yLin(d.value)).curve(d3.curveMonotoneX);
+      g.append('path').datum(data).attr('fill','none').attr('stroke','#e15759').attr('stroke-width',2).attr('d', line);
+      g.selectAll('circle').data(data).enter().append('circle')
+        .attr('cx', d=> xBand(d.key)+xBand.bandwidth()/2).attr('cy', d=>yLin(d.value)).attr('r',3).attr('fill','#e15759');
+    }
+  }
+}
+
+// Compat: inicializador similar al de REST
+function initChartBuilder() {
+  try { initChartsUI(); } catch (e) {}
+  const btnPNG = document.getElementById('btnExportPNG');
+  const btnSVG = document.getElementById('btnExportSVG');
+  if (btnPNG) btnPNG.addEventListener('click', exportChartPNG);
+  if (btnSVG) btnSVG.addEventListener('click', exportChartSVG);
+}
+
+function exportChartSVG() {
+  const svg = document.getElementById('chartSvg'); if (!svg) return;
+  const serializer = new XMLSerializer();
+  let source = serializer.serializeToString(svg);
+  if (!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
+    source = source.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+  }
+  const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'grafica.svg'; a.click();
+  setTimeout(()=> URL.revokeObjectURL(url), 1000);
+}
+
+function exportChartPNG() {
+  const svg = document.getElementById('chartSvg'); if (!svg) return;
+  const serializer = new XMLSerializer();
+  const svgStr = serializer.serializeToString(svg);
+  const img = new Image();
+  const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(svgBlob);
+  img.onload = function () {
+    const rect = svg.getBoundingClientRect();
+    const cw = Math.max(800, Math.floor(rect.width || 800));
+    const ch = Math.max(420, Math.floor(rect.height || 420));
+    const canvas = document.createElement('canvas');
+    canvas.width = cw; canvas.height = ch;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,cw,ch);
+    ctx.drawImage(img, 0, 0, cw, ch);
+    URL.revokeObjectURL(url);
+    canvas.toBlob(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'grafica.png';
+      a.click();
+      setTimeout(()=> URL.revokeObjectURL(a.href), 1000);
+    }, 'image/png');
+  };
+  img.src = url;
+}
+
+// Inicializar UI de gráficas al cargar
+document.addEventListener('DOMContentLoaded', () => { try { initChartsUI(); } catch(e) {} });
+document.addEventListener('DOMContentLoaded', () => { try { initChartBuilder(); } catch(e) {} });

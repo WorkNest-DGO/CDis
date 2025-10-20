@@ -36,6 +36,17 @@ function getUnidadInsumo(mysqli $conn, int $insumoId): string {
     return $unidad;
 }
 
+function getNombreInsumo(mysqli $conn, int $insumoId): string {
+    $stmt = $conn->prepare('SELECT nombre FROM insumos WHERE id = ? LIMIT 1');
+    $stmt->bind_param('i', $insumoId);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $nombre = '';
+    if ($res && ($row = $res->fetch_assoc())) { $nombre = (string)$row['nombre']; }
+    $stmt->close();
+    return $nombre !== '' ? $nombre : (string)$insumoId;
+}
+
 function corteAbiertoId(mysqli $conn): int {
     try {
         $rs = $conn->query("SELECT id FROM cortes_almacen WHERE fecha_fin IS NULL ORDER BY id DESC LIMIT 1");
@@ -164,7 +175,7 @@ try {
             $rs = $sel->get_result();
             $lote = $rs ? $rs->fetch_assoc() : null;
             $sel->close();
-            if (!$lote) { throw new RuntimeException('Stock insuficiente para el origen ' . $iid); }
+            if (!$lote) { throw new RuntimeException('Stock insuficiente para el origen ' . getNombreInsumo($conn, $iid)); }
             $usar = min($pendiente, (float)$lote['cantidad_actual']);
             $upd = $conn->prepare('UPDATE entradas_insumos SET cantidad_actual = cantidad_actual - ? WHERE id = ?');
             $lotId = (int)$lote['id'];
@@ -196,4 +207,3 @@ try {
 }
 
 ?>
-

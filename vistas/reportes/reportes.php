@@ -1,6 +1,5 @@
 <?php
 require_once __DIR__ . '/../../utils/cargar_permisos.php';
-// Base app dinámica y ruta relativa para validación
 $__sn = isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '';
 $__pos = strpos($__sn, '/vistas/');
 $__app_base = $__pos !== false ? substr($__sn, 0, $__pos) : rtrim(dirname($__sn), '/');
@@ -27,58 +26,9 @@ ob_start();
             </div>
         </div>
     </div>
-</div>
+    </div>
 <!-- Page Header End -->
 
-<div class="container mt-5 mb-5 custom-modal">
-    <h1 class="titulo-seccion">Reportes de Cortes</h1>
-
-    <div class="filtros-container">
-        <label for="filtroUsuario">Usuario:</label>
-        <select id="filtroUsuario" class="form-control-sm"></select>
-
-        <label for="filtroInicio">Inicio:</label>
-        <input type="date" id="filtroInicio" class="form-control-sm">
-
-        <label for="filtroFin">Fin:</label>
-        <input type="date" id="filtroFin" class="form-control-sm">
-
-        <button id="aplicarFiltros" class="btn custom-btn-sm">Buscar</button>
-        <button id="btnImprimir" class="btn custom-btn-sm">Imprimir</button>
-    </div>
-
-    <div class="acciones-corte mt-3">
-        <button id="btnResumen" class="btn custom-btn">Resumen de corte actual</button>
-    </div>
-
-    <div id="modal" class="custom-modal" style="display:none;"></div>
-
-</div>
-
-<div class="container mt-5 mb-5">
-    <h2 class="section-header">Historial de Cortes</h2>
-    <table id="tablaCortes">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Usuario</th>
-                <th>Fecha inicio</th>
-                <th>Fecha cierre</th>
-                <th>Total</th>
-                <th>Efectivo</th>
-                <th>Tarjeta</th>
-                <th>Cheque</th>
-                <th>Fondo</th>
-                <th>Observaciones</th>
-                <th>Desglose</th>
-            </tr>
-        </thead>
-        <tbody>
-
-        </tbody>
-    </table>
-
-</div>
 <div class="container mt-5 mb-5">
     <h2 class="section-header">Consulta de Vistas y Tablas</h2>
 
@@ -111,11 +61,11 @@ ob_start();
         <button id="nextReportes" class="btn custom-btn-sm">Siguiente</button>
     </div>
 </div>
+
 <?php require_once __DIR__ . '/../footer.php'; ?>
 <script src="reportes.js"></script>
-</body>
-
-</html>
 <?php
 $content = ob_get_clean();
 include __DIR__ . '/../nav.php';
+?>
+
