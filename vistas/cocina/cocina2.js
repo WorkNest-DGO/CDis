@@ -56,6 +56,14 @@ window.alert = showAppMsg;
         ${(g.estado === 'entregado' && mermaTotal > 0) ? `<button class="btn-merma" data-pedido="${g.pedido}">Mermas</button>` : ''}
         ${g.estado === 'listo' && !g.entrada_insumo_id ? `<button class="btn-completar-grupo" data-pedido="${g.pedido}">Completar</button>` : ''}
       `;
+      // Botón editar solo para pendientes
+      if (g.estado === 'pendiente') {
+        const btnE = document.createElement('button');
+        btnE.className = 'btn-editar-grupo';
+        btnE.textContent = 'Editar';
+        btnE.addEventListener('click', () => ensureEditarGrupoModal(g));
+        card.appendChild(btnE);
+      }
       bindDragGroup(card);
       const col = cols[g.estado] || cols.pendiente; if (col) col.appendChild(card);
       card.querySelector('.btn-qr')?.addEventListener('click', async ()=>{
@@ -300,6 +308,173 @@ window.alert = showAppMsg;
     if (origenesContainer){ origenesContainer.innerHTML = ''; origenesContainer.appendChild(buildOrigenRow(lista)); }
   }
 
+  // Recolección y confirmación para crear grupo
+  function recolectarOrigenesDesde(container){
+    const rows = Array.from(container?.querySelectorAll('.d-flex') || []);
+    const origenes = [];
+    for (const row of rows){
+      const sel = row.querySelector('.selOrigen');
+      const inp = row.querySelector('.inpCant');
+      const iid = parseInt(sel?.value || '0', 10) || 0;
+      const cant = parseFloat(String(inp?.value || '0').replace(',', '.')) || 0;
+      if (!iid || !(cant>0)) continue;
+      const unidad = (sel?.selectedOptions[0]?.textContent || '').split('(')[1]?.replace(')','').trim() || '';
+      origenes.push({ insumo_id: iid, cantidad: cant, unidad });
+    }
+    return origenes;
+  }
+
+  function getDatosCrearGrupo(){
+    const d = parseInt(selDestinoGrupo?.value || '0', 10) || 0;
+    const obs = (inpObsGrupo?.value || '').trim();
+    if (!d){ alert('Seleccione insumo destino'); return null; }
+    const origenes = recolectarOrigenesDesde(origenesContainer);
+    if (origenes.length === 0){ alert('Agregue al menos un origen válido'); return null; }
+    const unidadDestino = (selDestinoGrupo?.selectedOptions[0]?.textContent || '').split('(')[1]?.replace(')','').trim() || '';
+    const destinoNombre = selDestinoGrupo?.selectedOptions[0]?.textContent?.split('(')[0]?.trim() || '';
+    return { destino_id: d, destino_nombre: destinoNombre, unidad_destino: unidadDestino, observaciones: obs, origenes };
+  }
+
+  async function postCrearGrupo(body){
+    const r = await fetch('../../api/cocina/crear_grupo.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    let j = null; try { j = await r.json(); } catch(_) { j = null; }
+    if (!r.ok || !j || j.success === false){ alert((j && j.mensaje) || 'No se pudo crear'); return false; }
+    await cargarProcesos(); if (inpObsGrupo) inpObsGrupo.value = '';
+    try {
+      const jr = await fetch('../../api/insumos/listar_insumos.php'); const lj = await jr.json(); const lista = lj.resultado || lj.items || lj.data || [];
+      if (origenesContainer){ origenesContainer.innerHTML = ''; origenesContainer.appendChild(buildOrigenRow(lista)); }
+    } catch(e) {}
+    return true;
+  }
+
+  function ensureConfirmCrearGrupoModal(){
+    let modal = qs('#modalConfirmCrearGrupo');
+    if (!modal){
+      const html = `
+      <div class="modal fade" id="modalConfirmCrearGrupo" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+          <div style="color:black" class="modal-content">
+            <div class="modal-header">
+              <h5 style="color:black" class="modal-title">Confirmar creación de grupo</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body">
+              <div id="cgResumen"></div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+              <button type="button" class="btn custom-btn" id="cgBtnAceptar">Aceptar</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+      const wrap = document.createElement('div'); wrap.innerHTML = html; document.body.appendChild(wrap.firstElementChild); modal = qs('#modalConfirmCrearGrupo');
+      modal.querySelector('.close')?.addEventListener('click', ()=> hideModal(modal));
+      modal.querySelector('.btn-secondary')?.addEventListener('click', ()=> hideModal(modal));
+    }
+    const resumen = qs('#cgResumen');
+    const data = getDatosCrearGrupo(); if (!data) return;
+    const filas = Array.from((origenesContainer?.querySelectorAll('.d-flex'))||[]);
+    const origenesResumen = filas.map(row => {
+      const sel = row.querySelector('.selOrigen');
+      const inp = row.querySelector('.inpCant');
+      const nombre = (sel?.selectedOptions[0]?.textContent || '').split('(')[0]?.trim() || '';
+      const unidad = (sel?.selectedOptions[0]?.textContent || '').split('(')[1]?.replace(')','').trim() || '';
+      const cant = parseFloat(String(inp?.value || '0').replace(',', '.')) || 0;
+      return { nombre, unidad, cantidad: cant };
+    }).filter(o => o.nombre && o.cantidad>0);
+    const origenesList = origenesResumen.map(o => `- ${o.nombre}: ${o.cantidad} ${o.unidad||''}`).join('<br>');
+    if (resumen){
+      resumen.innerHTML = `
+        <p><strong>Destino:</strong> ${escapeHtml(data.destino_nombre)} (${escapeHtml(data.unidad_destino||'')})</p>
+        <p><strong>Observaciones:</strong> ${escapeHtml(data.observaciones||'(sin observaciones)')}</p>
+        <p><strong>Orígenes:</strong><br>${origenesList}</p>`;
+    }
+    const btn = qs('#cgBtnAceptar');
+    if (btn){
+      btn.onclick = async () => {
+        btn.disabled = true;
+        try { await postCrearGrupo({ destino_id: data.destino_id, unidad_destino: data.unidad_destino, observaciones: data.observaciones, origenes: data.origenes }); hideModal('#modalConfirmCrearGrupo'); }
+        finally { btn.disabled = false; }
+      };
+    }
+    showModal(modal);
+  }
+
+  // Modal editar grupo (solo pendiente)
+  function ensureEditarGrupoModal(grupo){
+    let modal = qs('#modalEditarGrupo');
+    if (!modal){
+      const html = `
+      <div class="modal fade" id="modalEditarGrupo" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+          <div style="color:black" class="modal-content">
+            <div class="modal-header">
+              <h5 style="color:black" class="modal-title">Editar grupo pendiente</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body">
+              <div id="egResumen"></div>
+              <div class="form-group">
+                <label>Orígenes</label>
+                <div id="egOrigenes"></div>
+                <button id="egAddOrigen" type="button" class="btn btn-secondary btn-sm mt-2">Agregar origen</button>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+              <button type="button" class="btn custom-btn" id="egBtnGuardar">Guardar</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+      const wrap = document.createElement('div'); wrap.innerHTML = html; document.body.appendChild(wrap.firstElementChild); modal = qs('#modalEditarGrupo');
+      modal.querySelector('.close')?.addEventListener('click', ()=> hideModal(modal));
+      modal.querySelector('.btn-secondary')?.addEventListener('click', ()=> hideModal(modal));
+    }
+    const resumen = qs('#egResumen');
+    if (resumen) resumen.textContent = `#${grupo.pedido} ' ${grupo.destino}`;
+    const cont = qs('#egOrigenes');
+    if (cont){
+      cont.innerHTML = '';
+      const cargar = async () => {
+        try {
+          const jr = await fetch('../../api/insumos/listar_insumos.php'); const lj = await jr.json(); const lista = lj.resultado || lj.items || lj.data || [];
+          (grupo.procesos||[]).forEach(p => {
+            const row = buildOrigenRow(lista);
+            const sel = row.querySelector('.selOrigen');
+            const inp = row.querySelector('.inpCant');
+            if (sel) {
+              sel.value = String(p.insumo_origen_id);
+              try { const inputTxt = row.querySelector('.buscador-insumo'); if (inputTxt) inputTxt.value = p.insumo_origen; } catch(e){}
+            }
+            if (inp) inp.value = String(p.cantidad_origen);
+            cont.appendChild(row);
+          });
+          const btnAdd = qs('#egAddOrigen'); if (btnAdd) btnAdd.onclick = ()=> cont.appendChild(buildOrigenRow(lista));
+        } catch(e) { alert('No se pudo cargar catálogo de insumos'); }
+      };
+      cargar();
+    }
+    const btnGuardar = qs('#egBtnGuardar');
+    if (btnGuardar){
+      btnGuardar.onclick = async () => {
+        const origenes = recolectarOrigenesDesde(cont);
+        if (!origenes.length){ alert('Agregue al menos un origen válido'); return; }
+        btnGuardar.disabled = true;
+        try {
+          const r = await fetch('../../api/cocina/editar_grupo.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ pedido: grupo.pedido, origenes }) });
+          let j=null; try{ j=await r.json(); }catch(_){ j=null; }
+          if (!r.ok || !j || j.success === false){ alert((j && j.mensaje) || 'No se pudo editar'); return; }
+          hideModal('#modalEditarGrupo');
+          await cargarProcesos();
+        } catch(e){ alert('Error de red'); }
+        finally { btnGuardar.disabled = false; }
+      };
+    }
+    showModal(modal);
+  }
+
   // Long-poll de cambios para auto-actualizar tarjetas (usa listen_cambios)
   let cocinaVersion = Number(localStorage.getItem('cocinaVersion') || '0');
   async function waitCambiosLoop(){
@@ -495,4 +670,10 @@ window.alert = showAppMsg;
   // Helpers modal
   function showModal(selOrEl){ const el = typeof selOrEl === 'string' ? qs(selOrEl) : selOrEl; if (!el) return; if (window.$ && $.fn && $.fn.modal) { $(el).modal('show'); return; } el.classList.add('show'); el.style.display = 'block'; el.removeAttribute('aria-hidden'); }
   function hideModal(selOrEl){ const el = typeof selOrEl === 'string' ? qs(selOrEl) : selOrEl; if (!el) return; if (window.$ && $.fn && $.fn.modal) { $(el).modal('hide'); return; } el.classList.remove('show'); el.style.display = 'none'; el.setAttribute('aria-hidden', 'true'); }
+  // Interceptar clic "Crear grupo" para confirmar primero
+  try {
+    if (btnCrearGrupo) {
+      btnCrearGrupo.addEventListener('click', function(ev){ try{ ev.preventDefault(); ev.stopImmediatePropagation(); }catch(_){} ensureConfirmCrearGrupoModal(); }, { capture: true });
+    }
+  } catch(e) {}
 })();

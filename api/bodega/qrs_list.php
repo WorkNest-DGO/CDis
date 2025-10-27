@@ -86,7 +86,7 @@ $stmt->close();
 
 // Datos paginados
 $offset = ($page - 1) * $perPage;
-$sql = "SELECT q.id, q.token, q.creado_en, q.estado, q.pdf_envio, q.json_data, u.nombre AS creado_por_nombre
+$sql = "SELECT q.id, q.token, q.creado_en, q.estado, q.pdf_envio, q.pdf_recepcion, q.json_data, u.nombre AS creado_por_nombre
         FROM qrs_insumo q
         LEFT JOIN usuarios u ON u.id = q.creado_por
         $where
@@ -115,6 +115,7 @@ while ($r = $res->fetch_assoc()) {
         'creado_en' => $r['creado_en'],
         'estado' => $r['estado'],
         'pdf_envio' => $r['pdf_envio'],
+        'pdf_recepcion' => $r['pdf_recepcion'],
         'creado_por_nombre' => $r['creado_por_nombre'],
         'items_count' => $items,
     ];
@@ -128,4 +129,3 @@ success([
     'per_page' => $perPage,
 ]);
 ?>
-

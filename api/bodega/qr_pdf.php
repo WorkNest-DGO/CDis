@@ -36,7 +36,7 @@ $idqr = (int)$qr['id'];
 $pdf_rel = $qr['pdf_envio'];
 
 // Si existe pdf_envio y el archivo está en disco, redirigir
-if ($pdf_rel) {
+if (false && $pdf_rel) {
     $pdf_abs = realpath(__DIR__ . '/../../' . $pdf_rel);
     if ($pdf_abs && file_exists($pdf_abs)) {
         // Log reimpresión
@@ -117,10 +117,52 @@ if ($sqlMov) {
     $sqlMov->close();
 }
 
-// Armar items respetando el orden del JSON
+// Ordenar por agrupamiento (reque) y luego por nombre
+$requeById = [];
+$ids = [];
+foreach ($jsonArr as $s) { if (isset($s['id'])) { $ids[] = (int)$s['id']; } }
+$ids = array_values(array_unique(array_filter($ids, function($v){ return $v>0; })));
+if (!empty($ids)) {
+    $in = implode(',', array_fill(0, count($ids), '?'));
+    $types = str_repeat('i', count($ids));
+    $stR = $conn->prepare("SELECT id, reque FROM insumos WHERE id IN ($in)");
+    if ($stR) {
+        $stR->bind_param($types, ...$ids);
+        if ($stR->execute()) {
+            $rsR = $stR->get_result();
+            while ($r = $rsR->fetch_assoc()) { $requeById[(int)$r['id']] = (string)$r['reque']; }
+        }
+        $stR->close();
+    }
+}
+$ordenReque = ['Zona Barra','Bebidas','Refrigerdor','Articulos_de_limpieza','Plasticos y otros',''];
+$idxReque = array_flip($ordenReque);
+$jsonSorted = $jsonArr;
+usort($jsonSorted, function($a, $b) use ($requeById, $idxReque) {
+    $ia = isset($a['id']) ? (int)$a['id'] : 0;
+    $ib = isset($b['id']) ? (int)$b['id'] : 0;
+    $ra = $requeById[$ia] ?? '';
+    $rb = $requeById[$ib] ?? '';
+    $oa = $idxReque[$ra] ?? PHP_INT_MAX;
+    $ob = $idxReque[$rb] ?? PHP_INT_MAX;
+    if ($oa === $ob) {
+        $na = (string)($a['nombre'] ?? '');
+        $nb = (string)($b['nombre'] ?? '');
+        return strcasecmp($na, $nb);
+    }
+    return $oa <=> $ob;
+});
+
+// Armar items (ya ordenados)
 $items = [];
-foreach ($jsonArr as $s) {
+$lastReque = null;
+foreach ($jsonSorted as $s) {
     $iid = isset($s['id']) ? (int)$s['id'] : 0;
+    $curReque = $requeById[$iid] ?? '';
+    if ($curReque !== $lastReque) {
+        $items[] = [ 'section' => $curReque ];
+        $lastReque = $curReque;
+    }
     $solicitada = isset($s['cantidad']) ? (float)$s['cantidad'] : 0.0;
     $unidad = $s['unidad'] ?? '';
     $nombre = $s['nombre'] ?? '';
@@ -171,4 +213,3 @@ if ($log) { $mod = 'bodega'; $accion = 'Reimpresion QR'; $log->bind_param('issi'
 header('Location: ../../' . $pdf_rel);
 exit;
 ?>
-

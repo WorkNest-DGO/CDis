@@ -118,6 +118,7 @@ function renderRows(rows){
   tbody.innerHTML = '';
   rows.forEach(r => {
     const tr = document.createElement('tr');
+    const notaBtn = (String(r.estado||'') === 'confirmado') ? `<button class="btn custom-btn btn-sm" data-act="nota" data-token="${r.token}" data-pdf-rec="${r.pdf_recepcion||''}">Nota entrada</button>` : '';
     tr.innerHTML = `
       <td>${r.id}</td>
       <td>${fmtToken(r.token)}</td>
@@ -129,6 +130,7 @@ function renderRows(rows){
         <button class="btn custom-btn btn-sm" data-act="ver" data-token="${r.token}">Ver detalle</button>
         <button class="btn custom-btn btn-sm" data-act="reimp" data-token="${r.token}">Reimprimir</button>
         <button class="btn custom-btn btn-sm" data-act="pdf" data-token="${r.token}" data-pdf="${r.pdf_envio || ''}">Descargar PDF</button>
+        ${notaBtn}
       </td>
     `;
     tbody.appendChild(tr);
@@ -137,8 +139,11 @@ function renderRows(rows){
     detTr.className = 'detalle-row';
     detTr.style.display = 'none';
     detTr.innerHTML = `<td colspan="7"><div class="row">
-      <div class="col-md-6"><h5 class="text-white">Resumen por insumo</h5>
+      <div class="col-md-6">
+        <h5 class="text-white">Resumen por insumo</h5>
         <div class="table-responsive"><table class="styled-table"><thead><tr><th>Insumo</th><th>Unidad</th><th>Cantidad</th></tr></thead><tbody class="tb-resumen"></tbody></table></div>
+        <h5 class="text-white mt-3">Devoluciones</h5>
+        <div class="table-responsive"><table class="styled-table"><thead><tr><th>Insumo</th><th>Unidad</th><th>Devuelto</th></tr></thead><tbody class="tb-devs"></tbody></table></div>
       </div>
       <div class="col-md-6"><h5 class="text-white">Lotes de salida</h5>
         <div class="table-responsive"><table class="styled-table"><thead><tr><th>Insumo</th><th>Lote(ID)</th><th>Fecha</th><th>Cantidad</th><th>V.Unit</th></tr></thead><tbody class="tb-lotes"></tbody></table></div>
@@ -179,26 +184,75 @@ function renderRows(rows){
       }
     });
   });
+
+  // Nota de entrada (PDF de recepción)
+  tbody.querySelectorAll('button[data-act="nota"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const token = e.currentTarget.getAttribute('data-token');
+      let pdfRec = e.currentTarget.getAttribute('data-pdf-rec') || '';
+      if (!pdfRec || pdfRec === 'null') {
+        // Fallback al nombre por convención
+        pdfRec = 'uploads/qrs/recepcion_' + token + '.pdf';
+      }
+      window.open('../../' + pdfRec, '_blank');
+    });
+  });
+}
+
+function getOrdenReque(){
+  return ['Zona Barra','Bebidas','Refrigerdor','Articulos_de_limpieza','Plasticos y otros'];
 }
 
 async function cargarDetalle(token, detRow){
   const resp = await fetch('../../api/bodega/qr_detalle.php?token=' + encodeURIComponent(token));
   const json = await resp.json();
   if(!json.success){ alert(json.mensaje || 'Error'); return; }
-  const { resumen_por_insumo, lotes } = json.resultado;
+  const { resumen_por_insumo, lotes, devoluciones } = json.resultado;
   const tbR = detRow.querySelector('.tb-resumen');
   const tbL = detRow.querySelector('.tb-lotes');
-  tbR.innerHTML=''; tbL.innerHTML='';
+  const tbD = detRow.querySelector('.tb-devs');
+  tbR.innerHTML=''; tbL.innerHTML=''; if (tbD) tbD.innerHTML='';
+
+  // Agrupar resumen por reque y pintar cabeceras
+  const orden = getOrdenReque();
+  const grupos = {};
   (resumen_por_insumo||[]).forEach(r=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${r.nombre}</td><td>${r.unidad||''}</td><td class="text-end">${Number(r.cantidad_total).toFixed(2)}</td>`;
-    tbR.appendChild(tr);
+    const cat = (r.reque || '');
+    if(!grupos[cat]) grupos[cat] = [];
+    grupos[cat].push(r);
   });
+  orden.forEach(cat=>{
+    const items = grupos[cat] || [];
+    if(!items.length) return;
+    const th = document.createElement('tr');
+    th.innerHTML = `<td colspan="3" style="font-weight:bold; background:#222; color:#fff; text-align:center;">${cat}</td>`;
+    tbR.appendChild(th);
+    items.sort((a,b)=> String(a.nombre||'').localeCompare(String(b.nombre||''), undefined, { sensitivity: 'base' }));
+    items.forEach(r=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.nombre}</td><td>${r.unidad||''}</td><td class="text-end">${Number(r.cantidad_total).toFixed(2)}</td>`;
+      tbR.appendChild(tr);
+    });
+  });
+
+  // Lotes de salida: sin agrupar
   (lotes||[]).forEach(l=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${l.nombre}</td><td>${l.id_entrada||''}</td><td>${l.fecha_entrada||''}</td><td class="text-end">${Number(l.cantidad).toFixed(2)}</td><td class="text-end">${(l.valor_unitario!=null)?Number(l.valor_unitario).toFixed(4):''}</td>`;
     tbL.appendChild(tr);
   });
+  if (tbD) {
+    (devoluciones||[]).forEach(d=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${d.nombre}</td><td>${d.unidad||''}</td><td class="text-end">${Number(d.cantidad_total).toFixed(2)}</td>`;
+      tbD.appendChild(tr);
+    });
+    if ((devoluciones||[]).length === 0) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="3">Sin devoluciones</td>`;
+      tbD.appendChild(tr);
+    }
+  }
 }
 
 qs('#btnBuscar').addEventListener('click', ()=>{ page=1; cargar(); });
@@ -215,4 +269,3 @@ cargar();
 $content = ob_get_clean();
 include __DIR__ . '/../nav.php';
 ?>
-

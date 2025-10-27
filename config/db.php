@@ -46,7 +46,7 @@ if (class_exists('PDO')) {
     }
 
     // DSNs tipo rest/config/db.php pero con prefijos CDI_
-    $cdi1_dsn  = env('CDI_DB1_DSN', 'mysql:host=localhost;dbname=restaurante_cdis;charset=utf8mb4');
+    $cdi1_dsn  = env('CDI_DB1_DSN', 'mysql:host=localhost;dbname=restaurante;charset=utf8mb4');
     $cdi1_user = env('CDI_DB1_USER', env('CDI_DB_USER', 'root'));
     $cdi1_pass = env('CDI_DB1_PASS', env('CDI_DB_PASS', ''));
 

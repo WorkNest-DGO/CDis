@@ -26,18 +26,20 @@ ob_start();
         </div>
     </div>
 </div>
-
-<div class="container mt-4">
+<div class="container mt-4 ">
     <div class="mb-3">
         <button class="btn custom-btn me-2" id="btnAbrirCorte">Abrir corte</button>
         <button class="btn custom-btn me-2" id="btnCerrarCorte">Cerrar corte</button>
-        <button class="btn custom-btn me-2" id="btnExportarExcel">Exportar a Excel</button>
-        <button class="btn custom-btn" id="btnExportarPdf">Exportar a PDF</button>
-    </div>
-    <div id="formObservaciones" class="mb-3" style="display:none;">
+         <div id="formObservaciones" class="mb-3" style="display:none;">
         <textarea id="observaciones" class="form-control mb-2" placeholder="Observaciones"></textarea>
         <button class="btn custom-btn" id="guardarCierre">Guardar cierre</button>
     </div>
+    </div>
+</div>
+<div style="display: none;" class="container mt-4 hidden">
+    <button class="btn custom-btn me-2" id="btnExportarExcel">Exportar a Excel</button>
+        <button class="btn custom-btn" id="btnExportarPdf">Exportar a PDF</button>
+   
     <div class="mb-3">
         <label for="buscarFecha">Fecha:</label>
         <input type="date" id="buscarFecha" class="form-control-sm">
@@ -131,6 +133,27 @@ ob_start();
         </div>
         <div class="mt-2" id="estadoReporte" style="font-size: 0.9rem; color: #666; display:none;"></div>
     </div>
+    <div class="row mb-2 align-items-end">
+        <div class="col-md-6 mb-2">
+            <label for="reporteFiltroInsumo" class="form-label">Buscar insumo</label>
+            <input type="text" id="reporteFiltroInsumo" class="form-control form-control-sm" placeholder="Filtrar por nombre de insumo">
+        </div>
+        <div class="col-md-3 mb-2">
+            <label for="reportePageSize" class="form-label">Registros por página</label>
+            <select id="reportePageSize" class="form-select form-select-sm">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+        <div class="col-md-3 mb-2">
+            <div class="d-flex gap-2 align-items-center mt-4">
+                <button type="button" class="btn custom-btn-sm" id="reportePrev">&lt;</button>
+                <span id="reportePageInfo" style="min-width:110px; display:inline-block; text-align:center; color:#000;">Página 1/1</span>
+                <button type="button" class="btn custom-btn-sm" id="reporteNext">&gt;</button>
+            </div>
+        </div>
+    </div>
     <div class="table-responsive">
         <table id="tablaEntradasSalidas" class="styled-table">
             <thead>
@@ -150,22 +173,6 @@ ob_start();
                 </tr>
             </thead>
             <tbody></tbody>
-            <tfoot>
-                <tr>
-                    <th>Total</th>
-                    <th></th>
-                    <th id="totInicial">0</th>
-                    <th id="totEntradas">0</th>
-                    <th id="totDevoluciones">0</th>
-                    <th id="totOtras">0</th>
-                    <th id="totSalidas">0</th>
-                    <th id="totTrasp">0</th>
-                    <th id="totMermas">0</th>
-                    <th id="totAjustesNeg">0</th>
-                    <th id="totAjustesPos">0</th>
-                    <th id="totFinal">0</th>
-                </tr>
-            </tfoot>
         </table>
     </div>
 </div>

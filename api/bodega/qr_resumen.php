@@ -27,6 +27,25 @@ $id_qr = (int)$qr['id'];
 $json = json_decode($qr['json_data'] ?? '[]', true);
 if (!is_array($json)) { $json = []; }
 
+// Mapa de reque por insumo para agrupar en UI
+$requeById = [];
+$ids = [];
+foreach ($json as $jn) { $iid = isset($jn['id']) ? (int)$jn['id'] : 0; if ($iid>0) { $ids[] = $iid; } }
+$ids = array_values(array_unique($ids));
+if (!empty($ids)) {
+    $in = implode(',', array_fill(0, count($ids), '?'));
+    $types = str_repeat('i', count($ids));
+    $stR = $conn->prepare("SELECT id, reque FROM insumos WHERE id IN ($in)");
+    if ($stR) {
+        $stR->bind_param($types, ...$ids);
+        if ($stR->execute()) {
+            $rsR = $stR->get_result();
+            while ($r = $rsR->fetch_assoc()) { $requeById[(int)$r['id']] = (string)$r['reque']; }
+        }
+        $stR->close();
+    }
+}
+
 // Traer envíos (traspaso) y devoluciones ya registradas
 $sql = "SELECT mi.insumo_id, i.nombre, i.unidad, mi.id_entrada, ABS(mi.cantidad) AS cant_abs,
                CASE WHEN mi.tipo='traspaso' THEN 'traspaso' ELSE 'devolucion' END AS clase,
@@ -98,6 +117,7 @@ foreach ($json as $jn) {
         'pendiente' => max(0.0, $enviado - $devuelto),
         'lotes' => $lotes,
         'solicitado_json' => (float)($jn['cantidad'] ?? 0),
+        'reque' => $requeById[$iid] ?? '',
     ];
 }
 
@@ -112,4 +132,3 @@ success([
     'items' => $items,
 ]);
 ?>
-

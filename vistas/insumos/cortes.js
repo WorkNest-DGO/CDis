@@ -3,6 +3,10 @@ let detalles = [];
 let corteActual = null;
 let pagina = 1;
 let pageSize = 15;
+// Estado para Reporte Entradas/Salidas
+let reporteRows = [];
+let reportePage = 1;
+let reportePageSize = 25;
 
 async function abrirCorte() {
     try {
@@ -29,9 +33,23 @@ function cerrarCorte() {
 
 async function guardarCierre() {
     const obs = document.getElementById('observaciones').value;
-    const corteId = prompt('ID de corte a cerrar');
-    if (!corteId) return;
+    const btn = document.getElementById('guardarCierre');
+    if (btn) btn.disabled = true;
     try {
+        // Obtener el corte abierto desde la API (regla: solo puede haber uno)
+        const listarResp = await fetch('../../api/insumos/cortes_almacen.php?accion=listar');
+        const listarData = await listarResp.json();
+        let corteId = null;
+        if (listarData && listarData.success && Array.isArray(listarData.resultado)) {
+            const abierto = listarData.resultado.find(c => c && (c.fecha_fin === null || String(c.fecha_fin).trim() === ''));
+            if (abierto) corteId = abierto.id;
+        }
+        if (!corteId) {
+            alert('No hay un corte abierto para cerrar.');
+            return;
+        }
+
+        // Cerrar el corte encontrado automáticamente
         const resp = await fetch('../../api/insumos/cortes_almacen.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -44,12 +62,18 @@ async function guardarCierre() {
             pagina = 1;
             renderTabla();
             document.getElementById('formObservaciones').style.display = 'none';
+            // limpiar observaciones
+            try { document.getElementById('observaciones').value = ''; } catch(e) {}
+            // actualizar estado del botón Abrir (ya no debe haber abierto)
+            try { validarBotonAbrirCorte(); } catch(e) {}
         } else {
-            alert(data.mensaje);
+            alert(data.mensaje || 'No se pudo cerrar el corte');
         }
     } catch (err) {
         console.error(err);
         alert('Error al cerrar');
+    } finally {
+        if (btn) btn.disabled = false;
     }
 }
 
@@ -320,7 +344,13 @@ async function fetchReporteEntradasSalidas() {
         const resp = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
         if (!resp.ok) { throw new Error('HTTP ' + resp.status); }
         const data = await resp.json();
-        renderReporte(data);
+        // Guardar filas para paginado/búsqueda en cliente
+        reporteRows = Array.isArray(data.rows) ? data.rows : [];
+        reportePage = 1;
+        const psSel = document.getElementById('reportePageSize');
+        if (psSel) { const v = parseInt(psSel.value||'25',10); if (v>0) reportePageSize = v; }
+        renderReporte(data); // para totales
+        renderReportePaginado();
         if (estado) { estado.textContent = (Array.isArray(data.rows) && data.rows.length > 0) ? 'Listo' : 'Sin datos para el periodo.'; }
     } catch (err) {
         console.error(err);
@@ -332,8 +362,37 @@ function renderReporte(data) {
     const tbody = document.querySelector('#tablaEntradasSalidas tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
-    const rows = Array.isArray(data.rows) ? data.rows : [];
-    rows.forEach(r => {
+    // El render de filas lo hace renderReportePaginado; aquí solo limpiar tbody para evitar parpadeos con totales
+    tbody.innerHTML = '';
+    // Totales
+    const t = data.totales || {};
+    setText('totInicial', t.inicial);
+    setText('totEntradas', t.entradas_compra);
+    setText('totDevoluciones', t.devoluciones);
+    setText('totOtras', t.otras_entradas);
+    setText('totSalidas', t.salidas);
+    setText('totTrasp', t.traspasos_salida);
+    setText('totMermas', t.mermas);
+    setText('totAjustesNeg', t.ajustes_neg);
+    setText('totAjustesPos', t.ajustes_pos);
+    setText('totFinal', t.final);
+
+    // El bind de click se hará en renderReportePaginado()
+}
+
+function renderReportePaginado(){
+    const tbody = document.querySelector('#tablaEntradasSalidas tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    const filtro = (document.getElementById('reporteFiltroInsumo')?.value || '').toLowerCase();
+    const base = Array.isArray(reporteRows) ? reporteRows : [];
+    const filtrados = filtro ? base.filter(r => String(r.insumo||'').toLowerCase().includes(filtro)) : base;
+    const total = filtrados.length;
+    const totalPages = Math.max(1, Math.ceil(total / Math.max(1, reportePageSize)));
+    if (reportePage > totalPages) reportePage = totalPages;
+    const start = (reportePage - 1) * reportePageSize;
+    const pageRows = filtrados.slice(start, start + reportePageSize);
+    pageRows.forEach(r => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td class="link-insumo" data-insumo-id="${r.insumo_id}" style="cursor:pointer; text-decoration:underline;">${r.insumo}</td>
@@ -351,26 +410,15 @@ function renderReporte(data) {
         `;
         tbody.appendChild(tr);
     });
-    // Totales
-    const t = data.totales || {};
-    setText('totInicial', t.inicial);
-    setText('totEntradas', t.entradas_compra);
-    setText('totDevoluciones', t.devoluciones);
-    setText('totOtras', t.otras_entradas);
-    setText('totSalidas', t.salidas);
-    setText('totTrasp', t.traspasos_salida);
-    setText('totMermas', t.mermas);
-    setText('totAjustesNeg', t.ajustes_neg);
-    setText('totAjustesPos', t.ajustes_pos);
-    setText('totFinal', t.final);
-
-    // Click detalle
+    // bind detalle
     tbody.querySelectorAll('.link-insumo').forEach(el => {
         el.addEventListener('click', (ev) => {
             const id = ev.currentTarget.getAttribute('data-insumo-id');
             if (id) abrirModalDetalle(parseInt(id, 10));
         });
     });
+    const info = document.getElementById('reportePageInfo');
+    if (info) info.textContent = `Página ${total === 0 ? 0 : reportePage}/${totalPages}`;
 }
 
 function setText(id, val) {
@@ -410,6 +458,25 @@ function exportarReporte(fmt) {
         if (estado) estado.textContent = 'No se pudo exportar';
     }
 }
+
+// Listeners de UI para reporte (paginación/búsqueda)
+// Registrar listeners inmediatamente (el script se incluye al final del body)
+try {
+    const inp = document.getElementById('reporteFiltroInsumo');
+    if (inp) inp.addEventListener('input', () => { reportePage = 1; renderReportePaginado(); });
+    const sel = document.getElementById('reportePageSize');
+    if (sel) sel.addEventListener('change', () => { reportePageSize = parseInt(sel.value||'25',10)||25; reportePage = 1; renderReportePaginado(); });
+    const prev = document.getElementById('reportePrev');
+    if (prev) prev.addEventListener('click', () => { if (reportePage > 1) { reportePage--; renderReportePaginado(); } });
+    const next = document.getElementById('reporteNext');
+    if (next) next.addEventListener('click', () => {
+        const filtro = (document.getElementById('reporteFiltroInsumo')?.value || '').toLowerCase();
+        const base = Array.isArray(reporteRows) ? reporteRows : [];
+        const total = (filtro ? base.filter(r => String(r.insumo||'').toLowerCase().includes(filtro)) : base).length;
+        const totalPages = Math.max(1, Math.ceil(total / Math.max(1, reportePageSize)));
+        if (reportePage < totalPages) { reportePage++; renderReportePaginado(); }
+    });
+} catch(e) {}
 
 async function abrirModalDetalle(insumoId) {
     const modal = document.getElementById('modalDetalle');

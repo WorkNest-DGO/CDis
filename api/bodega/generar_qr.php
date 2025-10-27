@@ -251,10 +251,54 @@ if ($sqlMov) {
     $sqlMov->close();
 }
 
-// Construir items para PDF (respetar orden del JSON)
+// Obtener 'reque' de insumos seleccionados para ordenar por agrupamiento
+$requeById = [];
+if (!empty($seleccionados)) {
+    $ids = array_map(function($x){ return (int)$x['id']; }, $seleccionados);
+    $ids = array_values(array_unique(array_filter($ids, function($v){ return $v > 0; })));
+    if (!empty($ids)) {
+        $in  = implode(',', array_fill(0, count($ids), '?'));
+        $types = str_repeat('i', count($ids));
+        $stmtReq = $conn->prepare("SELECT id, reque FROM insumos WHERE id IN ($in)");
+        if ($stmtReq) {
+            $stmtReq->bind_param($types, ...$ids);
+            if ($stmtReq->execute()) {
+                $rs = $stmtReq->get_result();
+                while ($r = $rs->fetch_assoc()) {
+                    $requeById[(int)$r['id']] = (string)$r['reque'];
+                }
+            }
+            $stmtReq->close();
+        }
+    }
+}
+
+// Orden deseado por agrupamiento (reque)
+$ordenReque = ['Zona Barra','Bebidas','Refrigerdor','Articulos_de_limpieza','Plasticos y otros',''];
+$idxReque = array_flip($ordenReque);
+
+// Construir items para PDF ordenados por reque y nombre
 $items = [];
-foreach ($seleccionados as $s) {
+$seleccionadosOrdenados = $seleccionados;
+usort($seleccionadosOrdenados, function($a, $b) use ($requeById, $idxReque) {
+    $ra = $requeById[(int)$a['id']] ?? '';
+    $rb = $requeById[(int)$b['id']] ?? '';
+    $ia = $idxReque[$ra] ?? PHP_INT_MAX;
+    $ib = $idxReque[$rb] ?? PHP_INT_MAX;
+    if ($ia === $ib) {
+        return strcasecmp((string)$a['nombre'], (string)$b['nombre']);
+    }
+    return $ia <=> $ib;
+});
+
+$lastReque = null;
+foreach ($seleccionadosOrdenados as $s) {
     $iid = (int)$s['id'];
+    $curReque = $requeById[$iid] ?? '';
+    if ($curReque !== $lastReque) {
+        $items[] = [ 'section' => $curReque ];
+        $lastReque = $curReque;
+    }
     $solicitada = (float)$s['cantidad'];
     $unidad = $s['unidad'];
     $nombre = $s['nombre'];

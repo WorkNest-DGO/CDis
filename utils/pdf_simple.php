@@ -1,6 +1,16 @@
 <?php
 function pdf_simple_escape($text) {
-    return str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $text);
+    if (!is_string($text)) {
+        $text = strval($text);
+    }
+    // Convertir a Windows-1252 (compatible con Helvetica Type1) para acentos correctos
+    $converted = @iconv('UTF-8', 'Windows-1252//TRANSLIT', $text);
+    if ($converted === false) {
+        // Fallback a utf8_decode (convierte UTF-8 -> ISO-8859-1)
+        $converted = function_exists('utf8_decode') ? utf8_decode($text) : $text;
+    }
+    // Escapar caracteres especiales de cadenas PDF
+    return str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $converted);
 }
 
 function generar_pdf_simple($archivo, $titulo, array $lineas) {
@@ -149,8 +159,21 @@ function generar_pdf_envio_qr_detallado($archivo, $titulo, array $headerLines, $
     // Punto de inicio para el detalle: bajo el QR
     $yDetail = $qrY - 20;
 
-    // Render de items (dos columnas)
+    // Render de items (dos columnas) con cabeceras de grupo opcionales
     foreach ($items as $it) {
+        // Cabecera de grupo: texto centrado y en mayor tamaño
+        if (isset($it['section']) && is_string($it['section']) && $it['section'] !== '') {
+            if ($yDetail < $marginB + ($lineHeight * 3)) {
+                $yDetail = $marginB + ($lineHeight * 3);
+            }
+            $secText = (string)$it['section'];
+            $secFont = 14;
+            $approxW = strlen($secText) * ($secFont * 0.6);
+            $secX = (int)max($marginL, min($pageW - $marginR - 10, ($pageW - $approxW) / 2));
+            $contenido .= "BT\n/F1 $secFont Tf\n{$secX} {$yDetail} Td\n(" . pdf_simple_escape($secText) . ") Tj\nET\n";
+            $yDetail -= ($lineHeight + 8);
+            continue;
+        }
         $leftText = isset($it['left']) ? (string)$it['left'] : '';
         $rightLines = isset($it['right']) && is_array($it['right']) ? $it['right'] : [];
 

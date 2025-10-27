@@ -132,10 +132,15 @@ $E_COMPRA_ACUM = fetch_keyed_sum(
 );
 // Ajuste: si es modo corte, recomputar $E_COMPRA por corte_id
 if ($mode === 'corte') {
+    // Incluir por corte_id y, para registros sin corte_id, por rango de fechas del corte
     $E_COMPRA = fetch_keyed_sum(
         $conn,
-        'SELECT insumo_id, SUM(cantidad) qty FROM entradas_insumos WHERE corte_id = ? AND (proveedor_id IS NULL OR proveedor_id <> 1) GROUP BY insumo_id',
-        'i', [$corte_id]
+        "SELECT insumo_id, SUM(cantidad) AS qty
+         FROM entradas_insumos
+         WHERE ( (corte_id = ?) OR (corte_id IS NULL AND fecha >= ? AND fecha < ?) )
+           AND (proveedor_id IS NULL OR proveedor_id <> 1)
+         GROUP BY insumo_id",
+        'iss', [$corte_id, $from, $toExclusive]
     );
 }
 
@@ -143,8 +148,12 @@ if ($mode === 'corte') {
 if ($mode === 'corte') {
     $E_OTRAS = fetch_keyed_sum(
         $conn,
-        'SELECT insumo_id, SUM(cantidad) qty FROM entradas_insumos WHERE corte_id = ? AND proveedor_id = 1 GROUP BY insumo_id',
-        'i', [$corte_id]
+        "SELECT insumo_id, SUM(cantidad) AS qty
+         FROM entradas_insumos
+         WHERE ( (corte_id = ?) OR (corte_id IS NULL AND fecha >= ? AND fecha < ?) )
+           AND proveedor_id = 1
+         GROUP BY insumo_id",
+        'iss', [$corte_id, $from, $toExclusive]
     );
 } else {
     $E_OTRAS = fetch_keyed_sum(
@@ -158,8 +167,11 @@ if ($mode === 'corte') {
 if ($mode === 'corte') {
     $MOVI_ENT = fetch_keyed_sum(
         $conn,
-        "SELECT insumo_id, SUM(cantidad) qty FROM movimientos_insumos WHERE tipo='entrada' AND cantidad>0 AND corte_id = ? GROUP BY insumo_id",
-        'i', [$corte_id]
+        "SELECT insumo_id, SUM(cantidad) AS qty
+         FROM movimientos_insumos
+         WHERE tipo='entrada' AND cantidad>0 AND (corte_id = ? OR (corte_id IS NULL AND fecha >= ? AND fecha < ?))
+         GROUP BY insumo_id",
+        'iss', [$corte_id, $from, $toExclusive]
     );
 } else {
     $MOVI_ENT = fetch_keyed_sum(
@@ -190,8 +202,11 @@ if ($mode === 'corte') {
 // Salidas: incluir explcitas (tipo='salida') y por proceso (tipo NULL o vacao) con cantidad negativa
 if ($mode === 'corte') {
     $MOVI_SAL = fetch_keyed_sum($conn,
-        "SELECT insumo_id, SUM(ABS(cantidad)) qty FROM movimientos_insumos WHERE tipo='salida' AND cantidad<0 AND corte_id = ? GROUP BY insumo_id",
-        'i', [$corte_id]
+        "SELECT insumo_id, SUM(-cantidad) AS qty
+         FROM movimientos_insumos
+         WHERE tipo='salida' AND cantidad<0 AND (corte_id = ? OR (corte_id IS NULL AND fecha >= ? AND fecha < ?))
+         GROUP BY insumo_id",
+        'iss', [$corte_id, $from, $toExclusive]
     );
 } else {
     $MOVI_SAL = fetch_keyed_sum($conn,
@@ -223,8 +238,11 @@ if ($mode === 'corte') {
 if ($mode === 'corte') {
     $MOVI_MERMA = fetch_keyed_sum(
         $conn,
-        "SELECT insumo_id, SUM(cantidad) qty FROM movimientos_insumos WHERE tipo='merma' AND cantidad>0 AND corte_id = ? GROUP BY insumo_id",
-        'i', [$corte_id]
+        "SELECT insumo_id, SUM(cantidad) AS qty
+         FROM movimientos_insumos
+         WHERE tipo='merma' AND cantidad>0 AND (corte_id = ? OR (corte_id IS NULL AND fecha >= ? AND fecha < ?))
+         GROUP BY insumo_id",
+        'iss', [$corte_id, $from, $toExclusive]
     );
 } else {
     $MOVI_MERMA = fetch_keyed_sum(
@@ -267,9 +285,9 @@ $MOVI_AJUSTE_NEG = fetch_keyed_sum(
 // Forzar ajustes por corte si aplica (sobrescribe el cálculo por fechas)
 if ($mode === 'corte') {
     $MOVI_AJUSTE = [];
-    $stmtAjX = $conn->prepare("SELECT insumo_id, SUM(cantidad) qty FROM movimientos_insumos WHERE tipo='ajuste' AND corte_id = ? GROUP BY insumo_id");
+    $stmtAjX = $conn->prepare("SELECT insumo_id, SUM(cantidad) AS qty FROM movimientos_insumos WHERE tipo='ajuste' AND (corte_id = ? OR (corte_id IS NULL AND fecha >= ? AND fecha < ?)) GROUP BY insumo_id");
     if ($stmtAjX) {
-        $stmtAjX->bind_param('i', $corte_id);
+        $stmtAjX->bind_param('iss', $corte_id, $from, $toExclusive);
         $stmtAjX->execute();
         $resAjX = $stmtAjX->get_result();
         while ($row = $resAjX->fetch_assoc()) { $MOVI_AJUSTE[(int)$row['insumo_id']] = (float)$row['qty']; }
@@ -278,13 +296,13 @@ if ($mode === 'corte') {
     // Ajustes separados por signo (modo corte)
     $MOVI_AJUSTE_POS = fetch_keyed_sum(
         $conn,
-        "SELECT insumo_id, SUM(cantidad) qty FROM movimientos_insumos WHERE tipo='ajuste' AND cantidad>0 AND corte_id = ? GROUP BY insumo_id",
-        'i', [$corte_id]
+        "SELECT insumo_id, SUM(cantidad) AS qty FROM movimientos_insumos WHERE tipo='ajuste' AND cantidad>0 AND (corte_id = ? OR (corte_id IS NULL AND fecha >= ? AND fecha < ?)) GROUP BY insumo_id",
+        'iss', [$corte_id, $from, $toExclusive]
     );
     $MOVI_AJUSTE_NEG = fetch_keyed_sum(
         $conn,
-        "SELECT insumo_id, SUM(-cantidad) qty FROM movimientos_insumos WHERE tipo='ajuste' AND cantidad<0 AND corte_id = ? GROUP BY insumo_id",
-        'i', [$corte_id]
+        "SELECT insumo_id, SUM(-cantidad) AS qty FROM movimientos_insumos WHERE tipo='ajuste' AND cantidad<0 AND (corte_id = ? OR (corte_id IS NULL AND fecha >= ? AND fecha < ?)) GROUP BY insumo_id",
+        'iss', [$corte_id, $from, $toExclusive]
     );
 }
 

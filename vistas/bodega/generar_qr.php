@@ -122,14 +122,36 @@ function onInputChange(e){
 
 function actualizarResumen(){
     const body = document.querySelector('#tablaResumen tbody');
+    if (!body) return;
     body.innerHTML='';
+    // Agrupar por reque
+    const orden = getOrdenReque();
+    const grupos = {};
     Object.entries(seleccionados).forEach(([id,val])=>{
-        const ins = catalogo.find(x=>x.id == id);
-        if(!ins || !ins.nombre || !ins.unidad || val <= 0) return;
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${ins.nombre}</td><td>${val}</td><td>${ins.unidad}</td>`;
-        body.appendChild(tr);
+        const ins = catalogo.find(x=>String(x.id) === String(id));
+        if(!ins || !ins.nombre || !ins.unidad) return;
+        const cantidad = parseFloat(val);
+        if (isNaN(cantidad) || cantidad <= 0) return;
+        const cat = ins.reque || '';
+        if (!grupos[cat]) grupos[cat] = [];
+        grupos[cat].push({ nombre: ins.nombre, unidad: ins.unidad, cantidad });
     });
+    // Pintar por orden predefinido
+    orden.forEach(cat => {
+        const items = grupos[cat] || [];
+        if (!items.length) return;
+        const th = document.createElement('tr');
+        th.innerHTML = `<td colspan="3" style="font-weight:bold; background:#222; color:#fff; text-align:center;">${cat}</td>`;
+        body.appendChild(th);
+        // Ordenar por nombre para consistencia
+        items.sort((a,b)=> a.nombre.localeCompare(b.nombre, undefined, { sensitivity:'base' }));
+        items.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${r.nombre}</td><td>${r.cantidad}</td><td>${r.unidad}</td>`;
+            body.appendChild(tr);
+        });
+    });
+    // Guardar selección
     localStorage.setItem('qr_actual', JSON.stringify(seleccionados));
 }
 

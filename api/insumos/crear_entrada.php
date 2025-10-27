@@ -119,6 +119,12 @@ try {
         $rsCol = $conn->query("SHOW COLUMNS FROM entradas_insumos LIKE 'corte_id'");
         if ($rsCol && $rsCol->num_rows > 0) { $hasCorteCol = true; }
     } catch (Throwable $e) { $hasCorteCol = false; }
+    if ($hasCorteCol) {
+        try {
+            $rsC = $conn->query("SELECT id FROM cortes_almacen WHERE fecha_fin IS NULL ORDER BY id DESC LIMIT 1");
+            if ($rsC && ($rowC = $rsC->fetch_assoc())) { $corteId = (int)$rowC['id']; }
+        } catch (Throwable $e) { $corteId = 0; }
+    }
 
     // Detectar columna 'nota' e inicializar consecutivo incremental por lote de compra
     $hasNotaCol = false; $nota = null;

@@ -39,11 +39,11 @@ if (!is_array($jsonArr)) { $jsonArr = []; }
 
 // Resumen por insumo
 $stmt = $conn->prepare(
-    'SELECT mi.insumo_id, i.nombre, i.unidad, SUM(ABS(mi.cantidad)) AS cantidad_total
+    'SELECT mi.insumo_id, i.nombre, i.unidad, i.reque, SUM(ABS(mi.cantidad)) AS cantidad_total
      FROM movimientos_insumos mi
      JOIN insumos i ON i.id = mi.insumo_id
-     WHERE mi.id_qr = ?
-     GROUP BY mi.insumo_id, i.nombre, i.unidad
+     WHERE mi.id_qr = ? AND mi.tipo IN ("traspaso")
+     GROUP BY mi.insumo_id, i.nombre, i.unidad, i.reque
      ORDER BY i.nombre'
 );
 $stmt->bind_param('i', $id_qr);
@@ -55,6 +55,7 @@ while ($r = $res->fetch_assoc()) {
         'insumo_id' => (int)$r['insumo_id'],
         'nombre' => $r['nombre'],
         'unidad' => $r['unidad'],
+        'reque'  => $r['reque'] ?? '',
         'cantidad_total' => (float)$r['cantidad_total'],
     ];
 }
@@ -67,7 +68,7 @@ $stmt = $conn->prepare(
      FROM movimientos_insumos mi
      JOIN insumos i ON i.id = mi.insumo_id
      LEFT JOIN entradas_insumos ei ON ei.id = mi.id_entrada
-     WHERE mi.id_qr = ?
+     WHERE mi.id_qr = ? AND mi.tipo = "traspaso"
      ORDER BY ei.fecha, ei.id'
 );
 $stmt->bind_param('i', $id_qr);
@@ -87,6 +88,29 @@ while ($r = $res->fetch_assoc()) {
 }
 $stmt->close();
 
+// Devoluciones agregadas por insumo para tabla separada
+$stmt = $conn->prepare(
+    'SELECT mi.insumo_id, i.nombre, i.unidad, SUM(ABS(mi.cantidad)) AS cantidad_total
+     FROM movimientos_insumos mi
+     JOIN insumos i ON i.id = mi.insumo_id
+     WHERE mi.id_qr = ? AND mi.tipo = "devolucion"
+     GROUP BY mi.insumo_id, i.nombre, i.unidad
+     ORDER BY i.nombre'
+);
+$stmt->bind_param('i', $id_qr);
+$stmt->execute();
+$res = $stmt->get_result();
+$devoluciones = [];
+while ($r = $res->fetch_assoc()) {
+    $devoluciones[] = [
+        'insumo_id' => (int)$r['insumo_id'],
+        'nombre' => $r['nombre'],
+        'unidad' => $r['unidad'],
+        'cantidad_total' => (float)$r['cantidad_total'],
+    ];
+}
+$stmt->close();
+
 success([
     'qr' => [
         'id' => $qr['id'],
@@ -99,6 +123,6 @@ success([
     ],
     'resumen_por_insumo' => $resumen,
     'lotes' => $lotes,
+    'devoluciones' => $devoluciones,
 ]);
 ?>
-

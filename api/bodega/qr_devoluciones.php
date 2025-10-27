@@ -189,13 +189,10 @@ try {
     }
     generar_pdf_simple($pdf_recepcion_path, 'Devolución de QR', $lineas);
 
-    // Actualiza estado si quedo sin pendientes
+    // Actualiza estado si quedo sin pendientes (no modificar pdf_recepcion desde devoluciones)
     if ($pendienteTotal <= 1e-9) {
-        $up = $conn->prepare('UPDATE qrs_insumo SET estado = "confirmado", pdf_recepcion = ? WHERE id = ?');
-        if ($up) { $up->bind_param('si', $pdf_recepcion_rel, $id_qr); $up->execute(); $up->close(); }
-    } else {
-        $up = $conn->prepare('UPDATE qrs_insumo SET pdf_recepcion = ? WHERE id = ?');
-        if ($up) { $up->bind_param('si', $pdf_recepcion_rel, $id_qr); $up->execute(); $up->close(); }
+        $up = $conn->prepare('UPDATE qrs_insumo SET estado = "confirmado" WHERE id = ?');
+        if ($up) { $up->bind_param('i', $id_qr); $up->execute(); $up->close(); }
     }
 
     // Log acción
@@ -214,4 +211,3 @@ try {
     error($e->getMessage());
 }
 ?>
-
