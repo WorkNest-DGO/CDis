@@ -148,12 +148,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const id = ev.target.value;
     cargarProveedor(id);
   });
-  document.getElementById('btnNuevo').addEventListener('click', () => {
-    document.getElementById('selProveedor').value = '';
-    limpiarFormulario();
-    document.getElementById('nombre').focus();
-  });
+  const btnNuevo = document.getElementById('btnNuevo');
+  if (btnNuevo) {
+    btnNuevo.addEventListener('click', () => {
+      document.getElementById('selProveedor').value = '';
+      limpiarFormulario();
+      document.getElementById('nombre').focus();
+    });
+  }
   document.getElementById('formProveedor').addEventListener('submit', guardarProveedor);
   document.getElementById('btnEliminar').addEventListener('click', eliminarProveedor);
 });
-

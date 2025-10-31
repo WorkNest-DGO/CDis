@@ -114,14 +114,21 @@ $__mostrar_registro_entrada = ($__corte_id_abierto > 0);
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="reque">Área/Requerimiento:</label>
-                                <select id="reque" class="form-control" required>
+                                <label for="reque_id">Área/Requerimiento:</label>
+                                <select id="reque_id" class="form-control" required>
                                     <option value="" disabled selected>--Selecciona--</option>
-                                    <option value="Zona Barra">Zona Barra</option>
-                                    <option value="Bebidas">Bebidas</option>
-                                    <option value="Refrigerdor">Refrigerdor</option>
-                                    <option value="Articulos_de_limpieza">Articulos_de_limpieza</option>
-                                    <option value="Plasticos y otros">Plasticos y otros</option>
+                                    <?php
+                                    try {
+                                        if (!isset($conn)) { require_once __DIR__ . '/../../config/db.php'; }
+                                        $rsRt = $conn->query('SELECT id, nombre FROM reque_tipos WHERE activo = 1 ORDER BY nombre');
+                                        if ($rsRt) {
+                                            while ($rt = $rsRt->fetch_assoc()) {
+                                                $rid = (int)$rt['id']; $rnom = htmlspecialchars($rt['nombre'] ?? '', ENT_QUOTES, 'UTF-8');
+                                                echo '<option value="' . $rid . '">' . $rnom . '</option>';
+                                            }
+                                        }
+                                    } catch (Throwable $e) {}
+                                    ?>
                                 </select>
                             </div>
                             <div class="form-group">

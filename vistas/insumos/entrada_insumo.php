@@ -57,8 +57,27 @@ ob_start();
                         </dd>
                         <dt class="col-sm-5">Costo total</dt>
                         <dd class="col-sm-7" id="entrada-costo-total">-</dd>
-                        <dt class="col-sm-5">Valor unitario</dt>
-                        <dd class="col-sm-7" id="entrada-valor-unitario">-</dd>
+                         <dt class="col-sm-5">Valor unitario</dt>
+                         <dd class="col-sm-7" id="entrada-valor-unitario">-</dd>
+                        <div id="vu-editor" class="col-12 d-none mt-3">
+                            <div class="border rounded p-3">
+                                <div class="mb-2 text-dark"><strong>Editar valor unitario (CDIs)</strong></div>
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-6">
+                                        <label for="vu-input" class="form-label text-dark">Valor unitario</label>
+                                        <input type="number" id="vu-input" class="form-control" step="0.0001" min="0" placeholder="0.0000">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label text-dark">Total calculado</label>
+                                        <div id="vu-total" class="form-control-plaintext text-dark">-</div>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button id="vu-guardar" type="button" class="btn custom-btn">Guardar</button>
+                                    <small id="vu-msg" class="text-muted ms-2"></small>
+                                </div>
+                            </div>
+                        </div>
                         <dt class="col-sm-5">Referencia</dt>
                         <dd class="col-sm-7" id="entrada-referencia">-</dd>
                         <dt class="col-sm-5">Folio fiscal</dt>
@@ -640,6 +659,81 @@ function solicitarImpresionQrEntrada(entradaId, printerIp) {
             setText('entrada-cantidad-actual', formatNumber(data.cantidad_actual, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
             setText('entrada-costo-total', formatNumber(data.costo_total, { style: 'currency', currency: 'MXN' }));
             setText('entrada-valor-unitario', formatNumber(data.valor_unitario, { style: 'currency', currency: 'MXN', minimumFractionDigits: 4, maximumFractionDigits: 4 }));
+
+            // Editor de valor unitario para proveedor CDIs (id = 1)
+            (function configurarEditorVU(){
+                try{
+                    var editorWrap = document.getElementById('vu-editor');
+                    var inp = document.getElementById('vu-input');
+                    var totalEl = document.getElementById('vu-total');
+                    var btn = document.getElementById('vu-guardar');
+                    var msg = document.getElementById('vu-msg');
+                    if (!editorWrap || !inp || !totalEl || !btn) return;
+                    var proveedorId = parseInt(data.proveedor_id || '0', 10);
+                    var cantidad = parseFloat(String(data.cantidad || '0'));
+                    var costoTotal = parseFloat(String(data.costo_total || '0'));
+                    var valorUnitario = parseFloat(String(data.valor_unitario || '0'));
+                    if (proveedorId === 1) {
+                        editorWrap.classList.remove('d-none');
+                        if (Number.isFinite(valorUnitario) && valorUnitario > 0) {
+                            inp.value = valorUnitario.toFixed(4);
+                        } else if (Number.isFinite(costoTotal) && Number.isFinite(cantidad) && cantidad > 0) {
+                            inp.value = (costoTotal / cantidad).toFixed(4);
+                        } else {
+                            inp.value = '';
+                        }
+                        var recalcular = function(){
+                            var vu = parseFloat(String(inp.value).replace(',', '.'));
+                            if (Number.isFinite(vu) && vu >= 0 && Number.isFinite(cantidad)) {
+                                var nuevoTotal = (vu * (cantidad || 0));
+                                totalEl.textContent = nuevoTotal.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                return nuevoTotal;
+                            } else {
+                                totalEl.textContent = '-';
+                                return null;
+                            }
+                        };
+                        inp.addEventListener('input', function(){ msg.textContent = ''; recalcular(); });
+                        recalcular();
+                        btn.onclick = function(){
+                            msg.textContent = '';
+                            var nuevoTotal = recalcular();
+                            if (nuevoTotal === null) { alert('Captura un valor unitario valido'); return; }
+                            if (!data || !data.id) { alert('Entrada no disponible'); return; }
+                            btn.disabled = true; var oldText = btn.textContent; btn.textContent = 'Guardando...';
+                            var body = 'id=' + encodeURIComponent(String(data.id)) + '&costo_total=' + encodeURIComponent(String(nuevoTotal));
+                            fetch('../../api/insumos/entradas_proveedor.php', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                credentials: 'same-origin',
+                                body: body
+                            }).then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                            .then(function(resp){
+                                if (!resp || resp.success !== true) { throw new Error((resp && (resp.mensaje||resp.error)) || 'No se pudo guardar'); }
+                                // Actualizar UI localmente
+                                entradaActual.costo_total = nuevoTotal;
+                                var vu = parseFloat(String(inp.value).replace(',', '.'));
+                                entradaActual.valor_unitario = vu;
+                                document.getElementById('entrada-costo-total').textContent = nuevoTotal.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                document.getElementById('entrada-valor-unitario').textContent = vu.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 4, maximumFractionDigits: 4 });
+                                msg.textContent = 'Guardado';
+                                msg.classList.remove('text-danger');
+                                msg.classList.add('text-success');
+                            })
+                            .catch(function(err){
+                                console.error(err);
+                                msg.textContent = 'Error: ' + err.message;
+                                msg.classList.remove('text-success');
+                                msg.classList.add('text-danger');
+                                alert('No fue posible guardar: ' + err.message);
+                            })
+                            .finally(function(){ btn.disabled = false; btn.textContent = oldText; });
+                        };
+                    } else {
+                        editorWrap.classList.add('d-none');
+                    }
+                } catch(e){ console.error(e); }
+            })();
             setText('entrada-referencia', data.referencia_doc);
             setText('entrada-folio', data.folio_fiscal);
             setText('entrada-descripcion', data.descripcion);

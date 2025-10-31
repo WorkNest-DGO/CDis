@@ -35,8 +35,7 @@ ob_start();
                 <select id="selProveedor" class="form-control"></select>
             </div>
             <div class="col-md-4 d-flex gap-2">
-                <button id="btnNuevo" class="btn custom-btn me-2" type="button">Nuevo</button>
-                <a class="btn btn-secondary" href="../../api/insumos/exportar_proveedores_excel.php">Exportar a Excel</a>
+                <a class="btn btn-secondary" href="../../api/insumos/exportar_proveedores_csv.php">Exportar CSV</a>
             </div>
         </div>
     </div>
@@ -146,4 +145,3 @@ ob_start();
 $content = ob_get_clean();
 include __DIR__ . '/../nav.php';
 ?>
-
