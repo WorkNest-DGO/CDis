@@ -13,7 +13,6 @@ $unidad       = isset($_POST['unidad']) ? trim($_POST['unidad']) : '';
 $existencia   = isset($_POST['existencia']) ? (float)$_POST['existencia'] : 0;
 $tipo         = isset($_POST['tipo_control']) ? trim($_POST['tipo_control']) : '';
 $minimo_stock = isset($_POST['minimo_stock']) ? (float)$_POST['minimo_stock'] : 0.0;
-$reque        = isset($_POST['reque']) ? trim($_POST['reque']) : '';
 $reque_id     = isset($_POST['reque_id']) ? (int)$_POST['reque_id'] : 0;
 
 if ($id <= 0 || $nombre === '' || $unidad === '' || $tipo === '') {
@@ -22,7 +21,16 @@ if ($id <= 0 || $nombre === '' || $unidad === '' || $tipo === '') {
 
 // Normalizar valores adicionales
 if ($minimo_stock < 0) { $minimo_stock = 0.0; }
-// Si viene reque_id, resolver nombre para compatibilidad; si no existe en catálogo, usar NULL
+
+// Detectar si existe columna legacy 'reque' en la tabla insumos
+$hasLegacyReque = false;
+try {
+    $chk = $conn->prepare("SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'insumos' AND COLUMN_NAME = 'reque' LIMIT 1");
+    if ($chk) { $chk->execute(); $rs = $chk->get_result(); $hasLegacyReque = ($rs && $rs->num_rows > 0); $chk->close(); }
+} catch (Throwable $e) { /* ignore */ }
+
+// Resolver nombre del catálogo si viene reque_id; si no existe, usar NULL
+$requeNombreCatalogo = '';
 if ($reque_id > 0) {
     try {
         $q = $conn->prepare('SELECT nombre FROM reque_tipos WHERE id = ? AND activo = 1');
@@ -31,10 +39,9 @@ if ($reque_id > 0) {
             $q->execute();
             $q->bind_result($nom);
             if ($q->fetch()) {
-                $reque = (string)$nom;
+                $requeNombreCatalogo = (string)$nom;
             } else {
-                $reque_id = null; // no existe; evitar FK inválida
-                $reque = '';
+                $reque_id = null; // evitar FK inválida
             }
             $q->close();
         }
@@ -43,20 +50,21 @@ if ($reque_id > 0) {
     $reque_id = null; // permitir NULL cuando no seleccionan catálogo
 }
 
-// Mapear nombre de catálogo a enumeración antigua (producción) para compatibilidad
-$requeEnumMap = [
-    'Zona Barra' => 'Zona Barra',
-    'Bebidas' => 'Bebidas',
-    'Refrigerador' => 'Refrigerdor',
-    'Refrigerdor' => 'Refrigerdor',
-    'Articulos de limpieza' => 'Articulos_de_limpieza',
-    'Articulos_de_limpieza' => 'Articulos_de_limpieza',
-    'Plasticos y otros' => 'Plasticos y otros',
-];
-if (is_null($reque_id)) {
-    $reque = '';
-} else {
-    $reque = isset($requeEnumMap[$reque]) ? $requeEnumMap[$reque] : '';
+// Mapear a enumeración antigua solo si la columna legacy existe
+$requeLegacy = '';
+if ($hasLegacyReque) {
+    $requeEnumMap = [
+        'Zona Barra' => 'Zona Barra',
+        'Bebidas' => 'Bebidas',
+        'Refrigerador' => 'Refrigerdor',
+        'Refrigerdor' => 'Refrigerdor',
+        'Articulos de limpieza' => 'Articulos_de_limpieza',
+        'Articulos_de_limpieza' => 'Articulos_de_limpieza',
+        'Plasticos y otros' => 'Plasticos y otros',
+    ];
+    if (!is_null($reque_id)) {
+        $requeLegacy = isset($requeEnumMap[$requeNombreCatalogo]) ? $requeEnumMap[$requeNombreCatalogo] : '';
+    }
 }
 
 // obtener imagen actual
@@ -86,12 +94,21 @@ if (!empty($_FILES['imagen']['name'])) {
     }
 }
 
-$stmt = $conn->prepare('UPDATE insumos SET nombre = ?, unidad = ?, existencia = ?, tipo_control = ?, imagen = ?, minimo_stock = ?, reque = ?, reque_id = ? WHERE id = ?');
-if (!$stmt) {
-    error('Error al preparar actualización: ' . $conn->error);
+if ($hasLegacyReque) {
+    $stmt = $conn->prepare('UPDATE insumos SET nombre = ?, unidad = ?, existencia = ?, tipo_control = ?, imagen = ?, minimo_stock = ?, reque = ?, reque_id = ? WHERE id = ?');
+    if (!$stmt) {
+        error('Error al preparar actualización: ' . $conn->error);
+    }
+    // Nota: pasar NULL en bind_param insertará NULL en MySQLi
+    $stmt->bind_param('ssdssdsii', $nombre, $unidad, $existencia, $tipo, $aliasImagen, $minimo_stock, $requeLegacy, $reque_id, $id);
+} else {
+    $stmt = $conn->prepare('UPDATE insumos SET nombre = ?, unidad = ?, existencia = ?, tipo_control = ?, imagen = ?, minimo_stock = ?, reque_id = ? WHERE id = ?');
+    if (!$stmt) {
+        error('Error al preparar actualización: ' . $conn->error);
+    }
+    $stmt->bind_param('ssdssdii', $nombre, $unidad, $existencia, $tipo, $aliasImagen, $minimo_stock, $reque_id, $id);
 }
-// Nota: pasar NULL en bind_param insertará NULL en MySQLi
-$stmt->bind_param('ssdssdsii', $nombre, $unidad, $existencia, $tipo, $aliasImagen, $minimo_stock, $reque, $reque_id, $id);
+
 if (!$stmt->execute()) {
     $stmt->close();
     error('Error al actualizar insumo: ' . $stmt->error);
@@ -100,3 +117,4 @@ $stmt->close();
 
 success(true);
 ?>
+

@@ -387,14 +387,41 @@ function renderReportePaginado(){
     const filtro = (document.getElementById('reporteFiltroInsumo')?.value || '').toLowerCase();
     const base = Array.isArray(reporteRows) ? reporteRows : [];
     const filtrados = filtro ? base.filter(r => String(r.insumo||'').toLowerCase().includes(filtro)) : base;
-    const total = filtrados.length;
+    // Enriquecer con grupo derivado de reque_id (preferir datos del backend; fallback a preload de listar_insumos)
+    const rowsConGrupo = filtrados.map(r => {
+        let gid = Number(r.reque_id || 0);
+        let gname = '';
+        if (gid > 0) {
+            gname = r.reque_nombre || String(gid);
+        } else {
+            const info = (window.__requeByInsumo && window.__requeByInsumo[r.insumo_id]) ? window.__requeByInsumo[r.insumo_id] : { id: 0, nombre: '' };
+            gid = Number(info && info.id ? info.id : 0);
+            gname = gid > 0 ? String(info.nombre || gid) : 'N/A';
+        }
+        return Object.assign({}, r, { grupoId: gid, grupoNombre: gname });
+    }).sort((a,b)=>{
+        const gcmp = (a.grupoId||0) - (b.grupoId||0);
+        if (gcmp !== 0) return gcmp;
+        return String(a.insumo||'').localeCompare(String(b.insumo||''), undefined, { sensitivity:'base' });
+    });
+    const total = rowsConGrupo.length;
     const totalPages = Math.max(1, Math.ceil(total / Math.max(1, reportePageSize)));
     if (reportePage > totalPages) reportePage = totalPages;
     const start = (reportePage - 1) * reportePageSize;
-    const pageRows = filtrados.slice(start, start + reportePageSize);
+    const pageRows = rowsConGrupo.slice(start, start + reportePageSize);
+    let lastGroup = null;
     pageRows.forEach(r => {
+        const areaText = (r.grupoId && r.grupoId > 0) ? `${r.grupoId} - ${r.grupoNombre || r.grupoId}` : 'N/A';
+        if (r.grupoId !== lastGroup) {
+            const th = document.createElement('tr');
+            // colspan: 13 columnas (Área + 12 métricas)
+            th.innerHTML = `<td colspan="13" style="font-weight:bold; background:#222; color:#fff; text-align:center;">${areaText}</td>`;
+            tbody.appendChild(th);
+            lastGroup = r.grupoId;
+        }
         const tr = document.createElement('tr');
         tr.innerHTML = `
+            <td>${areaText}</td>
             <td class="link-insumo" data-insumo-id="${r.insumo_id}" style="cursor:pointer; text-decoration:underline;">${r.insumo}</td>
             <td>${r.unidad ?? ''}</td>
             <td>${fmt(r.inicial)}</td>
@@ -477,6 +504,26 @@ try {
         if (reportePage < totalPages) { reportePage++; renderReportePaginado(); }
     });
 } catch(e) {}
+
+// Precargar mapa de reque (grupo) por insumo usando listar_insumos
+(async function preloadReque(){
+  try {
+    const resp = await fetch('../../api/insumos/listar_insumos.php', { cache: 'no-store' });
+    const data = await resp.json();
+    if (data && data.success) {
+      const mapa = {};
+      const arr = Array.isArray(data.resultado) ? data.resultado : (data || []);
+      arr.forEach(i => {
+        if (i && typeof i.id !== 'undefined') {
+          const rid = Number(i.reque_id || 0);
+          const rname = rid > 0 ? (i.reque_nombre || '') : 'N/A';
+          mapa[Number(i.id)] = { id: rid, nombre: rname };
+        }
+      });
+      window.__requeByInsumo = mapa;
+    }
+  } catch(e) { window.__requeByInsumo = window.__requeByInsumo || {}; }
+})();
 
 async function abrirModalDetalle(insumoId) {
     const modal = document.getElementById('modalDetalle');

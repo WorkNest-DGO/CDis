@@ -117,15 +117,25 @@ if ($sqlMov) {
     $sqlMov->close();
 }
 
-// Ordenar por agrupamiento (reque) y luego por nombre
+// Ordenar por agrupamiento (reque) y luego por nombre (soporta catálogo reque_id)
 $requeById = [];
 $ids = [];
 foreach ($jsonArr as $s) { if (isset($s['id'])) { $ids[] = (int)$s['id']; } }
 $ids = array_values(array_unique(array_filter($ids, function($v){ return $v>0; })));
 if (!empty($ids)) {
+    // Detectar columna legacy 'reque'
+    $hasLegacy = false;
+    try {
+        $chk = $conn->prepare("SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'insumos' AND COLUMN_NAME = 'reque' LIMIT 1");
+        if ($chk) { $chk->execute(); $rsX = $chk->get_result(); $hasLegacy = ($rsX && $rsX->num_rows > 0); $chk->close(); }
+    } catch (Throwable $e) { /* ignore */ }
     $in = implode(',', array_fill(0, count($ids), '?'));
     $types = str_repeat('i', count($ids));
-    $stR = $conn->prepare("SELECT id, reque FROM insumos WHERE id IN ($in)");
+    if ($hasLegacy) {
+        $stR = $conn->prepare("SELECT id, reque FROM insumos WHERE id IN ($in)");
+    } else {
+        $stR = $conn->prepare("SELECT i.id, COALESCE(rt.nombre,'') AS reque FROM insumos i LEFT JOIN reque_tipos rt ON rt.id = i.reque_id WHERE i.id IN ($in)");
+    }
     if ($stR) {
         $stR->bind_param($types, ...$ids);
         if ($stR->execute()) {
@@ -135,7 +145,13 @@ if (!empty($ids)) {
         $stR->close();
     }
 }
-$ordenReque = ['Zona Barra','Bebidas','Refrigerdor','Articulos_de_limpieza','Plasticos y otros',''];
+// Orden deseado: por catálogo si existe; si no, usar orden legacy conocido
+$ordenReque = [];
+try {
+    $rsT = $conn->query("SELECT nombre FROM reque_tipos WHERE activo = 1 ORDER BY nombre");
+    if ($rsT) { while ($r = $rsT->fetch_assoc()) { $ordenReque[] = $r['nombre']; } }
+} catch (Throwable $e) { /* ignore */ }
+if (empty($ordenReque)) { $ordenReque = ['Zona Barra','Bebidas','Refrigerdor','Articulos_de_limpieza','Plasticos y otros','']; }
 $idxReque = array_flip($ordenReque);
 $jsonSorted = $jsonArr;
 usort($jsonSorted, function($a, $b) use ($requeById, $idxReque) {

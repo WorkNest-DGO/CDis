@@ -380,6 +380,75 @@ function exportarPdf($corteId) {
     success(['archivo' => $fileName]);
 }
 
+// Nuevo generador de PDF con formato similar al usado en bodega/generar_qr.php
+function exportarPdfDetallado($corteId) {
+    global $conn;
+    if (!$corteId) { error('Corte invalido'); }
+
+    // Encabezado del corte
+    $meta = [ 'abierto_por' => '-', 'cerrado_por' => '-', 'fecha_inicio' => '-', 'fecha_fin' => '-' ];
+    $qmeta = $conn->prepare("SELECT ui.nombre AS abierto_por, uc.nombre AS cerrado_por, c.fecha_inicio, c.fecha_fin
+                              FROM cortes_almacen c
+                              LEFT JOIN usuarios ui ON ui.id = c.usuario_abre_id
+                              LEFT JOIN usuarios uc ON uc.id = c.usuario_cierra_id
+                              WHERE c.id = ? LIMIT 1");
+    if ($qmeta) {
+        $qmeta->bind_param('i', $corteId);
+        if ($qmeta->execute()) {
+            $r = $qmeta->get_result();
+            if ($r && ($row = $r->fetch_assoc())) {
+                $meta['abierto_por'] = $row['abierto_por'] ?: '-';
+                $meta['cerrado_por'] = $row['cerrado_por'] ?: '-';
+                $meta['fecha_inicio'] = $row['fecha_inicio'] ?: '-';
+                $meta['fecha_fin'] = $row['fecha_fin'] ?: '-';
+            }
+        }
+        $qmeta->close();
+    }
+
+    $stmt = $conn->prepare("SELECT COALESCE(i.nombre,'Insumo eliminado') AS insumo,
+            COALESCE(i.unidad,'') AS unidad,
+            d.existencia_inicial, d.entradas, d.salidas, d.mermas, d.existencia_final
+        FROM cortes_almacen_detalle d
+        LEFT JOIN insumos i ON d.insumo_id = i.id
+        WHERE d.corte_id = ?
+        ORDER BY i.nombre ASC");
+    if (!$stmt) { error('Error al obtener datos: ' . $conn->error); }
+    $stmt->bind_param('i', $corteId);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    $headerLines = [
+        'Corte ID: ' . $corteId,
+        'Inicio: ' . $meta['fecha_inicio'],
+        'Fin: ' . $meta['fecha_fin'],
+        'Abierto por: ' . $meta['abierto_por'] . '  /  Cerrado por: ' . $meta['cerrado_por']
+    ];
+
+    $items = [];
+    while ($d = $res->fetch_assoc()) {
+        $left = (string)$d['insumo'] . ' (' . (string)$d['unidad'] . ')';
+        $fmt = function($v){ $n = (float)$v; return rtrim(rtrim(number_format($n, 2, '.', ''), '0'), '.'); };
+        $right = [
+            'Inicial: ' . $fmt($d['existencia_inicial']),
+            'Entradas: ' . $fmt($d['entradas']),
+            'Salidas: ' . $fmt($d['salidas']),
+            'Mermas: ' . $fmt($d['mermas']),
+            'Final: ' . $fmt($d['existencia_final']),
+        ];
+        $items[] = [ 'left' => $left, 'right' => $right ];
+    }
+    $stmt->close();
+
+    $pdf_rel = 'archivos/insumos/pdfs/corte_' . $corteId . '.pdf';
+    $pdf_path = __DIR__ . '/../../' . $pdf_rel;
+
+    // Usar el generador detallado (sin imagen)
+    generar_pdf_envio_qr_detallado($pdf_path, 'Corte de almacen', $headerLines, '', $items);
+
+    success(['archivo' => $pdf_rel]);
+}
+
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? $_GET['action'] ?? $_POST['action'] ?? '';
 
 switch ($accion) {
@@ -408,7 +477,7 @@ switch ($accion) {
         break;
     case 'exportar_pdf':
         $cid = isset($_POST['corte_id']) ? (int)$_POST['corte_id'] : 0;
-        exportarPdf($cid);
+        exportarPdfDetallado($cid);
         break;
     default:
         error('Acción no válida');

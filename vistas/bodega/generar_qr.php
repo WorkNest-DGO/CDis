@@ -13,8 +13,19 @@ if (!in_array($path_actual, $_SESSION['rutas_permitidas'])) {
 
 require_once __DIR__ . '/../../config/db.php';
 
-$res = $conn->query("SELECT id, nombre, unidad, existencia, reque FROM insumos ORDER BY reque, nombre");
+// Insumos con catálogo de reque (si existe)
+$sqlInsumos = "SELECT i.id, i.nombre, i.unidad, i.existencia,
+                      i.reque_id,
+                      COALESCE(rt.nombre, '') AS reque_nombre
+               FROM insumos i
+               LEFT JOIN reque_tipos rt ON rt.id = i.reque_id
+               ORDER BY reque_nombre, i.nombre";
+$res = $conn->query($sqlInsumos);
 $insumos = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+
+// Catálogo reque tipos
+$resTipos = $conn->query('SELECT id, nombre FROM reque_tipos WHERE activo = 1 ORDER BY nombre');
+$reque_tipos = $resTipos ? $resTipos->fetch_all(MYSQLI_ASSOC) : [];
 
 // Cargar opciones de URL base para QR desde la tabla direccion_qr
 $resDir = $conn->query('SELECT ip, nombre FROM direccion_qr');
@@ -88,6 +99,7 @@ ob_start();
 </div>
 <script>
 const catalogo = <?= json_encode($insumos) ?>;
+const requeTipos = <?= json_encode($reque_tipos) ?>;
 let filtrado = catalogo;
 let items = 15;
 let pagina = 1;
@@ -95,13 +107,15 @@ let seleccionados = JSON.parse(localStorage.getItem('qr_actual') || '{}');
 
 function renderTabla(){
     const tbody = document.getElementById('tablaInsumos');
+    if (!tbody) return;
     tbody.innerHTML = '';
     const inicio = (pagina-1)*items;
     const fin = inicio + items;
     filtrado.slice(inicio,fin).forEach(i => {
         const tr = document.createElement('tr');
         const val = seleccionados[i.id] || '';
-        tr.innerHTML = `<td>${i.nombre}</td><td>${i.existencia}</td><td>${i.unidad}</td><td><input type="number" step="0.01" min="0" data-id="${i.id}" class="form-control" value="${val}"></td>`;
+        const maxAttr = (typeof i.existencia !== 'undefined' && i.existencia !== null) ? ` max="${Number(i.existencia)}"` : '';
+        tr.innerHTML = `<td>${i.nombre}</td><td>${i.unidad}</td><td><input type="number" step="0.01" min="0"${maxAttr} data-id="${i.id}" class="form-control" value="${val}"></td>`;
         tbody.appendChild(tr);
     });
     tbody.querySelectorAll('input').forEach(inp=>{
@@ -111,11 +125,17 @@ function renderTabla(){
 
 function onInputChange(e){
     const id = e.target.dataset.id;
-    const val = parseFloat(e.target.value);
-    if(!isNaN(val) && val > 0){
-        seleccionados[id] = val;
-    } else {
+    let val = parseFloat(e.target.value);
+    const ins = catalogo.find(x=>String(x.id) === String(id));
+    const max = ins && typeof ins.existencia !== 'undefined' ? Number(ins.existencia) : NaN;
+    if (Number.isFinite(max) && Number.isFinite(val) && val > max) {
+        val = max;
+        e.target.value = String(val);
+    }
+    if(!Number.isFinite(val) || val <= 0){
         delete seleccionados[id];
+    } else {
+        seleccionados[id] = val;
     }
     actualizarResumen();
 }
@@ -124,7 +144,7 @@ function actualizarResumen(){
     const body = document.querySelector('#tablaResumen tbody');
     if (!body) return;
     body.innerHTML='';
-    // Agrupar por reque
+    // Agrupar por catálogo de reque (dinámico)
     const orden = getOrdenReque();
     const grupos = {};
     Object.entries(seleccionados).forEach(([id,val])=>{
@@ -132,7 +152,7 @@ function actualizarResumen(){
         if(!ins || !ins.nombre || !ins.unidad) return;
         const cantidad = parseFloat(val);
         if (isNaN(cantidad) || cantidad <= 0) return;
-        const cat = ins.reque || '';
+        const cat = ins.reque_nombre || ins.reque || '';
         if (!grupos[cat]) grupos[cat] = [];
         grupos[cat].push({ nombre: ins.nombre, unidad: ins.unidad, cantidad });
     });
@@ -227,10 +247,16 @@ document.getElementById('btnGenerar').addEventListener('click', async function(e
     }
 });
 
-// Agrupación por categoría (reque) y render por secciones (5 tablas)
+// Agrupación por categoría (reque) basada en catálogo dinámico
 function getOrdenReque(){
-    // Solo las 5 categorías del enum (sin vacío)
-    return ['Zona Barra','Bebidas','Refrigerdor','Articulos_de_limpieza','Plasticos y otros'];
+    try {
+        const act = Array.isArray(requeTipos) ? requeTipos.map(r => String(r.nombre || '')).filter(Boolean) : [];
+        if (act.length > 0) return act;
+    } catch(e){}
+    // Fallback: categorías presentes en los insumos
+    const set = new Set();
+    (catalogo||[]).forEach(i => set.add(String(i.reque_nombre || i.reque || '')));
+    return Array.from(set).filter(Boolean).sort((a,b)=>a.localeCompare(b, undefined, { sensitivity:'base' }));
 }
 function renderTabla(){
     const cont = document.getElementById('seccionesInsumos');
@@ -238,7 +264,7 @@ function renderTabla(){
     cont.innerHTML = '';
     const categorias = getOrdenReque();
     categorias.forEach(cat => {
-        const itemsCat = (filtrado || []).filter(i => (i.reque || '') === cat);
+        const itemsCat = (filtrado || []).filter(i => ((i.reque_nombre || i.reque || '') === cat));
         if (!itemsCat.length) return;
         const sec = document.createElement('div');
         sec.className = 'mb-4';
@@ -247,7 +273,6 @@ function renderTabla(){
             <thead>
                 <tr>
                     <th>Insumo</th>
-                    <th>Existencia</th>
                     <th>Unidad</th>
                     <th>Cantidad a enviar</th>
                 </tr>
@@ -255,11 +280,11 @@ function renderTabla(){
         let rows = '';
         itemsCat.forEach(i => {
             const val = seleccionados[i.id] || '';
+            const maxAttr = (typeof i.existencia !== 'undefined' && i.existencia !== null) ? ` max="${Number(i.existencia)}"` : '';
             rows += `<tr>
                         <td>${i.nombre}</td>
-                        <td>${i.existencia ?? ''}</td>
                         <td>${i.unidad ?? ''}</td>
-                        <td><input type="number" step="0.01" min="0" data-id="${i.id}" class="form-control" value="${val}"></td>
+                        <td><input type="number" step="0.01" min="0"${maxAttr} data-id="${i.id}" class="form-control" value="${val}"></td>
                     </tr>`;
         });
         sec.innerHTML = headerHtml +
@@ -273,6 +298,106 @@ function renderTabla(){
     });
     cont.querySelectorAll('input[data-id]').forEach(inp => inp.addEventListener('input', onInputChange));
 }
+
+// Overrides: usar reque_id (no reque) para secciones
+function getOrdenReque(){
+  try {
+    const act = Array.isArray(requeTipos) ? requeTipos
+      .map(r => ({ id: Number(r.id)||0, nombre: String(r.nombre||'') }))
+      .filter(r => !!r.nombre) : [];
+    if (act.length > 0) return act;
+  } catch(e){}
+  const map = new Map();
+  (catalogo||[]).forEach(i => {
+    const id = Number(i.reque_id || 0);
+    const nombre = String(i.reque_nombre || i.reque || (id ? ('Cat ' + id) : ''));
+    if (!map.has(id)) map.set(id, nombre);
+  });
+  return Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre }))
+    .sort((a,b)=>{
+      if (a.id===0 && b.id!==0) return 1;
+      if (b.id===0 && a.id!==0) return -1;
+      return String(a.nombre).localeCompare(String(b.nombre), undefined, { sensitivity:'base' });
+    });
+}
+
+function renderTabla(){
+  const cont = document.getElementById('seccionesInsumos');
+  if (!cont) return;
+  cont.innerHTML = '';
+  const categorias = getOrdenReque();
+  categorias.forEach(cat => {
+    const itemsCat = (filtrado || []).filter(i => (Number(i.reque_id || 0) === Number(cat.id || 0)));
+    if (!itemsCat.length) return;
+    const sec = document.createElement('div');
+    sec.className = 'mb-4';
+    const headerHtml = `<h5 class="text-white mb-2">${String(cat.nombre || '')}</h5>`;
+    const thead = `
+      <thead>
+        <tr>
+          <th>Insumo</th>
+          <th>Unidad</th>
+          <th>Cantidad a enviar</th>
+        </tr>
+      </thead>`;
+    let rows = '';
+    itemsCat.forEach(i => {
+      const val = seleccionados[i.id] || '';
+      const max = (typeof i.existencia !== 'undefined' && i.existencia !== null) ? Number(i.existencia) : undefined;
+      const maxAttr = Number.isFinite(max) && max > 0 ? ` max="${max}"` : '';
+      rows += `<tr>
+        <td>${i.nombre}</td>
+        <td>${i.unidad ?? ''}</td>
+        <td><input type="number" step="0.01" min="0"${maxAttr} data-id="${i.id}" class="form-control" value="${val}"></td>
+      </tr>`;
+    });
+    sec.innerHTML = headerHtml +
+      `<div class="table-responsive">
+        <table class="styled-table">
+          ${thead}
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    cont.appendChild(sec);
+  });
+  cont.querySelectorAll('input[data-id]').forEach(inp => inp.addEventListener('input', onInputChange));
+}
+
+function actualizarResumen(){
+  const body = document.querySelector('#tablaResumen tbody');
+  if (!body) return;
+  body.innerHTML='';
+  const orden = getOrdenReque();
+  const grupos = {};
+  Object.entries(seleccionados).forEach(([id,val])=>{
+    const ins = catalogo.find(x=>String(x.id) === String(id));
+    if(!ins || !ins.nombre || !ins.unidad) return;
+    let cantidad = parseFloat(val);
+    if (!Number.isFinite(cantidad) || cantidad <= 0) return;
+    const max = (typeof ins.existencia !== 'undefined' && ins.existencia !== null) ? Number(ins.existencia) : NaN;
+    if (Number.isFinite(max) && cantidad > max) { cantidad = max; seleccionados[id] = cantidad; }
+    const key = String(Number(ins.reque_id || 0));
+    if (!grupos[key]) grupos[key] = [];
+    grupos[key].push({ nombre: ins.nombre, unidad: ins.unidad, cantidad });
+  });
+  orden.forEach(cat => {
+    const key = String(Number(cat.id || 0));
+    const items = grupos[key] || [];
+    if (!items.length) return;
+    const th = document.createElement('tr');
+    th.innerHTML = `<td colspan="3" style="font-weight:bold; background:#222; color:#fff; text-align:center;">${String(cat.nombre || '') || 'Sin categoría'}</td>`;
+    body.appendChild(th);
+    items.sort((a,b)=> a.nombre.localeCompare(b.nombre, undefined, { sensitivity:'base' }));
+    items.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.nombre}</td><td>${r.cantidad}</td><td>${r.unidad}</td>`;
+      body.appendChild(tr);
+    });
+  });
+  localStorage.setItem('qr_actual', JSON.stringify(seleccionados));
+}
+
+try { renderTabla(); actualizarResumen(); } catch(e){}
 </script>
 <script>
 // Llenado de selects de impresoras y hook para el link de impresión

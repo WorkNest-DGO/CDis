@@ -158,6 +158,7 @@ ob_start();
         <table id="tablaEntradasSalidas" class="styled-table">
             <thead>
                 <tr>
+                    <th>Área</th>
                     <th>Insumo</th>
                     <th>Unidad</th>
                     <th>Inicial</th>

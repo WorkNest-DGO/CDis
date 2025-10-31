@@ -27,15 +27,26 @@ $id_qr = (int)$qr['id'];
 $json = json_decode($qr['json_data'] ?? '[]', true);
 if (!is_array($json)) { $json = []; }
 
-// Mapa de reque por insumo para agrupar en UI
+// Mapa de reque por insumo para agrupar en UI (soporta catálogo reque_id)
 $requeById = [];
 $ids = [];
 foreach ($json as $jn) { $iid = isset($jn['id']) ? (int)$jn['id'] : 0; if ($iid>0) { $ids[] = $iid; } }
 $ids = array_values(array_unique($ids));
 if (!empty($ids)) {
+    // Detectar si existe columna legacy 'reque'
+    $hasLegacy = false;
+    try {
+        $chk = $conn->prepare("SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'insumos' AND COLUMN_NAME = 'reque' LIMIT 1");
+        if ($chk) { $chk->execute(); $rsX = $chk->get_result(); $hasLegacy = ($rsX && $rsX->num_rows > 0); $chk->close(); }
+    } catch (Throwable $e) { /* ignore */ }
+
     $in = implode(',', array_fill(0, count($ids), '?'));
     $types = str_repeat('i', count($ids));
-    $stR = $conn->prepare("SELECT id, reque FROM insumos WHERE id IN ($in)");
+    if ($hasLegacy) {
+        $stR = $conn->prepare("SELECT id, reque FROM insumos WHERE id IN ($in)");
+    } else {
+        $stR = $conn->prepare("SELECT i.id, COALESCE(rt.nombre,'') AS reque FROM insumos i LEFT JOIN reque_tipos rt ON rt.id = i.reque_id WHERE i.id IN ($in)");
+    }
     if ($stR) {
         $stR->bind_param($types, ...$ids);
         if ($stR->execute()) {

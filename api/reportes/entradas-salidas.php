@@ -8,6 +8,7 @@
 // - format = json|csv|pdf (csv genera descarga; pdf responde 501 por ahora)
 
 require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../utils/pdf_simple.php';
 
 header('Access-Control-Allow-Origin: *');
 
@@ -110,12 +111,43 @@ function fetch_keyed_sum($conn, $sql, $types, $params) {
     return $out;
 }
 
-// Insumos
+// Cargar catálogo reque_tipos para posibles mapeos desde legado (i.reque)
+$REQUE_TIPOS = [];
+$resRT = $conn->query("SELECT id, nombre FROM reque_tipos WHERE activo = 1");
+if ($resRT) {
+    while ($r = $resRT->fetch_assoc()) {
+        $REQUE_TIPOS[(int)$r['id']] = $r['nombre'];
+    }
+}
+// Detectar si existe columna legacy 'reque'
+$hasLegacyReque = false;
+try {
+    $chk = $conn->prepare("SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'insumos' AND COLUMN_NAME = 'reque' LIMIT 1");
+    if ($chk) {
+        $chk->execute();
+        $rs = $chk->get_result();
+        $hasLegacyReque = ($rs && $rs->num_rows > 0);
+        $chk->close();
+    }
+} catch (Throwable $e) { /* ignore */ }
+
+// Insumos (incluir reque_id y nombre del catálogo para que el front no dependa de preloads)
 $insumos = [];
-$resI = $conn->query('SELECT id, nombre, unidad FROM insumos');
+$_selectLegacy = $hasLegacyReque ? ", i.reque AS reque_legacy" : ", NULL AS reque_legacy";
+$_sqlInsumos = "SELECT i.id, i.nombre, i.unidad, i.reque_id" . $_selectLegacy . ", COALESCE(rt.nombre, '') AS reque_nombre
+                FROM insumos i
+                LEFT JOIN reque_tipos rt ON rt.id = i.reque_id";
+$resI = $conn->query($_sqlInsumos);
 if ($resI) {
     while ($r = $resI->fetch_assoc()) {
-        $insumos[(int)$r['id']] = ['insumo_id' => (int)$r['id'], 'insumo' => $r['nombre'], 'unidad' => $r['unidad']];
+        $insumos[(int)$r['id']] = [
+            'insumo_id'    => (int)$r['id'],
+            'insumo'       => $r['nombre'],
+            'unidad'       => $r['unidad'],
+            'reque_id'     => isset($r['reque_id']) ? (int)$r['reque_id'] : null,
+            'reque_nombre' => isset($r['reque_nombre']) ? $r['reque_nombre'] : '',
+            'reque_legacy' => isset($r['reque_legacy']) ? $r['reque_legacy'] : ''
+        ];
     }
 }
 
@@ -413,10 +445,30 @@ foreach ($insumos as $id => $info) {
 
     $final = $inicial + $entradas_compra + $devoluciones + $otras_entradas - $salidas - $traspasos_salida - $mermas + $ajustes;
 
+    // Resolver área: preferir reque_id; si no hay, intentar mapear desde legado (reque_legacy)
+    $rid = isset($info['reque_id']) ? (int)$info['reque_id'] : 0;
+    $rname = isset($info['reque_nombre']) ? $info['reque_nombre'] : '';
+    if ($rid <= 0) {
+        $legacy = isset($info['reque_legacy']) ? trim((string)$info['reque_legacy']) : '';
+        if ($legacy !== '') {
+            // Buscar por nombre exacto (insensible a mayúsculas)
+            $ridFound = 0; $rnameFound = '';
+            foreach ($REQUE_TIPOS as $ridC => $nameC) {
+                if (strcasecmp($legacy, $nameC) === 0) { $ridFound = (int)$ridC; $rnameFound = $nameC; break; }
+            }
+            if ($ridFound > 0) { $rid = $ridFound; $rname = $rnameFound; }
+        }
+    }
+
     $row = [
         'insumo_id' => $id,
         'insumo' => $info['insumo'],
         'unidad' => $info['unidad'],
+        // Pasar también información de área (catálogo reque_tipos) si existe o mapeada desde legado
+        'reque_id' => $rid > 0 ? $rid : null,
+        'reque_nombre' => $rid > 0 ? $rname : '',
+        // Texto de área concatenando id + nombre cuando aplique
+        'area' => ($rid > 0 ? ($rid . ' - ' . ($rname !== '' ? $rname : $rid)) : 'N/A'),
         'inicial' => round((float)$inicial, 4),
         'entradas_compra' => round((float)$entradas_compra, 4),
         'devoluciones' => round((float)$devoluciones, 4),
@@ -446,18 +498,88 @@ $payload = [
     'warnings' => $warnings,
 ];
 
+// Soporte PDF antes del switch existente (para evitar 501 y mantener compatibilidad)
+if ($format === 'pdf') {
+    $titulo = 'Reporte de Entradas/Salidas de Insumos';
+    $periodoTxt = 'Periodo: ' . $periodo_from . ' a ' . $periodo_to_inclusive;
+    $modoTxt = 'Modo: ' . ($mode === 'corte' ? ('corte #' . (isset($corte_id)?$corte_id:'-')) : 'rango');
+    $devoTxt = 'Devoluciones en Entradas: ' . ($devo_in_entradas === 1 ? 'Si' : 'No');
+    $lineas = [ $periodoTxt, $modoTxt, $devoTxt, '' ];
+    // Ordenar por Área para agrupar visualmente en el PDF
+    $rows_sorted = $rows;
+    usort($rows_sorted, function($a, $b){
+        $ar = (int)($a['reque_id'] ?? 0); $br = (int)($b['reque_id'] ?? 0);
+        if ($ar !== $br) return $ar - $br;
+        return strcasecmp((string)($a['insumo'] ?? ''), (string)($b['insumo'] ?? ''));
+    });
+    $lineas[] = 'Área | Insumo | Unidad | Inicial | Entradas(Compras) | Devoluciones | Otras entradas | Salidas | Traspasos(salida) | Mermas | Ajustes(-) | Ajustes(+) | Final';
+    $lastRid = null;
+    foreach ($rows_sorted as $r) {
+        $rid = (int)($r['reque_id'] ?? 0);
+        $areaText = ($r['area'] ?? (($rid>0) ? ($rid . ' - ' . ($r['reque_nombre'] ?? $rid)) : 'N/A'));
+        if ($lastRid === null || $rid !== $lastRid) {
+            $lineas[] = '';
+            $lineas[] = '=== ' . $areaText . ' ===';
+            $lastRid = $rid;
+        }
+        $lineas[] = $areaText . ' | ' . ($r['insumo'] ?? '-') . ' | ' . ($r['unidad'] ?? '-') . ' | ' .
+                    number_format((float)$r['inicial'], 2, '.', '') . ' | ' .
+                    number_format((float)$r['entradas_compra'], 2, '.', '') . ' | ' .
+                    number_format((float)$r['devoluciones'], 2, '.', '') . ' | ' .
+                    number_format((float)$r['otras_entradas'], 2, '.', '') . ' | ' .
+                    number_format((float)$r['salidas'], 2, '.', '') . ' | ' .
+                    number_format((float)$r['traspasos_salida'], 2, '.', '') . ' | ' .
+                    number_format((float)$r['mermas'], 2, '.', '') . ' | ' .
+                    number_format((float)$r['ajustes_neg'], 2, '.', '') . ' | ' .
+                    number_format((float)$r['ajustes_pos'], 2, '.', '') . ' | ' .
+                    number_format((float)$r['final'], 2, '.', '');
+    }
+    $lineas[] = '';
+    $lineas[] = 'TOTAL |  |  |  | ' .
+                number_format((float)$tot['entradas_compra'], 2, '.', '') . ' | ' .
+                number_format((float)$tot['devoluciones'], 2, '.', '') . ' | ' .
+                number_format((float)$tot['otras_entradas'], 2, '.', '') . ' | ' .
+                number_format((float)$tot['salidas'], 2, '.', '') . ' | ' .
+                number_format((float)$tot['traspasos_salida'], 2, '.', '') . ' | ' .
+                number_format((float)$tot['mermas'], 2, '.', '') . ' | ' .
+                number_format((float)$tot['ajustes_neg'], 2, '.', '') . ' | ' .
+                number_format((float)$tot['ajustes_pos'], 2, '.', '') . ' | ' .
+                number_format((float)$tot['final'], 2, '.', '');
+
+    $fn = 'reporte_entradas_salidas_' . $periodo_from . '_a_' . $periodo_to_inclusive . '.pdf';
+    $rel = 'archivos/reportes/pdfs/' . $fn;
+    $pdf_path = __DIR__ . '/../../' . $rel;
+    generar_pdf_simple($pdf_path, $titulo, $lineas);
+    if (!file_exists($pdf_path)) {
+        bad_request('No se pudo generar el PDF');
+    }
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: attachment; filename=' . $fn);
+    readfile($pdf_path);
+    exit;
+}
+
 if ($format === 'csv') {
     $fn = 'reporte_entradas_salidas_' . $periodo_from . '_a_' . $periodo_to_inclusive . '.csv';
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename=' . $fn);
     $out = fopen('php://output', 'w');
-    fputcsv($out, ['Insumo','Unidad','Inicial','Entradas(Compras)','Devoluciones','Otras entradas','Salidas','Traspasos (salida)','Mermas','Ajustes (-)','Ajustes (+)','Final']);
-    foreach ($rows as $r) {
+    // Ordenar por Área para agrupar en CSV y agregar la columna Área como la primera
+    $rows_sorted = $rows;
+    usort($rows_sorted, function($a, $b){
+        $ar = (int)($a['reque_id'] ?? 0); $br = (int)($b['reque_id'] ?? 0);
+        if ($ar !== $br) return $ar - $br;
+        return strcasecmp((string)($a['insumo'] ?? ''), (string)($b['insumo'] ?? ''));
+    });
+    fputcsv($out, ['Área','Insumo','Unidad','Inicial','Entradas(Compras)','Devoluciones','Otras entradas','Salidas','Traspasos (salida)','Mermas','Ajustes (-)','Ajustes (+)','Final']);
+    foreach ($rows_sorted as $r) {
+        $rid = (int)($r['reque_id'] ?? 0);
+        $areaText = ($r['area'] ?? (($rid>0) ? ($rid . ' - ' . ($r['reque_nombre'] ?? $rid)) : 'N/A'));
         fputcsv($out, [
-            $r['insumo'], $r['unidad'], $r['inicial'], $r['entradas_compra'], $r['devoluciones'], $r['otras_entradas'], $r['salidas'], $r['traspasos_salida'], $r['mermas'], $r['ajustes_neg'], $r['ajustes_pos'], $r['final']
+            $areaText, $r['insumo'], $r['unidad'], $r['inicial'], $r['entradas_compra'], $r['devoluciones'], $r['otras_entradas'], $r['salidas'], $r['traspasos_salida'], $r['mermas'], $r['ajustes_neg'], $r['ajustes_pos'], $r['final']
         ]);
     }
-    fputcsv($out, ['TOTAL','','',$tot['entradas_compra'],$tot['devoluciones'],$tot['otras_entradas'],$tot['salidas'],$tot['traspasos_salida'],$tot['mermas'],$tot['ajustes_neg'],$tot['ajustes_pos'],$tot['final']]);
+    fputcsv($out, ['TOTAL','','','',$tot['entradas_compra'],$tot['devoluciones'],$tot['otras_entradas'],$tot['salidas'],$tot['traspasos_salida'],$tot['mermas'],$tot['ajustes_neg'],$tot['ajustes_pos'],$tot['final']]);
     fclose($out);
     exit;
 } elseif ($format === 'pdf') {
