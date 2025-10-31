@@ -251,21 +251,27 @@ if ($sqlMov) {
     $sqlMov->close();
 }
 
-// Obtener 'reque' de insumos seleccionados para ordenar por agrupamiento
-$requeById = [];
+// Obtener reque_id y nombre (catálogo) de insumos seleccionados para agrupar
+$grupoPorInsumo = [];
 if (!empty($seleccionados)) {
     $ids = array_map(function($x){ return (int)$x['id']; }, $seleccionados);
     $ids = array_values(array_unique(array_filter($ids, function($v){ return $v > 0; })));
     if (!empty($ids)) {
         $in  = implode(',', array_fill(0, count($ids), '?'));
         $types = str_repeat('i', count($ids));
-        $stmtReq = $conn->prepare("SELECT id, reque FROM insumos WHERE id IN ($in)");
+        $stmtReq = $conn->prepare("SELECT i.id, i.reque_id, COALESCE(rt.nombre, '') AS reque_nombre
+                                   FROM insumos i
+                                   LEFT JOIN reque_tipos rt ON rt.id = i.reque_id
+                                   WHERE i.id IN ($in)");
         if ($stmtReq) {
             $stmtReq->bind_param($types, ...$ids);
             if ($stmtReq->execute()) {
                 $rs = $stmtReq->get_result();
                 while ($r = $rs->fetch_assoc()) {
-                    $requeById[(int)$r['id']] = (string)$r['reque'];
+                    $iid = (int)$r['id'];
+                    $gid = isset($r['reque_id']) ? (int)$r['reque_id'] : 0;
+                    $gname = isset($r['reque_nombre']) ? (string)$r['reque_nombre'] : '';
+                    $grupoPorInsumo[$iid] = ['id' => $gid, 'nombre' => $gname];
                 }
             }
             $stmtReq->close();
@@ -273,31 +279,39 @@ if (!empty($seleccionados)) {
     }
 }
 
-// Orden deseado por agrupamiento (reque)
-$ordenReque = ['Zona Barra','Bebidas','Refrigerdor','Articulos_de_limpieza','Plasticos y otros',''];
-$idxReque = array_flip($ordenReque);
+// Orden deseado por agrupamiento usando catálogo reque_tipos (activo)
+$idxGrupo = [];
+try {
+    $rsT = $conn->query('SELECT id, nombre FROM reque_tipos WHERE activo = 1 ORDER BY nombre');
+    if ($rsT) {
+        $i = 0;
+        while ($rt = $rsT->fetch_assoc()) { $idxGrupo[(int)$rt['id']] = $i++; }
+    }
+} catch (Throwable $e) {}
 
 // Construir items para PDF ordenados por reque y nombre
 $items = [];
 $seleccionadosOrdenados = $seleccionados;
-usort($seleccionadosOrdenados, function($a, $b) use ($requeById, $idxReque) {
-    $ra = $requeById[(int)$a['id']] ?? '';
-    $rb = $requeById[(int)$b['id']] ?? '';
-    $ia = $idxReque[$ra] ?? PHP_INT_MAX;
-    $ib = $idxReque[$rb] ?? PHP_INT_MAX;
+usort($seleccionadosOrdenados, function($a, $b) use ($grupoPorInsumo, $idxGrupo) {
+    $ga = $grupoPorInsumo[(int)$a['id']]['id'] ?? 0;
+    $gb = $grupoPorInsumo[(int)$b['id']]['id'] ?? 0;
+    $ia = $idxGrupo[$ga] ?? PHP_INT_MAX;
+    $ib = $idxGrupo[$gb] ?? PHP_INT_MAX;
     if ($ia === $ib) {
         return strcasecmp((string)$a['nombre'], (string)$b['nombre']);
     }
     return $ia <=> $ib;
 });
 
-$lastReque = null;
+$lastGrupoId = null;
 foreach ($seleccionadosOrdenados as $s) {
     $iid = (int)$s['id'];
-    $curReque = $requeById[$iid] ?? '';
-    if ($curReque !== $lastReque) {
-        $items[] = [ 'section' => $curReque ];
-        $lastReque = $curReque;
+    $ginfo = $grupoPorInsumo[$iid] ?? ['id'=>0,'nombre'=>''];
+    $gid = (int)($ginfo['id'] ?? 0);
+    $gname = (string)($ginfo['nombre'] ?? '');
+    if ($gid !== $lastGrupoId) {
+        $items[] = [ 'section' => $gname ];
+        $lastGrupoId = $gid;
     }
     $solicitada = (float)$s['cantidad'];
     $unidad = $s['unidad'];

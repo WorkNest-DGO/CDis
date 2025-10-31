@@ -106,9 +106,11 @@ try {
     $verProveedor->close();
 
     $qrDir = __DIR__ . '/../../archivos/qr';
+    $qrDisponible = true;
     if (!is_dir($qrDir)) {
-        if (!mkdir($qrDir, 0777, true) && !is_dir($qrDir)) {
-            throw new RuntimeException('No se pudo preparar el directorio de QR');
+        if (!@mkdir($qrDir, 0777, true) && !is_dir($qrDir)) {
+            // No bloquee el registro por fallo en el directorio de QR
+            $qrDisponible = false;
         }
     }
 
@@ -217,18 +219,24 @@ try {
         $qrFileName = 'entrada_insumo_' . $entradaId . '.png';
         $qrRelativePath = 'archivos/qr/' . $qrFileName;
         $qrAbsolutePath = $qrDir . DIRECTORY_SEPARATOR . $qrFileName;
-        if (file_exists($qrAbsolutePath) && !unlink($qrAbsolutePath)) {
-            throw new RuntimeException('No se pudo preparar el archivo QR para la entrada ' . $entradaId);
-        }
-
         $qrUrl = construirUrlConsultaEntrada($entradaId);
-        QRcode::png($qrUrl, $qrAbsolutePath, QR_ECLEVEL_Q, 8, 2);
-        if (!file_exists($qrAbsolutePath)) {
-            throw new RuntimeException('No se pudo generar el QR para la entrada ' . $entradaId);
-        }
 
-        $updQr->bind_param('si', $qrRelativePath, $entradaId);
-        $updQr->execute();
+        if ($qrDisponible) {
+            if (file_exists($qrAbsolutePath)) {
+                @unlink($qrAbsolutePath); // Mejor esfuerzo
+            }
+            $qrGenerado = false;
+            try {
+                QRcode::png($qrUrl, $qrAbsolutePath, QR_ECLEVEL_Q, 8, 2);
+                $qrGenerado = file_exists($qrAbsolutePath);
+            } catch (Throwable $qe) {
+                $qrGenerado = false;
+            }
+            if ($qrGenerado) {
+                $updQr->bind_param('si', $qrRelativePath, $entradaId);
+                $updQr->execute();
+            }
+        }
 
         $updInsumo->bind_param('di', $cantidad, $insumoId);
         $updInsumo->execute();
@@ -270,6 +278,8 @@ try {
     if ($conn->in_transaction) {
         $conn->rollback();
     }
+    // Server-side log for diagnosis
+    error_log('[crear_entrada] ' . $e->getMessage());
     http_response_code(400);
     echo json_encode([
         'success' => false,

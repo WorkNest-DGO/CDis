@@ -659,9 +659,9 @@ function abrirFormulario(id) {
         if (minEl) {
             minEl.value = (typeof ins.minimo_stock !== 'undefined' && ins.minimo_stock !== null) ? ins.minimo_stock : '';
         }
-        const reqEl = document.getElementById('reque');
+        const reqEl = document.getElementById('reque_id');
         if (reqEl) {
-            reqEl.value = (ins.reque || '');
+            reqEl.value = (ins.reque_id || '');
         }
         document.getElementById('tipo_control').value = ins.tipo_control;
     } else {
@@ -676,7 +676,7 @@ function abrirFormulario(id) {
         if (minEl) {
             minEl.value = '';
         }
-        const reqEl = document.getElementById('reque');
+        const reqEl = document.getElementById('reque_id');
         if (reqEl) {
             reqEl.value = '';
         }
@@ -698,9 +698,9 @@ async function guardarInsumo(ev) {
     fd.append('existencia', document.getElementById('existencia').value || '0');
     fd.append('tipo_control', document.getElementById('tipo_control').value);
     const minEl = document.getElementById('minimo_stock');
-    const reqEl = document.getElementById('reque');
+    const reqEl = document.getElementById('reque_id');
     if (minEl) fd.append('minimo_stock', minEl.value || '0');
-    if (reqEl) fd.append('reque', reqEl.value || '');
+    if (reqEl) fd.append('reque_id', reqEl.value || '');
     const img = document.getElementById('imagen').files[0];
     if (img) fd.append('imagen', img);
     if (id) fd.append('id', id);
@@ -854,10 +854,22 @@ async function registrarEntrada(e) {
         }
         formData.append('productos', JSON.stringify(productos));
 
-        const resp = await fetch('../../api/insumos/crear_entrada.php', { method: 'POST', body: formData });
+        const resp = await fetch('../../api/insumos/crear_entrada.php', { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } });
+        let data = null;
         if (!resp.ok) {
-            throw new Error(`HTTP ${resp.status}`);
-        }        const data = await resp.json().catch(() => ({}));
+            const ct = resp.headers.get('content-type') || '';
+            if (ct.includes('application/json')) {
+                data = await resp.json().catch(() => null);
+                const msg = data && (data.error || data.mensaje || data.message);
+                throw new Error(`HTTP ${resp.status}${msg ? ': ' + msg : ''}`);
+            } else {
+                const txt = await resp.text().catch(() => '');
+                throw new Error(`HTTP ${resp.status}${txt ? ': ' + txt : ''}`);
+            }
+        }
+        if (!data) {
+            data = await resp.json().catch(() => ({}));
+        }
         if (!data || data.success !== true) {
             const mensajeError = data && (data.error || data.mensaje) ? (data.error || data.mensaje) : 'No se pudo registrar la entrada';
             alert(mensajeError);

@@ -39,12 +39,13 @@ if (!is_array($jsonArr)) { $jsonArr = []; }
 
 // Resumen por insumo
 $stmt = $conn->prepare(
-    'SELECT mi.insumo_id, i.nombre, i.unidad, i.reque, SUM(ABS(mi.cantidad)) AS cantidad_total
+    'SELECT mi.insumo_id, i.nombre, i.unidad, i.reque_id, COALESCE(rt.nombre, "") AS reque_nombre, SUM(ABS(mi.cantidad)) AS cantidad_total
      FROM movimientos_insumos mi
      JOIN insumos i ON i.id = mi.insumo_id
+     LEFT JOIN reque_tipos rt ON rt.id = i.reque_id
      WHERE mi.id_qr = ? AND mi.tipo IN ("traspaso")
-     GROUP BY mi.insumo_id, i.nombre, i.unidad, i.reque
-     ORDER BY i.nombre'
+     GROUP BY mi.insumo_id, i.nombre, i.unidad, i.reque_id, rt.nombre
+     ORDER BY reque_nombre, i.nombre'
 );
 $stmt->bind_param('i', $id_qr);
 $stmt->execute();
@@ -55,7 +56,10 @@ while ($r = $res->fetch_assoc()) {
         'insumo_id' => (int)$r['insumo_id'],
         'nombre' => $r['nombre'],
         'unidad' => $r['unidad'],
-        'reque'  => $r['reque'] ?? '',
+        'reque_id'  => isset($r['reque_id']) ? (int)$r['reque_id'] : null,
+        'reque_nombre'  => $r['reque_nombre'] ?? '',
+        // compatibilidad: campo "reque" mantiene el nombre
+        'reque'  => $r['reque_nombre'] ?? '',
         'cantidad_total' => (float)$r['cantidad_total'],
     ];
 }

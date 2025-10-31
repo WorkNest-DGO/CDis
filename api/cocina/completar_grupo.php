@@ -121,12 +121,37 @@ try {
     if ($hasCorteEntrada) {
         try { $r = $conn->query("SELECT id FROM cortes_almacen WHERE fecha_fin IS NULL ORDER BY id DESC LIMIT 1"); if ($r && ($x=$r->fetch_assoc())) $corteEntradaId = (int)$x['id']; } catch (Throwable $e) {}
     }
+
+    // Detectar columna 'nota' y calcular consecutivo si aplica
+    $hasNotaCol = false; $nota = null;
+    try { $rn = $conn->query("SHOW COLUMNS FROM entradas_insumos LIKE 'nota'"); if ($rn && $rn->num_rows>0) { $hasNotaCol = true; } } catch (Throwable $e) { $hasNotaCol = false; }
+    if ($hasNotaCol) {
+        try {
+            $rmax = $conn->query("SELECT COALESCE(MAX(nota), 0) AS ult FROM entradas_insumos");
+            if ($rmax && ($rowMax = $rmax->fetch_assoc())) { $nota = (int)$rowMax['ult'] + 1; } else { $nota = 1; }
+        } catch (Throwable $e) { $nota = 1; }
+    }
+
     if ($hasCorteEntrada && $corteEntradaId > 0) {
-        $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual, credito, corte_id) VALUES (?, ?, ?, ?, ?, ?, 0, "", "", "pendiente", ?, NULL, ?)');
-        $insEntrada->bind_param('iiisdsdi', $destinoId, $proveedorFijo, $userId, $desc, $cantRes, $unidadDestino, $cantidadActual, $corteEntradaId);
+        if ($hasNotaCol) {
+            // Con corte_id y con nota
+            $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual, credito, nota, corte_id) VALUES (?, ?, ?, ?, ?, ?, 0, "", "", "pendiente", ?, NULL, ?, ?)');
+            $insEntrada->bind_param('iiisdsdii', $destinoId, $proveedorFijo, $userId, $desc, $cantRes, $unidadDestino, $cantidadActual, $nota, $corteEntradaId);
+        } else {
+            // Con corte_id y sin nota
+            $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual, credito, corte_id) VALUES (?, ?, ?, ?, ?, ?, 0, "", "", "pendiente", ?, NULL, ?)');
+            $insEntrada->bind_param('iiisdsdi', $destinoId, $proveedorFijo, $userId, $desc, $cantRes, $unidadDestino, $cantidadActual, $corteEntradaId);
+        }
     } else {
-        $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual, credito) VALUES (?, ?, ?, ?, ?, ?, 0, "", "", "pendiente", ?, NULL)');
-        $insEntrada->bind_param('iiisdsd', $destinoId, $proveedorFijo, $userId, $desc, $cantRes, $unidadDestino, $cantidadActual);
+        if ($hasNotaCol) {
+            // Sin corte_id y con nota
+            $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual, credito, nota) VALUES (?, ?, ?, ?, ?, ?, 0, "", "", "pendiente", ?, NULL, ?)');
+            $insEntrada->bind_param('iiisdsdi', $destinoId, $proveedorFijo, $userId, $desc, $cantRes, $unidadDestino, $cantidadActual, $nota);
+        } else {
+            // Sin corte_id y sin nota (comportamiento anterior)
+            $insEntrada = $conn->prepare('INSERT INTO entradas_insumos (insumo_id, proveedor_id, usuario_id, descripcion, cantidad, unidad, costo_total, referencia_doc, folio_fiscal, qr, cantidad_actual, credito) VALUES (?, ?, ?, ?, ?, ?, 0, "", "", "pendiente", ?, NULL)');
+            $insEntrada->bind_param('iiisdsd', $destinoId, $proveedorFijo, $userId, $desc, $cantRes, $unidadDestino, $cantidadActual);
+        }
     }
     $insEntrada->execute();
     $entradaId = $insEntrada->insert_id;
