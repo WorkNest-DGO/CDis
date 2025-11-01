@@ -13,6 +13,33 @@ if (!in_array($path_actual, $_SESSION['rutas_permitidas'])) {
 
 require_once __DIR__ . '/../../config/db.php';
 
+// Determinar rol y reques permitidos según usuario (regla de visibilidad)
+$usuario_id = isset($_SESSION['usuario_id']) ? (int)$_SESSION['usuario_id'] : 0;
+$rol_usuario = 'empleado';
+if ($usuario_id > 0) {
+    if ($stmtRol = $conn->prepare('SELECT rol FROM usuarios WHERE id = ? LIMIT 1')) {
+        $stmtRol->bind_param('i', $usuario_id);
+        $stmtRol->execute();
+        $resRol = $stmtRol->get_result();
+        if ($rowR = $resRol->fetch_assoc()) {
+            $rol_usuario = (string)$rowR['rol'];
+        }
+    }
+}
+$es_admin = (strcasecmp($rol_usuario, 'admin') === 0);
+
+$reques_permitidos = [];
+if (!$es_admin && $usuario_id > 0) {
+    if ($stmtRq = $conn->prepare('SELECT reque FROM usuario_reque WHERE usuario = ?')) {
+        $stmtRq->bind_param('i', $usuario_id);
+        $stmtRq->execute();
+        $resRq = $stmtRq->get_result();
+        while ($r = $resRq->fetch_assoc()) {
+            $reques_permitidos[] = (int)$r['reque'];
+        }
+    }
+}
+
 // Insumos con catálogo de reque (si existe)
 $sqlInsumos = "SELECT i.id, i.nombre, i.unidad, i.existencia,
                       i.reque_id,
@@ -26,6 +53,25 @@ $insumos = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
 // Catálogo reque tipos
 $resTipos = $conn->query('SELECT id, nombre FROM reque_tipos WHERE activo = 1 ORDER BY nombre');
 $reque_tipos = $resTipos ? $resTipos->fetch_all(MYSQLI_ASSOC) : [];
+
+// Aplicar regla 2: filtrar por reques asignados si no es admin
+if (!$es_admin) {
+    $allow = array_flip(array_map('intval', $reques_permitidos));
+    if (!empty($allow)) {
+        $insumos = array_values(array_filter($insumos, function ($i) use ($allow) {
+            $rid = isset($i['reque_id']) ? (int)$i['reque_id'] : 0;
+            return isset($allow[$rid]);
+        }));
+        $reque_tipos = array_values(array_filter($reque_tipos, function ($r) use ($allow) {
+            $rid = isset($r['id']) ? (int)$r['id'] : 0;
+            return isset($allow[$rid]);
+        }));
+    } else {
+        // Sin permisos asignados: ocultar todo
+        $insumos = [];
+        $reque_tipos = [];
+    }
+}
 
 // Cargar opciones de URL base para QR desde la tabla direccion_qr
 $resDir = $conn->query('SELECT ip, nombre FROM direccion_qr');
